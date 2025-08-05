@@ -150,7 +150,7 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        res.json({ message: 'Успешный вход!', userId: user._id, token: 'fake-jwt-token' });
+        res.json({ userId: user._id, token: 'fake-jwt-token' });
     } catch (err) {
         console.error('Ошибка при логине:', err);
         res.status(500).json({ error: 'Ошибка сервера при входе' });
