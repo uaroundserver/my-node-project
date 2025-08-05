@@ -1,4 +1,5 @@
-require('dotenv').config();
+require('dotenv').config(); // Загрузка переменных окружения
+
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
@@ -62,7 +63,7 @@ app.post('/register', async (req, res) => {
 
         const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
 
-       await transporter.sendMail({
+        await transporter.sendMail({
             from: `"MyApp" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Подтверждение регистрации',
@@ -143,7 +144,6 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        // В идеале — создавай JWT, но для простоты отправим userId и токен (fake)
         res.json({ message: 'Успешный вход!', userId: user._id, token: 'fake-jwt-token' });
     } catch (err) {
         console.error('Ошибка при логине:', err);
