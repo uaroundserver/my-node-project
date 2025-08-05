@@ -17,7 +17,7 @@ async function login(event) {
       // Успешный вход — сохраняем токен и переходим
       localStorage.setItem('userToken', 'fake-token'); // или data.token, если будет
       localStorage.setItem('userData', JSON.stringify({ email }));
-      alert(data.message || 'Вход выполнен');
+     // alert(data.message || 'Вход выполнен');
       window.location.href = 'home.html';
     } else {
       alert(data.error || 'Ошибка входа');

@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Перейти на главную
-function goHome() {
+window.goHome = function() {
     window.location.href = 'home.html';
-}
+};
 
 // Выход
-function logout() {
+window.logout = function() {
     localStorage.removeItem('userToken');
     localStorage.removeItem('userData');
     window.location.href = 'login.html';
-}
+};
