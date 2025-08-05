@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Раздача статики из папки public
+app.use(express.static('public'));
 
 let db;
 const client = new MongoClient(process.env.MONGO_URI);
@@ -35,10 +38,7 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Роут по умолчанию
-app.get('/', (req, res) => {
-    res.send('🚀 Сервер работает!');
-});
+// Роуты API
 
 // Регистрация
 app.post('/register', async (req, res) => {
@@ -157,5 +157,5 @@ app.post('/login', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🔊 Сервер запущен на ${process.env.SERVER_URL}`);
+    console.log(`🔊 Сервер запущен на ${process.env.SERVER_URL || `http://localhost:${PORT}`}`);
 });
