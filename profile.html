@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Личный кабинет</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="form-container">
+  <h1>Личный кабинет</h1>
+  <form onsubmit="saveProfile(event)">
+    <input type="text" id="fullName" placeholder="ФИО" required />
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="tel" id="phone" placeholder="Телефон" />
+    <button type="submit">Сохранить</button>
+  </form>
+  <button onclick="goHome()">Перейти на главную</button>
+</div>
+<script>
+  function saveProfile(event) {
+    event.preventDefault();
+    const fullName = document.getElementById('fullName').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
+
+    let userData = JSON.parse(localStorage.getItem('userData')) || {};
+    userData.profileCompleted = true;
+    userData.fullName = fullName;
+    userData.email = email;
+    userData.phone = phone;
+    localStorage.setItem('userData', JSON.stringify(userData));
+
+    alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+  }
+
+  function goHome() {
+    if (!localStorage.getItem('userToken')) {
+      alert('Пожалуйста, войдите.');
+      window.location.href = 'login.html';
+    } else {
+      window.location.href = 'home.html';
+    }
+  }
+</script>
+</body>
+</html>
