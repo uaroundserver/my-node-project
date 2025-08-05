@@ -7,15 +7,18 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="form-container">
-    <h1>Вход</h1>
-    <form onsubmit="login(event)">
-      <input type="text" id="username" placeholder="Имя пользователя" required />
-      <input type="password" id="password" placeholder="Пароль" required />
-      <button type="submit">Войти</button>
-    </form>
-    <p>Нет аккаунта? <a href="index.html">Зарегистрироваться</a></p>
-  </div>
-  <script src="scripts/login.js"></script>
+<div class="form-container">
+  <h1>Вход</h1>
+  <form id="loginForm">
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Пароль" required />
+    <button type="submit">Войти</button>
+  </form>
+  <p>Нет аккаунта? <a href="index.html">Зарегистрироваться</a></p>
+</div>
+<script src="scripts/login.js"></script>
+<script>
+  document.getElementById('loginForm').addEventListener('submit', login);
+</script>
 </body>
 </html>

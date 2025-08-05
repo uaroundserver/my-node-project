@@ -1,11 +1,26 @@
-function register(event) {
+async function register(event) {
     event.preventDefault();
-    const username = document.getElementById('username').value;
+
+    const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    const userData = { username, password, profileCompleted: false };
-    localStorage.setItem('userData', JSON.stringify(userData));
+    try {
+        const response = await fetch('https://uaround.onrender.com/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
 
-    // Переход на страницу успешной регистрации
-    window.location.href = 'success.html';
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(data.message || 'Регистрация успешна!');
+            window.location.href = 'success.html';  // куда хочешь после регистрации
+        } else {
+            alert(data.error || 'Ошибка регистрации');
+        }
+    } catch (error) {
+        alert('Ошибка сервера или сети');
+        console.error(error);
+    }
 }

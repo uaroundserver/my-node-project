@@ -1,14 +1,29 @@
-function login(event) {
+async function login(event) {
   event.preventDefault();
-  const username = document.getElementById('username').value;
+
+  const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
-  const storedUser = JSON.parse(localStorage.getItem('userData'));
+  try {
+    const response = await fetch('https://uaround.onrender.com/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-  if (storedUser && storedUser.username === username && storedUser.password === password) {
-    localStorage.setItem('userToken', 'fake-token');
-    window.location.href = 'home.html';
-  } else {
-    alert('Неверный логин или пароль');
+    const data = await response.json();
+
+    if (response.ok) {
+      // Успешный вход — сохраняем токен и переходим
+      localStorage.setItem('userToken', 'fake-token'); // или data.token, если будет
+      localStorage.setItem('userData', JSON.stringify({ email }));
+      alert(data.message || 'Вход выполнен');
+      window.location.href = 'home.html';
+    } else {
+      alert(data.error || 'Ошибка входа');
+    }
+  } catch (error) {
+    alert('Ошибка сервера или сети');
+    console.error(error);
   }
 }

@@ -15,8 +15,12 @@
     <input type="tel" id="phone" placeholder="Телефон" />
     <button type="submit">Сохранить</button>
   </form>
+
   <button onclick="goHome()">Перейти на главную</button>
+  <button onclick="logout()">Выйти</button>
 </div>
+
+<script src="auth.js"></script>
 <script>
   function saveProfile(event) {
     event.preventDefault();
@@ -32,15 +36,6 @@
     localStorage.setItem('userData', JSON.stringify(userData));
 
     alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
-  }
-
-  function goHome() {
-    if (!localStorage.getItem('userToken')) {
-      alert('Пожалуйста, войдите.');
-      window.location.href = 'login.html';
-    } else {
-      window.location.href = 'home.html';
-    }
   }
 </script>
 </body>

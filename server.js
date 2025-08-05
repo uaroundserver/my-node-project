@@ -11,9 +11,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-
-// Раздача статики из папки public
-app.use(express.static('public'));
+app.use(express.static('public')); // статика
 
 let db;
 const client = new MongoClient(process.env.MONGO_URI);
@@ -21,7 +19,7 @@ const client = new MongoClient(process.env.MONGO_URI);
 async function connectDB() {
     try {
         await client.connect();
-        db = client.db();
+        db = client.db('DBUA');
         console.log('✅ MongoDB подключена');
     } catch (err) {
         console.error('❌ Ошибка подключения к MongoDB:', err);
@@ -29,7 +27,7 @@ async function connectDB() {
 }
 connectDB();
 
-// Настройка nodemailer
+// Настройка почты
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
     auth: {
@@ -38,13 +36,10 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Роуты API
-
 // Регистрация
 app.post('/register', async (req, res) => {
     try {
         const { email, password } = req.body;
-
         if (!email || !password) {
             return res.status(400).json({ error: 'Заполните email и пароль' });
         }
@@ -62,7 +57,7 @@ app.post('/register', async (req, res) => {
             password: hashedPassword,
             activated: false,
             activationToken,
-            createdAt: new Date()
+            createdAt: new Date(),
         });
 
         const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
@@ -73,19 +68,19 @@ app.post('/register', async (req, res) => {
             subject: 'Подтверждение регистрации',
             html: `
                 <h3>Спасибо за регистрацию!</h3>
-                <p>Активируйте аккаунт по ссылке ниже:</p>
+                <p>Пожалуйста, активируйте свой аккаунт, перейдя по ссылке ниже:</p>
                 <a href="${activationLink}">${activationLink}</a>
-                <p><b>Срок действия ссылки:</b> 24 часа</p>
+                <p><b>Срок действия:</b> 24 часа</p>
             `,
         });
 
         res.status(201).json({
-            message: 'Регистрация прошла успешно! Проверьте почту для активации аккаунта.',
+            message: 'Регистрация успешна! Проверьте почту для активации.',
             userId: result.insertedId,
         });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+        res.status(500).json({ error: 'Ошибка сервера при регистрации' });
     }
 });
 
@@ -93,11 +88,11 @@ app.post('/register', async (req, res) => {
 app.get('/activate/:token', async (req, res) => {
     try {
         const { token } = req.params;
-
         const user = await db.collection('users').findOne({ activationToken: token });
+
         if (!user) {
             return res.status(400).send(`
-                <h2>⛔ Неверный или устаревший токен</h2>
+                <h2>⛔ Ссылка активации недействительна</h2>
                 <p>Попробуйте зарегистрироваться снова.</p>
             `);
         }
@@ -111,9 +106,8 @@ app.get('/activate/:token', async (req, res) => {
         );
 
         res.send(`
-            <h2>✅ Аккаунт успешно активирован!</h2>
-            <p>Теперь вы можете войти.</p>
-            <a href="${process.env.CLIENT_URL}" style="color: blue; font-weight: bold;">Перейти на сайт</a>
+            <h2>✅ Аккаунт активирован!</h2>
+            <p>Через 3 секунды вы будете перенаправлены на сайт.</p>
             <script>
                 setTimeout(() => {
                     window.location.href = "${process.env.CLIENT_URL}";
@@ -126,7 +120,7 @@ app.get('/activate/:token', async (req, res) => {
     }
 });
 
-// Логин
+// Вход
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -149,13 +143,15 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        res.json({ message: 'Успешный вход!', userId: user._id });
+        // В идеале — создавай JWT, но для простоты отправим userId и токен (fake)
+        res.json({ message: 'Успешный вход!', userId: user._id, token: 'fake-jwt-token' });
     } catch (err) {
         console.error('Ошибка при логине:', err);
-        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+        res.status(500).json({ error: 'Ошибка сервера при входе' });
     }
 });
 
+// Запуск сервера
 app.listen(PORT, () => {
-    console.log(`🔊 Сервер запущен на ${process.env.SERVER_URL || `http://localhost:${PORT}`}`);
+    console.log(`🔊 Сервер запущен на порту ${PORT}`);
 });
