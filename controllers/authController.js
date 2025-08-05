@@ -112,7 +112,7 @@ async function login(req, res, db) {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        res.json({ message: 'Успешный вход!', userId: user._id });
+       
     } catch (err) {
         console.error('Ошибка при логине:', err);
         res.status(500).json({ error: 'Внутренняя ошибка сервера' });
