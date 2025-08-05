@@ -62,17 +62,17 @@ app.post('/register', async (req, res) => {
 
         const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
 
-        await transporter.sendMail({
-            from: `"MyApp" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Подтверждение регистрации',
-            html: `
-                <h3>Спасибо за регистрацию!</h3>
-                <p>Пожалуйста, активируйте свой аккаунт, перейдя по ссылке ниже:</p>
-                <a href="${activationLink}">${activationLink}</a>
-                <p><b>Срок действия:</b> 24 часа</p>
-            `,
-        });
+        //await transporter.sendMail({
+        //    from: `"MyApp" <${process.env.EMAIL_USER}>`,
+        //    to: email,
+        //    subject: 'Подтверждение регистрации',
+        //    html: `
+        //        <h3>Спасибо за регистрацию!</h3>
+        //        <p>Пожалуйста, активируйте свой аккаунт, перейдя по ссылке ниже:</p>
+        //        <a href="${activationLink}">${activationLink}</a>
+        //        <p><b>Срок действия:</b> 24 часа</p>
+        //    `,
+        //});
 
         res.status(201).json({
             message: 'Регистрация успешна! Проверьте почту для активации.',
