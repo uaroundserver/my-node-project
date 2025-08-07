@@ -10,7 +10,10 @@
       text-align: center;
     }
   </style>
-     <!-- Кнопка меню -->
+</head>
+
+<body>
+  <!-- Кнопка меню -->
   <div id="menuButton" onclick="toggleSidebar()">☰</div>
 
   <!-- Само меню -->
@@ -20,15 +23,12 @@
     <a href="#" onclick="logout()">🚪 Выйти</a>
   </div>
 
-<div class="form-container">
-  <h1>Добро пожаловать!</h1>
-  <p>Вы успешно вошли.</p>
-  <button onclick="logout()">Выйти</button>
-</div>
-</head>
-<body>
- 
+  <div class="form-container">
+    <h1>Добро пожаловать!</h1>
+    <p>Вы успешно вошли.</p>
+    <button onclick="logout()">Выйти</button>
+  </div>
 
-<script src="auth.js"></script>
+  <script src="auth.js"></script>
 </body>
 </html>
