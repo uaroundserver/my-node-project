@@ -8,20 +8,84 @@
   <style>
     body {
       text-align: center;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    #menuButton {
+      font-size: 26px;
+      cursor: pointer;
+      position: fixed;
+      top: 15px;
+      left: 20px;
+      z-index: 1000;
+      user-select: none;
+    }
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      background-color: #fff;
+      width: 200px;
+      height: 100%;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+      padding-top: 60px;
+      z-index: 999;
+      display: none; /* скрыто по умолчанию */
+      flex-direction: column;
+    }
+    #sidebar a {
+      padding: 15px 20px;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      border-bottom: 1px solid #ddd;
+    }
+    #sidebar a:hover {
+      background-color: #f0f0f0;
+    }
+    .form-container {
+      max-width: 400px;
+      margin: 100px auto 0; /* чуть ниже, чтобы не перекрывать меню */
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
   </style>
-   <!-- Меню-кнопка и сайдбар -->
-
-<div class="form-container">
-  <h1>Добро пожаловать!</h1>
-  <p>Вы успешно вошли.</p>
-  <button onclick="logout()">Выйти</button>
-</div>
 </head>
 <body>
- 
+  <!-- Кнопка меню -->
+  <div id="menuButton" onclick="toggleSidebar()">☰</div>
 
-<script src="auth.js"></script>
+  <!-- Само меню -->
+  <div id="sidebar" class="hidden">
+    <a href="home.html">🏠 Домой</a>
+    <a href="profile.html">👤 Профиль</a>
+    <a href="#" onclick="logout()">🚪 Выйти</a>
+  </div>
+
+  <div class="form-container">
+    <h1>Добро пожаловать!</h1>
+    <p>Вы успешно вошли.</p>
+    <button onclick="logout()">Выйти</button>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar.style.display === 'flex') {
+        sidebar.style.display = 'none';
+      } else {
+        sidebar.style.display = 'flex';
+      }
+    }
+    function logout() {
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userData');
+      window.location.href = 'login.html';
+    }
+  </script>
+
+  <script src="auth.js"></script>
 </body>
 </html>
-
