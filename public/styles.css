@@ -1,4 +1,4 @@
-body {
+даbody {
   font-family: Arial, sans-serif;
   padding: 20px;
   background: #f4f4f4;
@@ -80,4 +80,14 @@ a:hover {
 
 .hidden {
   display: none;
+}
+
+#sidebar {
+  transition: transform 0.3s ease;
+  transform: translateX(-100%);
+}
+
+#sidebar:not(.hidden) {
+  transform: translateX(0);
+  display: flex; /* чтобы не конфликтовало */
 }
