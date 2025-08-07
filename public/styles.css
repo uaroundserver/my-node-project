@@ -90,3 +90,40 @@ a:hover {
 .hidden {
   display: none;
 }
+
+
+
+/* Скрываем меню по умолчанию */
+#mobile-menu.hidden {
+  display: none;
+}
+
+/* Показываем, когда класс hidden убран */
+#mobile-menu {
+  background-color: #fff;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  z-index: 1000;
+}
+
+#mobile-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#mobile-menu li {
+  margin-bottom: 10px;
+}
+
+#mobile-menu li:last-child {
+  margin-bottom: 0;
+}
+
+#mobile-menu a {
+  text-decoration: none;
+  color: #333;
+}
