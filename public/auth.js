@@ -19,15 +19,15 @@ window.logout = function() {
 };
 
 function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('hidden');
-}
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('hidden');
+  }
 
-function logout() {
-  localStorage.removeItem('userToken');
-  localStorage.removeItem('userData');
-  window.location.href = 'login.html';
-}
+  function logout() {
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userData');
+    window.location.href = 'login.html';
+  }
 
 // Показываем меню только если пользователь авторизован
 document.addEventListener('DOMContentLoaded', () => {
