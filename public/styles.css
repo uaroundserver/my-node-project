@@ -59,12 +59,13 @@ a:hover {
   top: 15px;
   left: 20px;
   z-index: 1000;
+  user-select: none; /* чтобы текст не выделялся при клике */
 }
 
 #sidebar {
   position: fixed;
   top: 0;
-  left: -200px; /* скрываем меню по умолчанию */
+  left: -200px; /* меню скрыто за экраном слева */
   background-color: #fff;
   width: 200px;
   height: 100%;
@@ -73,11 +74,11 @@ a:hover {
   z-index: 999;
   display: flex;
   flex-direction: column;
-  transition: left 0.3s ease; /* плавная анимация */
+  transition: left 0.3s ease; /* плавный переход */
 }
 
 #sidebar.active {
-  left: 0; /* показываем меню */
+  left: 0; /* меню выдвинуто */
 }
 
 #sidebar a {
