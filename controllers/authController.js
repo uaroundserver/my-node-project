@@ -6,10 +6,10 @@ const transporter = require('../config/nodemailer');
 // Регистрация
 async function register(req, res, db) {
     try {
-        const { email, password } = req.body;
+        const { email, password, country } = req.body;
 
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Заполните email и пароль' });
+        if (!email || !password || !country) {
+            return res.status(400).json({ error: 'Заполните email, пароль и страну проживания' });
         }
 
         const existingUser = await db.collection('users').findOne({ email });
@@ -23,6 +23,7 @@ async function register(req, res, db) {
         const result = await db.collection('users').insertOne({
             email,
             password: hashedPassword,
+            country,
             activated: false,
             activationToken,
             createdAt: new Date(),
