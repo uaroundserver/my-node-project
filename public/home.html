@@ -12,6 +12,15 @@
   </style>
 </head>
 <body>
+  <!-- Меню-кнопка и сайдбар -->
+<div id="sidebarMenu">
+  <div id="menuButton" onclick="toggleSidebar()">☰</div>
+  <div id="sidebar" class="hidden">
+    <a href="home.html">🏠 Домой</a>
+    <a href="profile.html">👤 Профиль</a>
+    <a href="#" onclick="logout()">🚪 Выйти</a>
+  </div>
+</div>
 <div class="form-container">
   <h1>Добро пожаловать!</h1>
   <p>Вы успешно вошли.</p>
