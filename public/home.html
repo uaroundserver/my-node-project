@@ -13,13 +13,12 @@
 </head>
 <body>
   <!-- Меню-кнопка и сайдбар -->
+<div id="menuButton" onclick="toggleSidebar()">☰</div>
+
 <div id="sidebar" class="hidden">
-  <div id="menuButton" onclick="toggleSidebar()">☰</div>
-  <div id="sidebar" class="hidden">
-    <a href="home.html">🏠 Домой</a>
-    <a href="profile.html">👤 Профиль</a>
-    <a href="#" onclick="logout()">🚪 Выйти</a>
-  </div>
+  <a href="home.html">🏠 Домой</a>
+  <a href="profile.html">👤 Профиль</a>
+  <a href="#" onclick="logout()">🚪 Выйти</a>
 </div>
 <div class="form-container">
   <h1>Добро пожаловать!</h1>
