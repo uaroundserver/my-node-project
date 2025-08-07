@@ -61,10 +61,11 @@ a:hover {
   z-index: 1000;
 }
 
+/* Боковое меню */
 #sidebar {
   position: fixed;
   top: 0;
-  left: 0;
+  left: -200px; /* Скрыто за пределами экрана */
   background-color: #fff;
   width: 200px;
   height: 100%;
@@ -73,6 +74,11 @@ a:hover {
   z-index: 999;
   display: flex;
   flex-direction: column;
+  transition: left 0.3s ease; /* Плавное появление */
+}
+
+#sidebar.active {
+  left: 0; /* Показываем меню */
 }
 
 #sidebar a {
@@ -87,19 +93,9 @@ a:hover {
   background-color: #f0f0f0;
 }
 
-.hidden {
-  display: none;
-}
-
-
-
-/* Скрываем меню по умолчанию */
-#mobile-menu.hidden {
-  display: none;
-}
-
-/* Показываем, когда класс hidden убран */
+/* Мобильное меню */
 #mobile-menu {
+  display: none; /* Скрыто по умолчанию */
   background-color: #fff;
   position: absolute;
   top: 60px;
@@ -107,6 +103,10 @@ a:hover {
   border: 1px solid #ccc;
   padding: 10px;
   z-index: 1000;
+}
+
+#mobile-menu.show {
+  display: block; /* Появляется при активации */
 }
 
 #mobile-menu ul {
