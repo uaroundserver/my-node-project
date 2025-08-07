@@ -1,7 +1,7 @@
 async function register(event) {
     event.preventDefault();
 
-    const email = document.getElementById('email').value;
+    const email = document.getElementById('email').value.toLowerCase(); // приводим к нижнему регистру
     const password = document.getElementById('password').value;
 
     try {
