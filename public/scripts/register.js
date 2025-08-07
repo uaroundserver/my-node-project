@@ -1,20 +1,15 @@
 async function register(event) {
     event.preventDefault();
 
-    const email = document.getElementById('email').value.toLowerCase().trim(); // к нижнему регистру
+    const email = document.getElementById('email').value.toLowerCase();
     const password = document.getElementById('password').value;
-    const country = document.getElementById('country').value;
-
-    if (!email || !password || !country || country === "") {
-        alert("Пожалуйста, заполните все поля.");
-        return;
-    }
+    const country = document.getElementById('country').value;  // добавили страну
 
     try {
         const response = await fetch('https://uaround.onrender.com/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, country }), // добавлена страна
+            body: JSON.stringify({ email, password, country }),  // отправляем страну вместе с email и паролем
         });
 
         const data = await response.json();
