@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Главная</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- Кнопка меню -->
+  <div id="menuButton" onclick="toggleSidebar()">☰</div>
+
+  <!-- Само меню -->
+  <div id="sidebar">
+    <a href="home.html">🏠 Домой</a>
+    <a href="profile.html">👤 Профиль</a>
+    <a href="#" onclick="logout()">🚪 Выйти</a>
+  </div>
+
+  <div class="form-container">
+    <h1>Добро пожаловать!</h1>
+    <p>Вы успешно вошли.</p>
+    <button onclick="logout()">Выйти</button>
+  </div>
+
+
+
+  <script src="auth.js"></script>
+</body>
+</html>
