@@ -8,15 +8,19 @@
 </head>
 
 <body>
-  <!-- Кнопка меню -->
-  <div id="menuButton" onclick="toggleSidebar()">☰</div>
+  <div id="menu-container"></div>
+ <script>
+  fetch("menu.html")
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById("menu-container").innerHTML = data;
 
-  <!-- Само меню -->
-  <div id="sidebar">
-    <a href="home.html">🏠 Домой</a>
-    <a href="profile.html">👤 Профиль</a>
-    <a href="#" onclick="logout()">🚪 Выйти</a>
-  </div>
+      // Подключаем auth.js после загрузки меню
+      let script = document.createElement("script");
+      script.src = "public/auth.js";
+      document.body.appendChild(script);
+    });
+</script>
 
   <div class="form-container">
     <h1>Добро пожаловать!</h1>
