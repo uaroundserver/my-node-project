@@ -57,14 +57,20 @@ a:hover {
 /* Добавленное для меню */
 
 #menuButton {
-  font-size: 26px;
-  cursor: pointer;
-  position: fixed;
+  position: fixed; /* фиксируем на экране */
   top: 15px;
   left: 20px;
-  z-index: 1000;
-  user-select: none;
+  font-size: 26px;
+  cursor: pointer;
+  background: white; /* чтобы было видно поверх */
+  padding: 5px 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 2000; /* поверх всего */
 }
+
+
+
 
 #sidebar {
   position: fixed;
