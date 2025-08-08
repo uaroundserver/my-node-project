@@ -12,37 +12,45 @@
   </style>
 </head>
 <body>
-<div class="form-container">
-  <h1>Добро пожаловать на платформу <span style="color:#1e90ff;">UAround.com</span></h1>
-  <p>Пройдите авторизацию или зарегистрируйтесь, чтобы начать пользоваться платформой.</p>
+  <div class="form-container">
+    <h1>Добро пожаловать на платформу <span style="color:#1e90ff;">UAround.com</span></h1>
+    <p>Пройдите авторизацию или зарегистрируйтесь, чтобы начать пользоваться платформой.</p>
 
-  <h1>Регистрация</h1>
-  <form id="registerForm">
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="password" id="password" placeholder="Пароль" required />
+    <h1>Регистрация</h1>
+    <form id="registerForm">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Пароль" required />
 
-  <select id="country" class="input" required>
-  <option value="" disabled selected>🌍Выберите страну проживания</option>
-  <option value="Польша">🇵🇱 Польша</option>
-  <option value="Германия">🇩🇪 Германия</option>
-  <option value="Чехия">🇨🇿 Чехия</option>
-  <option value="Италия">🇮🇹 Италия</option>
-  <option value="Испания">🇪🇸 Испания</option>
-  <option value="Франция">🇫🇷 Франция</option>
-  <option value="Румыния">🇷🇴 Румыния</option>
-  <option value="Венгрия">🇭🇺 Венгрия</option>
-  <option value="Словакия">🇸🇰 Словакия</option>
-  <option value="Нидерланды">🇳🇱 Нидерланды</option>
-    </select>
+      <select id="country" class="input" required>
+        <option value="" disabled selected>🌍Выберите страну проживания</option>
+        <option value="Польша">🇵🇱 Польша</option>
+        <option value="Германия">🇩🇪 Германия</option>
+        <option value="Чехия">🇨🇿 Чехия</option>
+        <option value="Италия">🇮🇹 Италия</option>
+        <option value="Испания">🇪🇸 Испания</option>
+        <option value="Франция">🇫🇷 Франция</option>
+        <option value="Румыния">🇷🇴 Румыния</option>
+        <option value="Венгрия">🇭🇺 Венгрия</option>
+        <option value="Словакия">🇸🇰 Словакия</option>
+        <option value="Нидерланды">🇳🇱 Нидерланды</option>
+      </select>
 
-    <button type="submit">Зарегистрироваться</button>
-  </form>
-  <p>Уже есть аккаунт? <a href="login.html">Войти</a></p>
-</div>
+      <button type="submit">Зарегистрироваться</button>
+    </form>
+    <p>Уже есть аккаунт? <a href="login.html">Войти</a></p>
+  </div>
 
-<script src="scripts/register.js"></script>
-<script>
-  document.getElementById('registerForm').addEventListener('submit', register);
-</script>
+  <script src="scripts/register.js" defer></script>
+  <script>
+    // Убедимся, что функция register загружена, и повесим обработчик после загрузки скрипта
+    window.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('registerForm');
+      if (form && typeof register === 'function') {
+        form.addEventListener('submit', register);
+      } else {
+        console.error('Функция register не найдена или форма отсутствует.');
+      }
+    });
+  </script>
 </body>
 </html>
