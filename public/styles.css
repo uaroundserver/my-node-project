@@ -96,3 +96,14 @@ a:hover {
 #sidebar a:hover {
   background-color: #f0f0f0;
 }
+
+.menu-button {
+  position: fixed; /* или absolute */
+  top: 10px;
+  left: 10px;
+  z-index: 1000; /* чтобы была поверх */
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
