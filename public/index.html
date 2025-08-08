@@ -20,7 +20,19 @@
     <form id="registerForm">
       <input type="email" id="email" placeholder="Email" required />
       <input type="password" id="password" placeholder="Пароль" required />
- <input type="text" id="country" placeholder="country" required />
+ <select id="country" class="input" required>
+        <option value="" disabled selected>🌍Выберите страну проживания</option>
+        <option value="Польша">🇵🇱 Польша</option>
+        <option value="Германия">🇩🇪 Германия</option>
+        <option value="Чехия">🇨🇿 Чехия</option>
+        <option value="Италия">🇮🇹 Италия</option>
+        <option value="Испания">🇪🇸 Испания</option>
+        <option value="Франция">🇫🇷 Франция</option>
+        <option value="Румыния">🇷🇴 Румыния</option>
+        <option value="Hungary">🇭🇺 Hungary</option>
+        <option value="Словакия">🇸🇰 Словакия</option>
+        <option value="Нидерланды">🇳🇱 Нидерланды</option>
+      </select>
 
       <button type="submit">Зарегистрироваться</button>
     </form>
