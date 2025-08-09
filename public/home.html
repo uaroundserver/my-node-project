@@ -5,31 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Главная</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="menu.css" /> <!-- Подключаем стили меню -->
 </head>
 
 <body>
+  <!-- Меню загружается сюда -->
   <div id="menu-container"></div>
- <script>
-  fetch("menu.html")
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById("menu-container").innerHTML = data;
 
-      // Подключаем auth.js после загрузки меню
-      let script = document.createElement("script");
-      script.src = "public/auth.js";
-      document.body.appendChild(script);
-    });
-</script>
-
+  <!-- Основной контент -->
   <div class="form-container">
     <h1>Добро пожаловать!</h1>
     <p>Вы успешно вошли.</p>
     <button onclick="logout()">Выйти</button>
   </div>
 
+  <!-- Скрипт подгрузки меню -->
+  <script>
+    fetch("menu.html")
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById("menu-container").innerHTML = data;
 
-
-  <script src="auth.js"></script>
+        // Подключаем auth.js после загрузки меню
+        let script = document.createElement("script");
+        script.src = "auth.js";
+        document.body.appendChild(script);
+      });
+  </script>
 </body>
 </html>
