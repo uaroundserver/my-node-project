@@ -110,9 +110,7 @@ body {
 #bottom-nav a.active{ background:#e0e7ff; color:#3b82f6; }
 
 /* Контент-обёртка */
-#main-content{ max-width:420px; margin:0 auto; padding:0 20px; }
-
-/* мобилки */
+#main-content{ max-width:420px; margin:0 auto; padding:0; }/* мобилки */
 @media (max-width:480px){
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
