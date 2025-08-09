@@ -10,7 +10,7 @@
   --header-shadow: 0 2px 12px rgba(0,0,0,.18);
 
   /* чуть опускаем бургер от верхней кромки панели */
-  --burger-offset: 8px; /* подгоняй 2–4px по вкусу */
+  --burger-offset: 8px;
 }
 
 html,body{
@@ -20,7 +20,6 @@ html,body{
 }
 html.no-scroll, html.no-scroll body { overflow: hidden; }
 
-/* отступы под фиксированные панели */
 body {
   padding-top: var(--header-h);
   padding-bottom: var(--bottom-h);
@@ -44,7 +43,7 @@ body {
 #menuButton{
   position: absolute;
   left: 14px;
-  top: var(--burger-offset); /* ключевая строка */
+  top: var(--burger-offset);
   width:38px; height:38px;
   border:none; cursor:pointer; border-radius:12px;
   display:inline-flex; align-items:center; justify-content:center;
@@ -56,17 +55,22 @@ body {
 }
 #menuButton:hover{ background: rgba(255,255,255,.2); transform: scale(1.05); }
 
-/* логотип по центру */
+/* логотип */
 #app-header .logo{
   font-weight:800; font-size:18px; letter-spacing:.5px; color:#fff;
   user-select:none;
 }
 
-/* ===== ОВЕРЛЕЙ ===== */
-#backdrop{
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.28);
+/* ===== БЭКДРОП ===== */
+#menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  transition: background 0.3s ease;
   z-index: 3499;
+}
+#menu-backdrop.active {
+  background: rgba(0,0,0,0.28);
 }
 
 /* ===== САЙДБАР ===== */
@@ -82,11 +86,13 @@ body {
   padding-bottom: 12px;
   display:flex; flex-direction:column;
   transform: translateX(-100%);
-  transition: transform .35s cubic-bezier(.4,0,.2,1);
+  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
   z-index:3500;
   box-shadow: 4px 0 24px rgba(0,0,0,.12);
 }
-#sidebar.active{ transform: translateX(0); }
+#sidebar.active{
+  transform: translateX(0);
+}
 
 #sidebar a{
   padding:16px 22px;
@@ -118,13 +124,10 @@ body {
 #bottom-nav a:hover,
 #bottom-nav a.active{ background:#e0e7ff; color:#3b82f6; }
 
-/* Контент-обёртка */
 #main-content{ max-width:420px; margin:0 auto; padding:16px; }
 
-/* Иконки */
 .nav-icon { width: 26px; height: 26px; overflow: visible; stroke: currentColor; }
 
-/* Фокус для клавиатуры */
 #menuButton:focus-visible,
 #bottom-nav a:focus-visible,
 #sidebar a:focus-visible{
@@ -133,21 +136,11 @@ body {
   border-radius: 12px;
 }
 
-/* Предпочтение уменьшенной анимации */
 @media (prefers-reduced-motion: reduce){
   * { transition: none !important; }
 }
 
-/* Мобилки поуже */
 @media (max-width:480px){
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
-}
-
-/* Бэкдроп под сайдбар */
-#menu-backdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.28);
-  z-index: 3490;           /* ниже сайдбара (3500), выше контента/шапки */
 }
