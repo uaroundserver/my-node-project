@@ -141,6 +141,7 @@ a:hover {
   text-decoration: none;
   transition: background-color 0.25s ease;
   user-select: none;
+  text-align: left;
 }
 
 #sidebar a:hover {
@@ -164,7 +165,3 @@ a:hover {
   }
 }
 
-#sidebar.active a {
-  padding-left: 12px; /* или 0 для прижатия вплотную */
-  text-align: left; /* на всякий случай, чтобы текст тоже слева */
-}
