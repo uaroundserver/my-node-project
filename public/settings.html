@@ -5,30 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Настройки</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
+  <!-- сюда подгружается меню -->
   <div id="menu-container"></div>
+
+  <!-- основной контент -->
+  <main id="main-content">
+    <div class="form-container">
+      <h1>Настройки профиля</h1>
+      <form id="settingsForm">
+        <input type="text" id="fullName" placeholder="ФИО" required />
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="tel" id="phone" placeholder="Телефон" />
+        <input type="text" id="country" placeholder="Страна проживания" disabled />
+
+        <button type="submit">💾 Сохранить изменения</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- подгружаем меню, затем menu.js и auth.js -->
   <script>
     fetch("menu.html")
       .then(res => res.text())
       .then(html => {
         document.getElementById("menu-container").innerHTML = html;
+
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";
+        document.body.appendChild(menuJs);
+
+        const authJs = document.createElement("script");
+        authJs.src = "auth.js";
+        document.body.appendChild(authJs);
       });
-  </script>
 
-  <div class="form-container">
-    <h1>Настройки профиля</h1>
-    <form id="settingsForm">
-      <input type="text" id="fullName" placeholder="ФИО" required />
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="tel" id="phone" placeholder="Телефон" />
-      <input type="text" id="country" placeholder="Страна проживания" disabled />
-
-      <button type="submit">💾 Сохранить изменения</button>
-    </form>
-  </div>
-
-  <script>
     async function loadSettings() {
       try {
         const token = localStorage.getItem('token');
@@ -74,7 +87,5 @@
     document.getElementById('settingsForm').addEventListener('submit', saveSettings);
     loadSettings();
   </script>
-  <script src="public/auth.js"></script>
-<script src="auth.js"></script>
 </body>
 </html>
