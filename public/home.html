@@ -1,35 +1,37 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ру">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Главная</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="menu.css" /> <!-- Подключаем стили меню -->
+  <link rel="stylesheet" href="menu.css" />
 </head>
-
 <body>
-  <!-- Меню загружается сюда -->
+  <!-- сюда подгружается меню -->
   <div id="menu-container"></div>
 
-  <!-- Основной контент -->
+  <!-- основной контент -->
   <div class="form-container">
     <h1>Добро пожаловать!</h1>
     <p>Вы успешно вошли.</p>
     <button onclick="logout()">Выйти</button>
   </div>
 
-  <!-- Скрипт подгрузки меню -->
+  <!-- скрипт подгрузки меню + menu.js + auth.js -->
   <script>
     fetch("menu.html")
-      .then(response => response.text())
-      .then(data => {
-        document.getElementById("menu-container").innerHTML = data;
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById("menu-container").innerHTML = html;
 
-        // Подключаем auth.js после загрузки меню
-        let script = document.createElement("script");
-        script.src = "auth.js";
-        document.body.appendChild(script);
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";
+        document.body.appendChild(menuJs);
+
+        const auth = document.createElement("script");
+        auth.src = "auth.js";
+        document.body.appendChild(auth);
       });
   </script>
 </body>
