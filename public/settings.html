@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Настройки</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="menu-container"></div>
+  <script>
+    fetch("menu.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("menu-container").innerHTML = html;
+      });
+  </script>
+
+  <div class="form-container">
+    <h1>Настройки профиля</h1>
+    <form id="settingsForm">
+      <input type="text" id="fullName" placeholder="ФИО" required />
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="tel" id="phone" placeholder="Телефон" />
+      <input type="text" id="country" placeholder="Страна проживания" disabled />
+
+      <button type="submit">💾 Сохранить изменения</button>
+    </form>
+  </div>
+
+  <script>
+    async function loadSettings() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/user/profile', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        document.getElementById('fullName').value = data.fullName || '';
+        document.getElementById('email').value = data.email || '';
+        document.getElementById('phone').value = data.phone || '';
+        document.getElementById('country').value = data.country || 'Не указано';
+      } catch (err) {
+        console.error('Ошибка загрузки настроек:', err);
+      }
+    }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      try {
+        const token = localStorage.getItem('token');
+        const body = {
+          fullName: document.getElementById('fullName').value,
+          email: document.getElementById('email').value,
+          phone: document.getElementById('phone').value
+        };
+
+        await fetch('/api/user/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        alert('Настройки успешно сохранены!');
+      } catch (err) {
+        console.error('Ошибка сохранения настроек:', err);
+      }
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+    loadSettings();
+  </script>
+</body>
+</html>
