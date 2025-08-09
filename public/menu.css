@@ -10,7 +10,12 @@
   --radius: 16px;
 }
 
-html,body{margin:0;padding:0;}
+html,body{
+  margin:0;
+  padding:0;
+  overflow-x: hidden; /* убираем горизонтальный скролл и полосу справа */
+}
+
 /* отступы под фиксированные панели + safe area */
 body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top));
@@ -23,7 +28,7 @@ body {
   position: relative;
   height: var(--header-h);
   display:flex; align-items:center;
-  padding: 0 14px;
+  padding: calc(4px + env(safe-area-inset-top)) 14px 0; /* поднимаем контент вверх */
   background: var(--header-bg);
   color: #fff;
   box-shadow: var(--header-shadow);
@@ -32,6 +37,8 @@ body {
 
 /* бургер — стеклянная кнопка */
 #menuButton{
+  position: relative;
+  top: -2px; /* слегка поднимаем бургер */
   width:38px;height:38px;border:none;cursor:pointer;border-radius:12px;
   display:inline-flex;align-items:center;justify-content:center;
   background: rgba(255,255,255,.12);
@@ -54,18 +61,34 @@ body {
   user-select:none;
 }
 
-/* ===== САЙДБАР (чуть ниже шапки) ===== */
+/* ===== САЙДБАР ===== */
 #sidebar{
-  position: fixed; top: var(--header-h); left: -240px; width:240px;
-  height: calc(100vh - var(--header-h));
-  background:#fff; box-shadow: 4px 0 24px rgba(0,0,0,.12);
+  position: fixed;
+  top: 0; left: 0;
+  width:240px;
+  height: 100vh;
+  background:#fff;
   border-top-right-radius: var(--radius);
   border-bottom-right-radius: var(--radius);
-  padding-top: 8px; display:flex; flex-direction:column;
-  transition: left .35s cubic-bezier(.4,0,.2,1); z-index:3500;
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+  display:flex; flex-direction:column;
+  transform: translateX(-100%); /* прячем без «просвета» */
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+  z-index:3500;
+  box-shadow: none; /* тень только у открытого */
 }
-#sidebar.active{ left:0; }
-#sidebar a{ padding:16px 22px; text-decoration:none; color:#1e293b; font-weight:600; border-bottom:1px solid #e6ebf2; }
+#sidebar.active{
+  transform: translateX(0);
+  box-shadow: 4px 0 24px rgba(0,0,0,.12);
+}
+#sidebar a{
+  padding:16px 22px;
+  text-decoration:none;
+  color:#1e293b;
+  font-weight:600;
+  border-bottom:1px solid #e6ebf2;
+}
 #sidebar a:hover{ background:#e0e7ff; color:#3b82f6; }
 
 /* ===== НИЖНЯЯ ПАНЕЛЬ ===== */
@@ -86,7 +109,7 @@ body {
 #bottom-nav a:hover{ background:#eef2ff; color:#3b82f6; }
 #bottom-nav a.active{ background:#e0e7ff; color:#3b82f6; }
 
-/* Контент-обёртка (если используешь) */
+/* Контент-обёртка */
 #main-content{ max-width:420px; margin:0 auto; padding:0 20px; }
 
 /* мобилки */
@@ -94,13 +117,11 @@ body {
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
 }
+
 /* Иконки */
-.nav-icon { width: 26px; height: 26px; }
+.nav-icon { width: 26px; height: 26px; overflow: visible; } /* Safari fix */
 #bottom-nav a, #sidebar a { display:flex; gap:10px; align-items:center; }
-/* чтобы Safari не клиппил обводку по краям viewBox */
-.nav-icon {
-  overflow: visible;
-}
+
 /* Цвета и активка */
 #bottom-nav a, #sidebar a { color:#1e293b; }
 #bottom-nav a.active, #bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
