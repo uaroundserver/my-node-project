@@ -97,7 +97,10 @@ body{
 /* Иконки */
 .nav-icon { width: 26px; height: 26px; }
 #bottom-nav a, #sidebar a { display:flex; gap:10px; align-items:center; }
-
+/* чтобы Safari не клиппил обводку по краям viewBox */
+.nav-icon {
+  overflow: visible;
+}
 /* Цвета и активка */
 #bottom-nav a, #sidebar a { color:#1e293b; }
 #bottom-nav a.active, #bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
