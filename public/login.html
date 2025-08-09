@@ -3,31 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Добро пожаловать | UAround</title>
+  <title>Вход</title>
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    body {
-      text-align: center;
-    }
-  </style>
 </head>
 <body>
-<div class="form-container">
-  <h1>Добро пожаловать на платформу <span style="color:#1e90ff;">UAround.com</span></h1>
-  <p>Пройдите авторизацию или зарегистрируйтесь, чтобы начать пользоваться платформой.</p>
+  <div class="form-container">
+    <h1>Вход</h1>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Пароль" required />
+      <button type="submit">Войти</button>
+    </form>
+    <p id="error-message" style="color:red;display:none;"></p>
+    <p>Нет аккаунта? <a href="register.html">Зарегистрироваться</a></p>
+  </div>
 
+  <script>
+    const API_BASE = 'https://uaround.onrender.com';
 
-  <h1>Вход</h1>
-  <form id="loginForm">
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="password" id="password" placeholder="Пароль" required />
-    <button type="submit">Войти</button>
-  </form>
-  <p>Нет аккаунта? <a href="index.html">Зарегистрироваться</a></p>
-</div>
-<script src="scripts/login.js"></script>
-<script>
-  document.getElementById('loginForm').addEventListener('submit', login);
-</script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorMessage = document.getElementById('error-message');
+      errorMessage.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMessage.textContent = data.error || 'Ошибка входа';
+          errorMessage.style.display = 'block';
+          return;
+        }
+
+        // Сохраняем токен
+        localStorage.setItem('userToken', data.token);
+
+        // Запрашиваем профиль пользователя
+        const profileRes = await fetch(`${API_BASE}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          localStorage.setItem('userData', JSON.stringify(profile));
+        } else {
+          // Если профиль не загрузился — хотя бы email сохраним
+          localStorage.setItem('userData', JSON.stringify({ email }));
+        }
+
+        // Переход на главную
+        window.location.href = 'home.html';
+
+      } catch (err) {
+        console.error('Ошибка входа:', err);
+        errorMessage.textContent = 'Сервер недоступен, попробуйте позже';
+        errorMessage.style.display = 'block';
+      }
+    });
+  </script>
 </body>
 </html>
