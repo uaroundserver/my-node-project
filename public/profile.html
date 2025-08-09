@@ -8,93 +8,120 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #f5f7fa;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      color: #fff;
       margin: 0;
       padding: 0;
     }
 
     .profile-container {
-      max-width: 800px;
+      max-width: 500px;
       margin: 40px auto;
-      background: #fff;
-      border-radius: 15px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      padding: 30px;
-      text-align: center;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      animation: fadeIn 0.5s ease-in-out;
     }
 
     .avatar {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .avatar img {
       width: 120px;
       height: 120px;
       border-radius: 50%;
+      border: 3px solid #fff;
       object-fit: cover;
-      border: 4px solid #4a90e2;
-      margin-bottom: 15px;
-    }
-
-    .upload-btn {
-      display: inline-block;
-      background: #4a90e2;
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 8px;
+      transition: transform 0.3s ease;
       cursor: pointer;
-      font-size: 14px;
-      margin-bottom: 20px;
     }
 
-    .form-group {
-      text-align: left;
-      margin-bottom: 15px;
+    .avatar img:hover {
+      transform: scale(1.05);
     }
 
-    .form-group label {
-      font-weight: 600;
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .form-group input {
-      width: 100%;
+    .profile-field {
+      margin: 15px 0;
       padding: 10px;
+      background: rgba(255,255,255,0.1);
       border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-
-    .btn {
-      background: #4a90e2;
-      color: white;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      margin: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       transition: background 0.3s;
     }
 
-    .btn:hover {
-      background: #357ABD;
+    .profile-field:hover {
+      background: rgba(255,255,255,0.15);
     }
 
-    h1 {
-      margin-bottom: 5px;
-      color: #333;
+    .field-label {
+      font-weight: bold;
     }
 
-    p.subtitle {
-      color: #666;
-      margin-bottom: 20px;
+    .field-value {
+      color: #eee;
+    }
+
+    .edit-btn {
+      background: #6a5acd;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .edit-btn:hover {
+      background: #7b68ee;
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .action-buttons button {
+      flex: 1;
+      margin: 0 5px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .home-btn {
+      background: #3cb371;
+      color: #fff;
+    }
+
+    .logout-btn {
+      background: #ff6347;
+      color: #fff;
+    }
+
+    .home-btn:hover { background: #2e8b57; }
+    .logout-btn:hover { background: #e5533d; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-
   <div id="menu-container"></div>
   <script>
     fetch("menu.html")
-      .then(response => response.text())
+      .then(res => res.text())
       .then(data => {
         document.getElementById("menu-container").innerHTML = data;
         let script = document.createElement("script");
@@ -104,69 +131,98 @@
   </script>
 
   <div class="profile-container">
-    <img id="avatarPreview" src="default-avatar.png" alt="Аватар" class="avatar">
-    <div>
-      <label for="avatarUpload" class="upload-btn">Загрузить аватар</label>
-      <input type="file" id="avatarUpload" accept="image/*" style="display:none" onchange="previewAvatar(event)">
+    <div class="avatar">
+      <img id="avatar" src="https://via.placeholder.com/120" alt="Аватар">
+      <input type="file" id="avatarInput" style="display:none">
     </div>
 
-    <h1>Личный кабинет</h1>
-    <p class="subtitle">Ваши данные</p>
+    <div class="profile-field">
+      <div class="field-label">ФИО:</div>
+      <div class="field-value" id="fullName">Не указано</div>
+      <button class="edit-btn" onclick="editField('fullName')">✏️</button>
+    </div>
 
-    <form onsubmit="saveProfile(event)">
-      <div class="form-group">
-        <label for="fullName">ФИО</label>
-        <input type="text" id="fullName" placeholder="ФИО" required />
-      </div>
+    <div class="profile-field">
+      <div class="field-label">Email:</div>
+      <div class="field-value" id="email">Не указано</div>
+      <button class="edit-btn" onclick="editField('email')">✏️</button>
+    </div>
 
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="Email" required />
-      </div>
+    <div class="profile-field">
+      <div class="field-label">Телефон:</div>
+      <div class="field-value" id="phone">Не указано</div>
+      <button class="edit-btn" onclick="editField('phone')">✏️</button>
+    </div>
 
-      <div class="form-group">
-        <label for="phone">Телефон</label>
-        <input type="tel" id="phone" placeholder="Телефон" />
-      </div>
+    <div class="profile-field">
+      <div class="field-label">О себе:</div>
+      <div class="field-value" id="about">Не указано</div>
+      <button class="edit-btn" onclick="editField('about')">✏️</button>
+    </div>
 
-      <button type="submit" class="btn">💾 Сохранить</button>
-    </form>
-
-    <hr style="margin: 20px 0;">
-
-    <button class="btn" onclick="goHome()">🏠 На главную</button>
-    <button class="btn" style="background:#e94e4e" onclick="logout()">🚪 Выйти</button>
+    <div class="action-buttons">
+      <button class="home-btn" onclick="goHome()">🏠 Главная</button>
+      <button class="logout-btn" onclick="logout()">🚪 Выйти</button>
+    </div>
   </div>
 
-  <script src="public/auth.js"></script>
-  <script src="auth.js"></script>
   <script>
-    function previewAvatar(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          document.getElementById('avatarPreview').src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+    const userData = JSON.parse(localStorage.getItem('userData')) || {};
+
+    function loadProfile() {
+      document.getElementById('fullName').textContent = userData.fullName || "Не указано";
+      document.getElementById('email').textContent = userData.email || "Не указано";
+      document.getElementById('phone').textContent = userData.phone || "Не указано";
+      document.getElementById('about').textContent = userData.about || "Не указано";
+      if (userData.avatar) {
+        document.getElementById('avatar').src = userData.avatar;
       }
     }
 
-    function saveProfile(event) {
-      event.preventDefault();
-      const fullName = document.getElementById('fullName').value;
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-
-      let userData = JSON.parse(localStorage.getItem('userData')) || {};
-      userData.profileCompleted = true;
-      userData.fullName = fullName;
-      userData.email = email;
-      userData.phone = phone;
-      localStorage.setItem('userData', JSON.stringify(userData));
-
-      alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+    function editField(fieldId) {
+      const field = document.getElementById(fieldId);
+      const currentValue = field.textContent === "Не указано" ? "" : field.textContent;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = currentValue;
+      input.onblur = () => {
+        const newValue = input.value.trim() || "Не указано";
+        field.textContent = newValue;
+        userData[fieldId] = newValue !== "Не указано" ? newValue : "";
+        localStorage.setItem('userData', JSON.stringify(userData));
+      };
+      field.textContent = "";
+      field.appendChild(input);
+      input.focus();
     }
+
+    document.getElementById('avatar').addEventListener('click', () => {
+      document.getElementById('avatarInput').click();
+    });
+
+    document.getElementById('avatarInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          document.getElementById('avatar').src = reader.result;
+          userData.avatar = reader.result;
+          localStorage.setItem('userData', JSON.stringify(userData));
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function goHome() {
+      window.location.href = "/";
+    }
+
+    function logout() {
+      localStorage.removeItem('userData');
+      window.location.href = "/login.html";
+    }
+
+    loadProfile();
   </script>
 </body>
 </html>
