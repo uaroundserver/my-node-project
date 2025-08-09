@@ -125,7 +125,90 @@ body {
 #bottom-nav a, #sidebar a { display:flex; gap:10px; align-items:center; }
 
 /* Цвета и активка */
-#bottom-nav a, #sidebar a { color:#1e293b; }
+#bottom-nav a, #sidebar a { /* Хедер */
+header {
+  position: relative; /* для позиционирования кнопки бургера */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #0d1b2a, #1b263b);
+  padding: 14px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* Кнопка бургера */
+#menuButton {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+/* Эффект при наведении */
+#menuButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* Сайдбар */
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: -240px;
+  width: 240px;
+  height: 100vh;
+  background-color: #ffffff;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  padding-top: 80px;
+  display: flex;
+  flex-direction: column;
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2500;
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+#sidebar.active {
+  left: 0;
+}
+
+#sidebar a {
+  padding: 18px 28px;
+  border-bottom: 1px solid #e1e8f0;
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 17px;
+  text-decoration: none;
+  transition: background-color 0.25s ease;
+  user-select: none;
+  text-align: left;
+}
+
+#sidebar a:hover {
+  background-color: #e0e7ff;
+  color: #3b82f6;
+}
+
+/* Иконки */
+.nav-icon {
+  overflow: visible; /* чтобы Safari не клиппил обводку */
+}:#1e293b; }
 #bottom-nav a.active, #bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
 #sidebar a.active, #sidebar a:hover { background:#e0e7ff; color:#3b82f6; }
 
