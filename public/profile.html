@@ -5,224 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Личный кабинет</title>
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #1f1c2c, #928dab);
-      color: #fff;
-      margin: 0;
-      padding: 0;
-    }
-
-    .profile-container {
-      max-width: 500px;
-      margin: 40px auto;
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-      animation: fadeIn 0.5s ease-in-out;
-    }
-
-    .avatar {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .avatar img {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 3px solid #fff;
-      object-fit: cover;
-      transition: transform 0.3s ease;
-      cursor: pointer;
-    }
-
-    .avatar img:hover {
-      transform: scale(1.05);
-    }
-
-    .profile-field {
-      margin: 15px 0;
-      padding: 10px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: background 0.3s;
-    }
-
-    .profile-field:hover {
-      background: rgba(255,255,255,0.15);
-    }
-
-    .field-label {
-      font-weight: bold;
-    }
-
-    .field-value {
-      color: #eee;
-    }
-
-    .edit-btn {
-      background: #6a5acd;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .edit-btn:hover {
-      background: #7b68ee;
-    }
-
-    .action-buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-
-    .action-buttons button {
-      flex: 1;
-      margin: 0 5px;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-
-    .home-btn {
-      background: #3cb371;
-      color: #fff;
-    }
-
-    .logout-btn {
-      background: #ff6347;
-      color: #fff;
-    }
-
-    .home-btn:hover { background: #2e8b57; }
-    .logout-btn:hover { background: #e5533d; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
 </head>
 <body>
   <div id="menu-container"></div>
-  <script>
-    fetch("menu.html")
-      .then(res => res.text())
-      .then(data => {
-        document.getElementById("menu-container").innerHTML = data;
-        let script = document.createElement("script");
-        script.src = "public/auth.js";
-        document.body.appendChild(script);
-      });
-  </script>
+ <script>
+  fetch("menu.html")
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById("menu-container").innerHTML = data;
 
-  <div class="profile-container">
-    <div class="avatar">
-      <img id="avatar" src="https://via.placeholder.com/120" alt="Аватар">
-      <input type="file" id="avatarInput" style="display:none">
-    </div>
-
-    <div class="profile-field">
-      <div class="field-label">ФИО:</div>
-      <div class="field-value" id="fullName">Не указано</div>
-      <button class="edit-btn" onclick="editField('fullName')">✏️</button>
-    </div>
-
-    <div class="profile-field">
-      <div class="field-label">Email:</div>
-      <div class="field-value" id="email">Не указано</div>
-      <button class="edit-btn" onclick="editField('email')">✏️</button>
-    </div>
-
-    <div class="profile-field">
-      <div class="field-label">Телефон:</div>
-      <div class="field-value" id="phone">Не указано</div>
-      <button class="edit-btn" onclick="editField('phone')">✏️</button>
-    </div>
-
-    <div class="profile-field">
-      <div class="field-label">О себе:</div>
-      <div class="field-value" id="about">Не указано</div>
-      <button class="edit-btn" onclick="editField('about')">✏️</button>
-    </div>
-
-    <div class="action-buttons">
-      <button class="home-btn" onclick="goHome()">🏠 Главная</button>
-      <button class="logout-btn" onclick="logout()">🚪 Выйти</button>
-    </div>
-  </div>
-
-  <script>
-    const userData = JSON.parse(localStorage.getItem('userData')) || {};
-
-    function loadProfile() {
-      document.getElementById('fullName').textContent = userData.fullName || "Не указано";
-      document.getElementById('email').textContent = userData.email || "Не указано";
-      document.getElementById('phone').textContent = userData.phone || "Не указано";
-      document.getElementById('about').textContent = userData.about || "Не указано";
-      if (userData.avatar) {
-        document.getElementById('avatar').src = userData.avatar;
-      }
-    }
-
-    function editField(fieldId) {
-      const field = document.getElementById(fieldId);
-      const currentValue = field.textContent === "Не указано" ? "" : field.textContent;
-      const input = document.createElement("input");
-      input.type = "text";
-      input.value = currentValue;
-      input.onblur = () => {
-        const newValue = input.value.trim() || "Не указано";
-        field.textContent = newValue;
-        userData[fieldId] = newValue !== "Не указано" ? newValue : "";
-        localStorage.setItem('userData', JSON.stringify(userData));
-      };
-      field.textContent = "";
-      field.appendChild(input);
-      input.focus();
-    }
-
-    document.getElementById('avatar').addEventListener('click', () => {
-      document.getElementById('avatarInput').click();
+      // Подключаем auth.js после загрузки меню
+      let script = document.createElement("script");
+      script.src = "public/auth.js";
+      document.body.appendChild(script);
     });
+</script>
+<div class="form-container">
+  <h1>Личный кабинет</h1>
+  <form onsubmit="saveProfile(event)">
+    <input type="text" id="fullName" placeholder="ФИО" required />
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="tel" id="phone" placeholder="Телефон" />
+    <button type="submit">Сохранить</button>
+  </form>
 
-    document.getElementById('avatarInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          document.getElementById('avatar').src = reader.result;
-          userData.avatar = reader.result;
-          localStorage.setItem('userData', JSON.stringify(userData));
-        };
-        reader.readAsDataURL(file);
-      }
-    });
+  <button onclick="goHome()">Перейти на главную</button>
+  <button onclick="logout()">Выйти</button>
+</div>
 
-    function goHome() {
-      window.location.href = "/";
-    }
+<script src="public/auth.js"></script>
+<script src="auth.js"></script>
+<script>
+  function saveProfile(event) {
+    event.preventDefault();
+    const fullName = document.getElementById('fullName').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
 
-    function logout() {
-      localStorage.removeItem('userData');
-      window.location.href = "/login.html";
-    }
+    let userData = JSON.parse(localStorage.getItem('userData')) || {};
+    userData.profileCompleted = true;
+    userData.fullName = fullName;
+    userData.email = email;
+    userData.phone = phone;
+    localStorage.setItem('userData', JSON.stringify(userData));
 
-    loadProfile();
-  </script>
+    alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+  }
+</script>
 </body>
 </html>
