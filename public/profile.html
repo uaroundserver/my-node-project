@@ -5,52 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Личный кабинет</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
+  <!-- сюда подгружается меню (шапка, сайдбар, нижняя панель) -->
   <div id="menu-container"></div>
- <script>
-  fetch("menu.html")
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById("menu-container").innerHTML = data;
 
-      // Подключаем auth.js после загрузки меню
-      let script = document.createElement("script");
-      script.src = "public/auth.js";
-      document.body.appendChild(script);
-    });
-</script>
-<div class="form-container">
-  <h1>Личный кабинет</h1>
-  <form onsubmit="saveProfile(event)">
-    <input type="text" id="fullName" placeholder="ФИО" required />
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="tel" id="phone" placeholder="Телефон" />
-    <button type="submit">Сохранить</button>
-  </form>
+  <!-- основной контент -->
+  <main id="main-content">
+    <div class="form-container">
+      <h1>Личный кабинет</h1>
+      <form onsubmit="saveProfile(event)">
+        <input type="text" id="fullName" placeholder="ФИО" required />
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="tel" id="phone" placeholder="Телефон" />
+        <button type="submit">Сохранить</button>
+      </form>
 
-  <button onclick="goHome()">Перейти на главную</button>
-  <button onclick="logout()">Выйти</button>
-</div>
+      <button onclick="goHome()">Перейти на главную</button>
+      <button onclick="logout()">Выйти</button>
+    </div>
+  </main>
 
-<script src="public/auth.js"></script>
-<script src="auth.js"></script>
-<script>
-  function saveProfile(event) {
-    event.preventDefault();
-    const fullName = document.getElementById('fullName').value;
-    const email = document.getElementById('email').value;
-    const phone = document.getElementById('phone').value;
+  <!-- подгружаем меню, затем menu.js и auth.js -->
+  <script>
+    fetch("menu.html")
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById("menu-container").innerHTML = html;
 
-    let userData = JSON.parse(localStorage.getItem('userData')) || {};
-    userData.profileCompleted = true;
-    userData.fullName = fullName;
-    userData.email = email;
-    userData.phone = phone;
-    localStorage.setItem('userData', JSON.stringify(userData));
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";               // здесь лежит toggleSidebar(), обработчики и т.п.
+        document.body.appendChild(menuJs);
 
-    alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
-  }
-</script>
+        const authJs = document.createElement("script");
+        authJs.src = "auth.js";               // здесь goHome(), logout() и проверка авторизации
+        document.body.appendChild(authJs);
+      });
+
+    function saveProfile(event) {
+      event.preventDefault();
+      const fullName = document.getElementById('fullName').value;
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+
+      let userData = JSON.parse(localStorage.getItem('userData')) || {};
+      userData.profileCompleted = true;
+      userData.fullName = fullName;
+      userData.email = email;
+      userData.phone = phone;
+      localStorage.setItem('userData', JSON.stringify(userData));
+
+      alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+    }
+  </script>
 </body>
 </html>
