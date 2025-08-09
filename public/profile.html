@@ -8,92 +8,49 @@
 </head>
 <body>
   <div id="menu-container"></div>
-  <script>
-    fetch("menu.html")
-      .then(response => response.text())
-      .then(data => {
-        document.getElementById("menu-container").innerHTML = data;
+ <script>
+  fetch("menu.html")
+    .then(response => response.text())
+    .then(data => {
+      document.getElementById("menu-container").innerHTML = data;
 
-        let script = document.createElement("script");
-        script.src = "public/auth.js";
-        document.body.appendChild(script);
-      });
-  </script>
+      // Подключаем auth.js после загрузки меню
+      let script = document.createElement("script");
+      script.src = "public/auth.js";
+      document.body.appendChild(script);
+    });
+</script>
+<div class="form-container">
+  <h1>Личный кабинет</h1>
+  <form onsubmit="saveProfile(event)">
+    <input type="text" id="fullName" placeholder="ФИО" required />
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="tel" id="phone" placeholder="Телефон" />
+    <button type="submit">Сохранить</button>
+  </form>
 
-  <div class="form-container">
-    <h1>Личный кабинет</h1>
-    <form onsubmit="saveProfile(event)">
-      <input type="text" id="fullName" placeholder="ФИО" />
-      <input type="email" id="email" placeholder="Email" />
-      <input type="tel" id="phone" placeholder="Телефон" />
-      <input type="text" id="country" placeholder="Страна проживания" disabled />
-      <button type="submit">Сохранить</button>
-    </form>
+  <button onclick="goHome()">Перейти на главную</button>
+  <button onclick="logout()">Выйти</button>
+</div>
 
-    <button onclick="goHome()">Перейти на главную</button>
-    <button onclick="logout()">Выйти</button>
-  </div>
+<script src="public/auth.js"></script>
+<script src="auth.js"></script>
+<script>
+  function saveProfile(event) {
+    event.preventDefault();
+    const fullName = document.getElementById('fullName').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
 
-  <script>
-    async function loadProfile() {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          alert("Вы не авторизованы");
-          window.location.href = "login.html";
-          return;
-        }
+    let userData = JSON.parse(localStorage.getItem('userData')) || {};
+    userData.profileCompleted = true;
+    userData.fullName = fullName;
+    userData.email = email;
+    userData.phone = phone;
+    localStorage.setItem('userData', JSON.stringify(userData));
 
-        const res = await fetch("https://uaround.onrender.com/api/user", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error("Ошибка загрузки профиля");
-
-        const user = await res.json();
-
-        document.getElementById('fullName').value = user.fullName || "Не указано";
-        document.getElementById('email').value = user.email || "Не указано";
-        document.getElementById('phone').value = user.phone || "Не указано";
-        document.getElementById('country').value = user.country || "Не указано";
-
-      } catch (err) {
-        console.error(err);
-        alert("Не удалось загрузить профиль");
-      }
-    }
-
-    async function saveProfile(event) {
-      event.preventDefault();
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Вы не авторизованы");
-        return;
-      }
-
-      const fullName = document.getElementById('fullName').value;
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-
-      const res = await fetch("https://uaround.onrender.com/api/user", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ fullName, email, phone })
-      });
-
-      if (res.ok) {
-        alert("Профиль обновлен");
-        loadProfile();
-      } else {
-        alert("Ошибка сохранения");
-      }
-    }
-
-    loadProfile();
-  </script>
+    alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+  }
+</script>
 </body>
 </html>
