@@ -28,12 +28,22 @@
   <script>
     const API_BASE = 'https://uaround.onrender.com';
 
-    function logout() {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
-      window.location.href = 'login.html';
-    }
+    // Загружаем меню и auth.js
+    fetch("menu.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("menu-container").innerHTML = html;
 
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";
+        document.body.appendChild(menuJs);
+
+        const authJs = document.createElement("script");
+        authJs.src = "auth.js";
+        document.body.appendChild(authJs);
+      });
+
+    // Подставляем локальные данные (если есть)
     function fillFromLocalStorage() {
       try {
         const raw = localStorage.getItem('userData');
@@ -42,40 +52,43 @@
         if (ud.fullName) document.getElementById('fullName').value = ud.fullName;
         if (ud.email)    document.getElementById('email').value    = ud.email;
         if (ud.phone)    document.getElementById('phone').value    = ud.phone;
+        if (ud.country)  document.getElementById('country').value  = ud.country;
       } catch (_) {}
     }
 
-    async function checkAuthAndLoad() {
+    // Загружаем профиль с сервера
+    async function loadSettings() {
       const token = localStorage.getItem('userToken');
-      if (!token) return logout();
+      if (!token) return location.href = 'login.html';
 
       try {
         const response = await fetch(`${API_BASE}/api/user/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (response.status === 401) return logout();
-        if (!response.ok) throw new Error('Ошибка загрузки профиля');
+        if (response.status === 401) return location.href = 'login.html';
+        if (!response.ok) throw new Error('Не удалось загрузить профиль');
 
         const data = await response.json();
+
         document.getElementById('fullName').value = data.fullName || '';
         document.getElementById('email').value    = data.email    || '';
         document.getElementById('phone').value    = data.phone    || '';
         document.getElementById('country').value  = data.country  || 'Не указано';
 
-        // обновляем localStorage.userData
+        // Сохраняем в localStorage для оффлайна
         localStorage.setItem('userData', JSON.stringify(data));
       } catch (err) {
         console.warn('API недоступно, подставляю из localStorage:', err);
         fillFromLocalStorage();
-        document.getElementById('country').value = 'Не указано';
       }
     }
 
+    // Сохранение настроек
     async function saveSettings(e) {
       e.preventDefault();
       const token = localStorage.getItem('userToken');
-      if (!token) return logout();
+      if (!token) return location.href = 'login.html';
 
       try {
         const body = {
@@ -93,12 +106,15 @@
           body: JSON.stringify(body)
         });
 
-        if (response.status === 401) return logout();
+        if (response.status === 401) return location.href = 'login.html';
         if (!response.ok) throw new Error('Не удалось сохранить профиль');
 
-        // обновляем localStorage
-        const updatedUser = { ...JSON.parse(localStorage.getItem('userData') || '{}'), ...body };
-        localStorage.setItem('userData', JSON.stringify(updatedUser));
+        // Обновляем данные в localStorage
+        const updated = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          ...body
+        };
+        localStorage.setItem('userData', JSON.stringify(updated));
 
         alert('Настройки успешно сохранены!');
       } catch (err) {
@@ -107,20 +123,8 @@
       }
     }
 
-    // подгрузка меню
-    fetch("menu.html")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("menu-container").innerHTML = html;
-        const menuJs = document.createElement("script");
-        menuJs.src = "menu.js";
-        document.body.appendChild(menuJs);
-      });
-
     document.getElementById('settingsForm').addEventListener('submit', saveSettings);
-
-    // проверка авторизации и загрузка данных
-    document.addEventListener('DOMContentLoaded', checkAuthAndLoad);
+    loadSettings();
   </script>
 </body>
 </html>
