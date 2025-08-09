@@ -12,15 +12,15 @@ body {
   font-family: 'Inter', Arial, sans-serif;
   background: linear-gradient(135deg, #f0f3f7, #d9e2ec);
   margin: 0;
-  padding: 0;                 /* важно: отступы делает menu.css для шапки/таба */
+  padding: 0; /* отступы под шапку/табы задаёт menu.css */
   color: #222;
   text-align: center;
   min-height: 100vh;
 }
 
-/* контейнер контента: даёт внутренние поля и центрирует форму */
+/* контейнер контента: центрируем и делаем компактные поля */
 #main-content {
-  padding: 20px;
+  padding: 0 12px;              /* единый компактный отступ */
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -69,8 +69,9 @@ select:focus {
   background-color: #fff;
 }
 
-/* кнопки */
-button {
+/* КНОПКИ — больше не глобально! Только внутри формы или по классу .btn */
+.form-container button,
+.btn {
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   border: none;
   border-radius: 12px;
@@ -86,7 +87,8 @@ button {
   max-width: 100%;
 }
 
-button:hover {
+.form-container button:hover,
+.btn:hover {
   background: linear-gradient(135deg, #2563eb, #1e40af);
   transform: translateY(-2px);
   box-shadow: 0 12px 20px rgba(30,64,175,0.5);
@@ -103,11 +105,6 @@ a:hover { text-decoration: underline; }
 
 /* адаптив */
 @media (max-width: 480px) {
-  #main-content { padding: 16px; }
+  #main-content { padding: 0 12px; }
   .form-container { padding: 24px 18px; border-radius: 12px; }
-}
-
-/* компактные отступы контента на всех страницах */
-#main-content{
-  padding: 0 12px;   /* было 20px; сделано меньше по твоей просьбе */
 }
