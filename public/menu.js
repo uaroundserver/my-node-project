@@ -1,42 +1,50 @@
-// элементы
+// Получение элементов
 const sidebar  = () => document.getElementById('sidebar');
 const backdrop = () => document.getElementById('menu-backdrop');
 const menuBtn  = () => document.getElementById('menuButton');
 
-// API
+// Открыть меню
 function openSidebar() {
   sidebar().classList.add('active');
   if (backdrop()) backdrop().hidden = false;
   document.documentElement.classList.add('no-scroll');
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'true');
 }
+
+// Закрыть меню
 function closeSidebar() {
   sidebar().classList.remove('active');
   if (backdrop()) backdrop().hidden = true;
   document.documentElement.classList.remove('no-scroll');
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'false');
 }
+
+// Переключить меню
 function toggleSidebar() {
   sidebar().classList.contains('active') ? closeSidebar() : openSidebar();
 }
-window.toggleSidebar = toggleSidebar; // чтобы вызвать из onclick в HTML
 
-// ESC закрывает
+// Делаем функцию доступной из HTML
+window.toggleSidebar = toggleSidebar;
+
+// Закрытие по Esc
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSidebar();
 });
 
-// Клик по бэкдропу закрывает
-if (backdrop()) backdrop().addEventListener('click', closeSidebar);
+// Закрытие по бэкдропу
+if (backdrop()) {
+  backdrop().addEventListener('click', closeSidebar);
+}
 
-// Клик по ссылке внутри сайдбара — закрыть
+// Закрытие по клику на ссылку в сайдбаре
 document.addEventListener('click', (e) => {
   if (e.target.closest('#sidebar a')) {
     closeSidebar();
   }
 });
 
-// Клик-вне: если меню открыто и клик НЕ внутри сайдбара и НЕ по кнопке — закрыть
+// Закрытие по клику вне сайдбара и кнопки
 document.addEventListener('click', (e) => {
   if (!sidebar().classList.contains('active')) return;
   if (e.target.closest('#sidebar')) return;
@@ -44,7 +52,14 @@ document.addEventListener('click', (e) => {
   closeSidebar();
 });
 
-// авто-подсветка активных ссылок (низ + сайдбар)
+// Закрытие при скролле
+window.addEventListener('scroll', () => {
+  if (sidebar().classList.contains('active')) {
+    closeSidebar();
+  }
+});
+
+// Подсветка активных ссылок
 (function setActiveLinks() {
   const path = location.pathname.split('/').pop() || 'home.html';
   const links = document.querySelectorAll('#bottom-nav a, #sidebar a');
