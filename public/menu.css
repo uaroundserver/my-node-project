@@ -12,7 +12,7 @@
 
 html,body{margin:0;padding:0;}
 /* отступы под фиксированные панели + safe area */
-body{
+body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top));
   padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom));
 }
