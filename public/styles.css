@@ -1,23 +1,32 @@
-
-
-
-
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
 
+/* базовые фиксы */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { overflow-x: hidden; } /* убираем горизонтальную полосу */
+
+/* фон и типографика страницы */
 body {
   font-family: 'Inter', Arial, sans-serif;
   background: linear-gradient(135deg, #f0f3f7, #d9e2ec);
   margin: 0;
-  padding: 40px 20px;
+  padding: 0;                 /* важно: отступы делает menu.css для шапки/таба */
   color: #222;
   text-align: center;
   min-height: 100vh;
+}
+
+/* контейнер контента: даёт внутренние поля и центрирует форму */
+#main-content {
+  padding: 20px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
 }
 
+/* карточка формы */
 .form-container {
   background: #fff;
   max-width: 420px;
@@ -26,6 +35,7 @@ body {
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0,0,0,0.12);
   transition: box-shadow 0.3s ease;
+  overflow-x: hidden; /* чтобы тени/скругления не давали лишнюю ширину */
 }
 
 .form-container:hover {
@@ -34,10 +44,11 @@ body {
 
 h1 {
   font-weight: 600;
-  margin-bottom: 20px;
+  margin: 0 0 20px;
   color: #0d253f;
 }
 
+/* поля формы */
 input,
 select {
   width: 100%;
@@ -48,7 +59,6 @@ select {
   border: 1.5px solid #cbd2d9;
   background-color: #f9fbfc;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
-  box-sizing: border-box;
 }
 
 input:focus,
@@ -59,6 +69,7 @@ select:focus {
   background-color: #fff;
 }
 
+/* кнопки */
 button {
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   border: none;
@@ -72,6 +83,7 @@ button {
   box-shadow: 0 8px 15px rgba(59,130,246,0.3);
   user-select: none;
   margin-top: 20px;
+  max-width: 100%;
 }
 
 button:hover {
@@ -80,88 +92,17 @@ button:hover {
   box-shadow: 0 12px 20px rgba(30,64,175,0.5);
 }
 
+/* ссылки */
 a {
   color: #3b82f6;
   text-decoration: none;
   font-weight: 600;
 }
 
-a:hover {
-  text-decoration: underline;
-}
+a:hover { text-decoration: underline; }
 
-/* Меню */
-
-#menuButton {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  font-size: 24px;
-  cursor: pointer;
-  background: white;
-  padding: 8px 16px;
-  border-radius: 14px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-  z-index: 3000;
-  user-select: none;
-  transition: background-color 0.3s ease;
-}
-
-#menuButton:hover {
-  background-color: #f0f4ff;
-}
-
-#sidebar {
-  position: fixed;
-  top: 0;
-  left: -240px;
-  width: 240px;
-  height: 100vh;
-  background-color: #ffffff;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
-  padding-top: 80px;
-  display: flex;
-  flex-direction: column;
-  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 2500;
-  border-top-right-radius: 16px;
-  border-bottom-right-radius: 16px;
-}
-
-#sidebar.active {
-  left: 0;
-}
-
-#sidebar a {
-  padding: 18px 28px;
-  border-bottom: 1px solid #e1e8f0;
-  color: #1e293b;
-  font-weight: 600;
-  font-size: 17px;
-  text-decoration: none;
-  transition: background-color 0.25s ease;
-  user-select: none;
-  text-align: left;
-}
-
-#sidebar a:hover {
-  background-color: #e0e7ff;
-  color: #3b82f6;
-}
-
+/* адаптив */
 @media (max-width: 480px) {
-  body {
-    padding: 20px 10px;
-  }
-
-  .form-container {
-    padding: 25px 20px;
-    max-width: 100%;
-    border-radius: 12px;
-  }
-
-  #sidebar {
-    width: 200px;
-  }
+  #main-content { padding: 16px; }
+  .form-container { padding: 24px 18px; border-radius: 12px; }
 }
-
