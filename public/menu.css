@@ -36,26 +36,20 @@ body {
 }
 
 /* бургер — стеклянная кнопка */
-#menuButton {
-  position: absolute; /* чтобы можно было точно позиционировать */
-  top: 50%;           /* ставим по центру */
-  left: 20px;         /* как было по дизайну */
-  transform: translateY(-50%); /* выравниваем по вертикали */
-  
-  width: 38px;
-  height: 38px;
-  border: none;
-  cursor: pointer;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+#menuButton{
+  position: static;           /* убрали absolute */
+  transform: none;            /* убрали translateY */
+  margin-right: auto;         /* слева, а логотип по центру */
+  width:38px; height:38px;
+  border:none; cursor:pointer; border-radius:12px;
+  display:inline-flex; align-items:center; justify-content:center;
   background: rgba(255,255,255,.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  outline: none;
+  outline:none;
   transition: background .2s ease, transform .1s ease;
 }
+  
 
 
 /* логотип по центру шапки */
