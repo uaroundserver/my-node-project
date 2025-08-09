@@ -10,7 +10,7 @@
   --header-shadow: 0 2px 12px rgba(0,0,0,.18);
 
   /* чуть опускаем бургер от верхней кромки панели */
-  --burger-offset: 3px; /* подгоняй 2–4px по вкусу */
+  --burger-offset: 6px; /* подгоняй 2–4px по вкусу */
 }
 
 html,body{
