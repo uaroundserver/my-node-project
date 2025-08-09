@@ -1,25 +1,27 @@
 :root{
   --header-h: 56px;
   --bottom-h: 64px;
+  --radius: 16px;
 
   /* цвета панелей */
-  --header-bg: linear-gradient(135deg,#0f172a,#1e293b); /* тёмная */
-  --bottom-bg: #ffffff;                                  /* светлая */
+  --header-bg: linear-gradient(135deg,#0f172a,#1e293b);
+  --bottom-bg: #ffffff;
   --bottom-shadow: 0 -2px 12px rgba(0,0,0,.10);
   --header-shadow: 0 2px 12px rgba(0,0,0,.18);
-  --radius: 16px;
 }
 
 html,body{
   margin:0;
   padding:0;
-  overflow-x: hidden; /* убираем горизонтальный скролл и полосу справа */
+  overflow-x: hidden;
 }
+html.no-scroll, html.no-scroll body { overflow: hidden; }
 
 /* отступы под фиксированные панели + safe area */
 body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top));
   padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom));
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 /* ===== ШАПКА ===== */
@@ -27,19 +29,19 @@ body {
 #app-header .bar-inner{
   position: relative;
   height: var(--header-h);
-  display:flex; align-items:center;
-  padding: calc(4px + env(safe-area-inset-top)) 14px 0; /* поднимаем контент вверх */
+  display:flex; align-items:center; justify-content:center;
+  padding: calc(4px + env(safe-area-inset-top)) 14px 0;
   background: var(--header-bg);
   color: #fff;
   box-shadow: var(--header-shadow);
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
-/* бургер — стеклянная кнопка */
+/* бургер — стеклянная кнопка слева */
 #menuButton{
-  position: static;           /* убрали absolute */
-  transform: none;  
-  margin-right: auto;         /* слева, а логотип по центру */
+  position: absolute;
+  left: 14px;
+  top: calc(8px + env(safe-area-inset-top));
   width:38px; height:38px;
   border:none; cursor:pointer; border-radius:12px;
   display:inline-flex; align-items:center; justify-content:center;
@@ -49,17 +51,22 @@ body {
   outline:none;
   transition: background .2s ease, transform .1s ease;
 }
-  
+#menuButton:hover{ background: rgba(255,255,255,.2); transform: scale(1.05); }
 
-
-/* логотип по центру шапки */
+/* логотип по центру */
 #app-header .logo{
-  position:absolute; left:50%; transform: translateX(-50%);
   font-weight:800; font-size:18px; letter-spacing:.5px; color:#fff;
   user-select:none;
 }
 
-/* ===== САЙДБАР ===== */
+/* ===== ОВЕРЛЕЙ ===== */
+#backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.28);
+  z-index: 3499;
+}
+
+/* ===== САЙДБАР (transform-стратегия) ===== */
 #sidebar{
   position: fixed;
   top: 0; left: 0;
@@ -71,14 +78,13 @@ body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top));
   padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
   display:flex; flex-direction:column;
-  transform: translateX(-100%); /* прячем без «просвета» */
+  transform: translateX(-100%);
   transition: transform .35s cubic-bezier(.4,0,.2,1);
   z-index:3500;
-  box-shadow: none; /* тень только у открытого */
+  box-shadow: 4px 0 24px rgba(0,0,0,.12);
 }
 #sidebar.active{
   transform: translateX(0);
-  box-shadow: 4px 0 24px rgba(0,0,0,.12);
 }
 #sidebar a{
   padding:16px 22px;
@@ -86,8 +92,11 @@ body {
   color:#1e293b;
   font-weight:600;
   border-bottom:1px solid #e6ebf2;
+  display:flex; gap:10px; align-items:center;
+  transition: background .2s ease, color .2s ease;
 }
-#sidebar a:hover{ background:#e0e7ff; color:#3b82f6; }
+#sidebar a:hover,
+#sidebar a.active{ background:#e0e7ff; color:#3b82f6; }
 
 /* ===== НИЖНЯЯ ПАНЕЛЬ ===== */
 #bottom-nav{ position:fixed; left:0; right:0; bottom:0; z-index:4000; }
@@ -102,109 +111,34 @@ body {
 #bottom-nav a{
   font-size:22px; color:#1e293b; text-decoration:none;
   padding:10px 12px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
   transition: background .2s ease,color .2s ease, transform .1s ease;
 }
-#bottom-nav a:hover{ background:#eef2ff; color:#3b82f6; }
+#bottom-nav a:hover,
 #bottom-nav a.active{ background:#e0e7ff; color:#3b82f6; }
 
 /* Контент-обёртка */
-#main-content{ max-width:420px; margin:0 auto; padding:0; }/* мобилки */
+#main-content{ max-width:420px; margin:0 auto; padding:16px; }
+
+/* Иконки */
+.nav-icon { width: 26px; height: 26px; overflow: visible; stroke: currentColor; }
+
+/* Фокус для клавиатуры */
+#menuButton:focus-visible,
+#bottom-nav a:focus-visible,
+#sidebar a:focus-visible{
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* Предпочтение уменьшенной анимации */
+@media (prefers-reduced-motion: reduce){
+  * { transition: none !important; }
+}
+
+/* Мобилки поуже */
 @media (max-width:480px){
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
 }
-
-/* Иконки */
-.nav-icon { width: 26px; height: 26px; overflow: visible; } /* Safari fix */
-#bottom-nav a, #sidebar a { display:flex; gap:10px; align-items:center; }
-
-/* Цвета и активка */
-#bottom-nav a, #sidebar a { /* Хедер */
-header {
-  position: relative; /* для позиционирования кнопки бургера */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(90deg, #0d1b2a, #1b263b);
-  padding: 14px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  color: #fff;
-  font-size: 20px;
-  font-weight: bold;
-}
-
-/* Кнопка бургера */
-#menuButton {
-  position: absolute;
-  top: 50%;
-  left: 16px;
-  transform: translateY(-50%);
-  width: 42px;
-  height: 42px;
-  border: none;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  cursor: pointer;
-  outline: none;
-  transition: background 0.2s ease, transform 0.1s ease;
-}
-
-/* Эффект при наведении */
-#menuButton:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-50%) scale(1.05);
-}
-
-/* Сайдбар */
-#sidebar {
-  position: fixed;
-  top: 0;
-  left: -240px;
-  width: 240px;
-  height: 100vh;
-  background-color: #ffffff;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
-  padding-top: 80px;
-  display: flex;
-  flex-direction: column;
-  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 2500;
-  border-top-right-radius: 16px;
-  border-bottom-right-radius: 16px;
-}
-
-#sidebar.active {
-  left: 0;
-}
-
-#sidebar a {
-  padding: 18px 28px;
-  border-bottom: 1px solid #e1e8f0;
-  color: #1e293b;
-  font-weight: 600;
-  font-size: 17px;
-  text-decoration: none;
-  transition: background-color 0.25s ease;
-  user-select: none;
-  text-align: left;
-}
-
-#sidebar a:hover {
-  background-color: #e0e7ff;
-  color: #3b82f6;
-}
-
-/* Иконки */
-.nav-icon {
-  overflow: visible; /* чтобы Safari не клиппил обводку */
-}:#1e293b; }
-#bottom-nav a.active, #bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
-#sidebar a.active, #sidebar a:hover { background:#e0e7ff; color:#3b82f6; }
-
-/* Чтобы SVG реагировал на цвет ссылки */
-#bottom-nav a .nav-icon, #sidebar a .nav-icon { stroke: currentColor; }
