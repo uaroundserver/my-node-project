@@ -128,13 +128,14 @@ body {
 
 /* === ИКОНКИ === */
 .nav-icon{
-  width:26px;
-  height:26px;
-  display:block;      /* убираем артефакты базовой линии */
-  overflow:visible;   /* stroke не обрезается по краям */
+  width:24px;
+  height:24px;
+  display:block;        /* без baseline глюков */
+  padding:3px;          /* добавляем «воздух» вокруг stroke */
+  box-sizing:content-box;
+  overflow:visible;
   stroke: currentColor;
 }
-
 #menuButton:focus-visible,
 #bottom-nav a:focus-visible,
 #sidebar a:focus-visible{
