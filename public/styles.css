@@ -164,3 +164,7 @@ a:hover {
   }
 }
 
+#sidebar.active a {
+  padding-left: 12px; /* или 0 для прижатия вплотную */
+  text-align: left; /* на всякий случай, чтобы текст тоже слева */
+}
