@@ -7,50 +7,40 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="menu.css" />
   <style>
-    /* карточка профиля */
     .profile-card{
-      background:#fff;
-      max-width:540px;
-      width:100%;
-      margin:0 auto;
-      padding:28px 26px 24px;
-      border-radius:14px;
-      box-shadow:0 12px 28px rgba(0,0,0,.12);
-      text-align:left;
+      background:#fff; max-width:540px; width:100%;
+      margin:0 auto; padding:24px 18px 22px;
+      border-radius:14px; box-shadow:0 12px 28px rgba(0,0,0,.12);
+      text-align:left; overflow:hidden;
     }
-    .profile-header{ display:flex; gap:18px; align-items:center; }
+    .profile-header{
+      display:flex; flex-direction:column; align-items:center; text-align:center;
+    }
     .avatar-wrap{
-      position:relative;
-      width:96px; height:96px; border-radius:50%;
-      overflow:hidden; flex:0 0 96px;
-      box-shadow:0 6px 16px rgba(0,0,0,.12);
-      background:#f3f4f6;
+      width:120px; height:120px; border-radius:50%;
+      overflow:hidden; background:#f3f4f6; box-shadow:0 6px 16px rgba(0,0,0,.12);
     }
     .avatar-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
-    .avatar-actions{ margin-left:auto; display:flex; gap:10px; }
+    .profile-hint{ font-size:13px; color:#64748b; margin:10px 0 8px; }
+    .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
     .btn-link{
       border:none; background:transparent; color:#3b82f6; font-weight:700; cursor:pointer;
       padding:8px 10px; border-radius:10px;
     }
     .btn-primary{
-      background:linear-gradient(135deg,#3b82f6,#2563eb);
-      color:#fff; border:none; font-weight:700; padding:10px 14px; border-radius:10px; cursor:pointer;
+      background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none;
+      font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer;
       box-shadow:0 8px 15px rgba(59,130,246,.30);
     }
     .btn-primary[disabled]{ opacity:.5; cursor:not-allowed; box-shadow:none; }
-    .muted{ color:#64748b; font-size:14px; }
+
     .profile-grid{
-      margin-top:18px; border-top:1px solid #e6ebf2; padding-top:16px;
+      margin-top:18px; border-top:1px solid #e6ebf2; padding-top:14px;
       display:grid; grid-template-columns:140px 1fr; row-gap:10px; column-gap:14px;
     }
     .label{ color:#64748b; }
     .value{ color:#0f172a; font-weight:600; }
-    @media (max-width:520px){
-      .profile-header{ align-items:flex-start; }
-      .avatar-actions{ margin-left:0; }
-      .profile-grid{ grid-template-columns:1fr; }
-      .label{ margin-top:8px; }
-    }
+    @media (max-width:520px){ .profile-grid{ grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -64,33 +54,23 @@
           <img id="avatar" alt="Аватар" />
         </div>
 
-        <div>
-          <h2 id="titleName" style="margin:0 0 6px 0;">Профиль</h2>
-          <div class="muted">На этой странице можно поменять только аватар</div>
-        </div>
+        <div class="profile-hint">Загрузите JPG или PNG, до 5 МБ</div>
 
-        <div class="avatar-actions">
+        <div class="actions">
           <input id="fileInput" type="file" accept="image/*" hidden />
           <button class="btn-link" id="btnChoose">Изменить аватар</button>
           <button class="btn-primary" id="btnSave" disabled>Сохранить</button>
         </div>
       </div>
 
-      <div class="profile-grid" style="margin-top:16px">
-        <div class="label">ФИО</div>
-        <div class="value" id="fullName">—</div>
-
-        <div class="label">Email</div>
-        <div class="value" id="email">—</div>
-
-        <div class="label">Телефон</div>
-        <div class="value" id="phone">—</div>
-
-        <div class="label">Страна</div>
-        <div class="value" id="country">—</div>
+      <div class="profile-grid">
+        <div class="label">ФИО</div><div class="value" id="fullName">—</div>
+        <div class="label">Email</div><div class="value" id="email">—</div>
+        <div class="label">Телефон</div><div class="value" id="phone">—</div>
+        <div class="label">Страна</div><div class="value" id="country">—</div>
       </div>
 
-      <div style="margin-top:18px">
+      <div style="margin-top:14px">
         <a class="btn-link" href="settings.html">Перейти в настройки →</a>
       </div>
     </div>
@@ -100,34 +80,26 @@
     const API_BASE = 'https://uaround.onrender.com';
     const DEFAULT_AVATAR =
       'data:image/svg+xml;utf8,' + encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
-          <rect width="100%" height="100%" rx="64" fill="#eef2ff"/>
-          <circle cx="64" cy="50" r="22" fill="#c7d2fe"/>
-          <rect x="24" y="78" width="80" height="34" rx="17" fill="#c7d2fe"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160">
+          <rect width="100%" height="100%" rx="80" fill="#eef2ff"/>
+          <circle cx="80" cy="65" r="28" fill="#c7d2fe"/>
+          <rect x="32" y="100" width="96" height="44" rx="22" fill="#c7d2fe"/>
         </svg>
       `);
 
-    // Подгружаем меню
+    // Меню
     fetch("menu.html")
       .then(r => r.text())
       .then(html => {
         document.getElementById("menu-container").innerHTML = html;
-        const menuJs = document.createElement("script");
-        menuJs.src = "menu.js";
-        document.body.appendChild(menuJs);
-        const authJs = document.createElement("script");
-        authJs.src = "auth.js";
-        document.body.appendChild(authJs);
+        const menuJs = document.createElement("script"); menuJs.src = "menu.js"; document.body.appendChild(menuJs);
+        const authJs = document.createElement("script"); authJs.src = "auth.js"; document.body.appendChild(authJs);
       });
 
-    const state = {
-      token: null,
-      avatarChangedDataUrl: null
-    };
+    const state = { token: null, avatarChangedDataUrl: null };
 
     function setUserInfoUI(u){
       document.getElementById('avatar').src = u.avatar || DEFAULT_AVATAR;
-      document.getElementById('titleName').textContent = u.fullName ? `Профиль — ${u.fullName}` : 'Профиль';
       document.getElementById('fullName').textContent = u.fullName || 'Не указано';
       document.getElementById('email').textContent    = u.email    || 'Не указано';
       document.getElementById('phone').textContent    = u.phone    || 'Не указано';
@@ -141,20 +113,19 @@
 
       try{
         const res = await fetch(`${API_BASE}/api/user/profile`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers:{ Authorization:`Bearer ${token}` }
         });
         if (res.status === 401) return location.href='login.html';
         const user = await res.json();
         setUserInfoUI(user);
         localStorage.setItem('userData', JSON.stringify(user));
-      }catch(e){
-        console.warn('API недоступно, беру localStorage', e);
+      }catch{
         const ud = JSON.parse(localStorage.getItem('userData') || '{}');
         setUserInfoUI(ud);
       }
     }
 
-    // Выбор файла
+    // === загрузка аватара ===
     const fileInput = document.getElementById('fileInput');
     const btnChoose = document.getElementById('btnChoose');
     const btnSave   = document.getElementById('btnSave');
@@ -166,19 +137,11 @@
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
 
-      // простая валидация
-      if (!file.type.startsWith('image/')){
-        alert('Пожалуйста, выберите изображение');
-        fileInput.value = '';
-        return;
-      }
-      if (file.size > 1024 * 1024 * 2){ // 2 МБ
-        alert('Слишком большой файл. Максимум 2 МБ.');
-        fileInput.value = '';
-        return;
-      }
+      // формат + размер (5 МБ)
+      const okType = /image\/(jpeg|jpg|png)/i.test(file.type);
+      if (!okType){ alert('Допустимы JPG или PNG'); fileInput.value=''; return; }
+      if (file.size > 5 * 1024 * 1024){ alert('Файл больше 5 МБ'); fileInput.value=''; return; }
 
-      // превью + подготовка base64
       const reader = new FileReader();
       reader.onload = () => {
         imgEl.src = reader.result;
@@ -188,31 +151,21 @@
       reader.readAsDataURL(file);
     });
 
-    // Сохранить новый аватар
     btnSave.addEventListener('click', async () => {
       if (!state.avatarChangedDataUrl) return;
-      btnSave.disabled = true;
-      btnSave.textContent = 'Сохраняю…';
-
+      btnSave.disabled = true; btnSave.textContent = 'Сохраняю…';
       try{
         const res = await fetch(`${API_BASE}/api/user/avatar`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${state.token}`
-          },
+          method:'PUT',
+          headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${state.token}` },
           body: JSON.stringify({ avatar: state.avatarChangedDataUrl })
         });
-
         if (res.status === 401) return location.href='login.html';
-        if (!res.ok) throw new Error('Не удалось сохранить аватар');
+        if (!res.ok) throw new Error('save failed');
 
-        const updated = await res.json(); // { avatar: 'data:...' }
-        // Обновляем localStorage
+        const { avatar } = await res.json();
         const ud = JSON.parse(localStorage.getItem('userData') || '{}');
-        ud.avatar = updated.avatar;
-        localStorage.setItem('userData', JSON.stringify(ud));
-
+        ud.avatar = avatar; localStorage.setItem('userData', JSON.stringify(ud));
         state.avatarChangedDataUrl = null;
         alert('Аватар обновлён!');
       }catch(e){
