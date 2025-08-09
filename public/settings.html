@@ -20,7 +20,6 @@
         <input type="email" id="email" placeholder="Email" required />
         <input type="tel" id="phone" placeholder="Телефон" />
         <input type="text" id="country" placeholder="Страна проживания" disabled />
-
         <button type="submit">💾 Сохранить изменения</button>
       </form>
     </div>
@@ -38,38 +37,72 @@
         document.body.appendChild(menuJs);
 
         const authJs = document.createElement("script");
-        authJs.src = "auth.js";
+        authJs.src = "auth.js"; // проверка токена + logout
         document.body.appendChild(authJs);
       });
 
-    async function loadSettings() {
+    const API_BASE = 'https://uaround.onrender.com';
+
+    function fillFromLocalStorage() {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/user/profile', {
+        const raw = localStorage.getItem('userData');
+        if (!raw) return;
+        const ud = JSON.parse(raw);
+        if (ud.fullName) document.getElementById('fullName').value = ud.fullName;
+        if (ud.email)    document.getElementById('email').value    = ud.email;
+        if (ud.phone)    document.getElementById('phone').value    = ud.phone;
+      } catch (_) {}
+    }
+
+    async function loadSettings() {
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href = 'login.html';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/user/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+
+        if (response.status === 401) return location.href = 'login.html';
+        if (!response.ok) throw new Error('Не удалось загрузить профиль');
+
         const data = await response.json();
 
         document.getElementById('fullName').value = data.fullName || '';
-        document.getElementById('email').value = data.email || '';
-        document.getElementById('phone').value = data.phone || '';
-        document.getElementById('country').value = data.country || 'Не указано';
+        document.getElementById('email').value    = data.email    || '';
+        document.getElementById('phone').value    = data.phone    || '';
+        document.getElementById('country').value  = data.country  || 'Не указано';
+
+        // синхронизируем локальное хранилище
+        const ud = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          fullName: data.fullName || '',
+          email: data.email || '',
+          phone: data.phone || ''
+        };
+        localStorage.setItem('userData', JSON.stringify(ud));
       } catch (err) {
-        console.error('Ошибка загрузки настроек:', err);
+        console.warn('API недоступно, подставляю из localStorage:', err);
+        // заполняем чем есть локально (например, email с логина)
+        fillFromLocalStorage();
+        // лишь для красоты
+        document.getElementById('country').value = 'Не указано';
       }
     }
 
     async function saveSettings(e) {
       e.preventDefault();
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href = 'login.html';
+
       try {
-        const token = localStorage.getItem('token');
         const body = {
-          fullName: document.getElementById('fullName').value,
-          email: document.getElementById('email').value,
-          phone: document.getElementById('phone').value
+          fullName: document.getElementById('fullName').value.trim(),
+          email:    document.getElementById('email').value.trim(),
+          phone:    document.getElementById('phone').value.trim()
         };
 
-        await fetch('/api/user/profile', {
+        const response = await fetch(`${API_BASE}/api/user/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -78,9 +111,22 @@
           body: JSON.stringify(body)
         });
 
+        if (response.status === 401) return location.href = 'login.html';
+        if (!response.ok) throw new Error('Не удалось сохранить профиль');
+
+        // обновим локальное хранилище, чтобы форма подхватывала оффлайн
+        const ud = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          fullName: body.fullName,
+          email: body.email,
+          phone: body.phone
+        };
+        localStorage.setItem('userData', JSON.stringify(ud));
+
         alert('Настройки успешно сохранены!');
       } catch (err) {
         console.error('Ошибка сохранения настроек:', err);
+        alert('Ошибка при сохранении. Попробуйте снова.');
       }
     }
 
