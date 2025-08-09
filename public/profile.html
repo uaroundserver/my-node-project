@@ -14,7 +14,6 @@
       .then(data => {
         document.getElementById("menu-container").innerHTML = data;
 
-        // Подключаем auth.js после меню
         let script = document.createElement("script");
         script.src = "public/auth.js";
         document.body.appendChild(script);
@@ -35,9 +34,6 @@
     <button onclick="logout()">Выйти</button>
   </div>
 
-  <script src="public/auth.js"></script>
-  <script src="auth.js"></script>
-
   <script>
     async function loadProfile() {
       try {
@@ -56,9 +52,9 @@
 
         const user = await res.json();
 
-        document.getElementById('fullName').value = user.fullName || "";
-        document.getElementById('email').value = user.email || "";
-        document.getElementById('phone').value = user.phone || "";
+        document.getElementById('fullName').value = user.fullName || "Не указано";
+        document.getElementById('email').value = user.email || "Не указано";
+        document.getElementById('phone').value = user.phone || "Не указано";
         document.getElementById('country').value = user.country || "Не указано";
 
       } catch (err) {
@@ -80,38 +76,24 @@
       const email = document.getElementById('email').value;
       const phone = document.getElementById('phone').value;
 
-      try {
-        const res = await fetch("https://uaround.onrender.com/api/user", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ fullName, email, phone })
-        });
+      const res = await fetch("https://uaround.onrender.com/api/user", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ fullName, email, phone })
+      });
 
-        if (res.ok) {
-          alert("Профиль обновлен");
-          loadProfile();
-        } else {
-          alert("Ошибка сохранения");
-        }
-      } catch (e) {
-        alert("Ошибка сети");
-        console.error(e);
+      if (res.ok) {
+        alert("Профиль обновлен");
+        loadProfile();
+      } else {
+        alert("Ошибка сохранения");
       }
     }
 
     loadProfile();
-
-    function goHome() {
-      window.location.href = "home.html";
-    }
-
-    function logout() {
-      localStorage.removeItem("token");
-      window.location.href = "login.html";
-    }
   </script>
 </body>
 </html>
