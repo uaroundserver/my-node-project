@@ -38,7 +38,7 @@ body {
 /* бургер — стеклянная кнопка */
 #menuButton{
   position: relative;
-  top: -2px; /* слегка поднимаем бургер */
+  top: -4px;             /* было -2px, сделал выше; хочешь — поставь -5/-6 */
   width:38px;height:38px;border:none;cursor:pointer;border-radius:12px;
   display:inline-flex;align-items:center;justify-content:center;
   background: rgba(255,255,255,.12);
