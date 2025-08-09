@@ -1,47 +1,73 @@
-/* Безопасные зоны для айфонов с вырезами */
 :root {
-  --header-h: 60px;
-  --bottom-h: 60px;
+  --header-h: 56px;
+  --bottom-h: 64px;
+  --bar-radius: 16px;
 }
 
-/* Шапка фиксируется сверху */
-#app-header {
+/* Сбросы */
+html, body { margin:0; padding:0; }
+body { 
+  /* Отступы под фикс-бар сверху/снизу */
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom));
+}
+
+/* ЕДИНЫЙ стиль для полос (внутри будет .bar-inner, чтобы было «как система») */
+#app-header, #bottom-nav {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  left: 0; right: 0;
+  z-index: 4000;
+}
+#app-header { top: 0; }
+#bottom-nav { bottom: 0; }
+
+/* Внутренняя «полоса» — белая, с радиусом и тенью, тянется на всю ширину */
+#app-header .bar-inner,
+#bottom-nav .bar-inner {
   height: var(--header-h);
-  background: #fff;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.08);
-  z-index: 4000;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-}
-
-#app-header .logo {
-  font-weight: 700;
-  font-size: 18px;
-  color: #0d253f;
-}
-
-/* Кнопка меню внутри шапки */
-#menuButton {
-  position: relative;      /* больше НЕ fixed */
-  top: auto; left: auto;
-  font-size: 22px;
-  cursor: pointer;
+  justify-content: space-between;
+  padding: 0 16px;
   background: #fff;
-  padding: 6px 12px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.12);
-  user-select: none;
-  border: none;
+  border-radius: 0 0 var(--bar-radius) var(--bar-radius); /* только низ у шапки */
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
 }
-#menuButton:hover { background:#f0f4ff; }
 
-/* Боковое меню под шапкой */
+/* нижняя полоса — радиус только сверху */
+#bottom-nav .bar-inner {
+  height: var(--bottom-h);
+  justify-content: space-around;
+  border-radius: var(--bar-radius) var(--bar-radius) 0 0;
+  box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Бургер — теперь компактная кнопка без «плавающей карточки» */
+#menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+#menuButton:hover { background: #f2f4ff; }
+#menuButton span {
+  display:block;
+  width: 18px; height: 2px;
+  background:#0f172a;
+  margin: 2.5px 0;
+  border-radius: 2px;
+}
+
+/* Лого слева, жирное */
+.logo { font-weight: 700; font-size: 18px; color:#0d253f; }
+
+/* Сайдбар смещаем ниже шапки, чтобы не наезжал */
 #sidebar {
   position: fixed;
   top: var(--header-h);
@@ -50,57 +76,42 @@
   height: calc(100vh - var(--header-h));
   background: #fff;
   box-shadow: 4px 0 24px rgba(0,0,0,.12);
-  padding-top: 16px;
+  padding-top: 8px;
   display: flex;
   flex-direction: column;
   transition: left .35s cubic-bezier(.4,0,.2,1);
   z-index: 3500;
-  border-top-right-radius: 16px;
-  border-bottom-right-radius: 16px;
+  border-top-right-radius: var(--bar-radius);
+  border-bottom-right-radius: var(--bar-radius);
 }
 #sidebar.active { left: 0; }
-
-/* Нижняя панель */
-#bottom-nav {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: var(--bottom-h);
-  padding-bottom: env(safe-area-inset-bottom);
-  background: #fff;
-  box-shadow: 0 -2px 10px rgba(0,0,0,.08);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  z-index: 4000;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
+#sidebar a {
+  padding: 16px 22px;
+  border-bottom: 1px solid #e1e8f0;
+  color:#1e293b;
+  text-decoration:none;
+  font-weight:600;
 }
+#sidebar a:hover { background:#e0e7ff; color:#3b82f6; }
+
+/* Низ: иконки ровно и читаемо */
 #bottom-nav a {
   font-size: 22px;
-  color: #1e293b;
-  text-decoration: none;
+  line-height: 1;
+  color:#1e293b;
+  text-decoration:none;
   padding: 8px 10px;
   border-radius: 12px;
-  transition: background-color .25s, color .25s;
+  transition: background-color .2s, color .2s;
 }
-#bottom-nav a:hover,
-#bottom-nav a.active {
-  background:#e0e7ff;
-  color:#3b82f6;
-}
+#bottom-nav a.active,
+#bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
 
-/* Контент — отступы под фикс. панели */
-#main-content {
-  max-width: 420px;
-  margin: 0 auto;
-  padding: calc(var(--header-h) + 16px) 20px calc(var(--bottom-h) + 16px);
-}
+/* Контент-обёртка (если используешь) */
+#main-content { max-width: 420px; margin:0 auto; padding: 0 20px; }
 
 /* Мобилки */
 @media (max-width: 480px) {
-  :root {
-    --header-h: 56px;
-    --bottom-h: 56px;
-  }
+  :root { --header-h: 54px; --bottom-h: 60px; }
   #sidebar { width: 200px; }
 }
