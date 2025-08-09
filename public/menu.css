@@ -1,117 +1,96 @@
-:root {
+:root{
   --header-h: 56px;
   --bottom-h: 64px;
-  --bar-radius: 16px;
+
+  /* цвета панелей */
+  --header-bg: linear-gradient(135deg,#0f172a,#1e293b); /* тёмная */
+  --bottom-bg: #ffffff;                                  /* светлая */
+  --bottom-shadow: 0 -2px 12px rgba(0,0,0,.10);
+  --header-shadow: 0 2px 12px rgba(0,0,0,.18);
+  --radius: 16px;
 }
 
-/* Сбросы */
-html, body { margin:0; padding:0; }
-body { 
-  /* Отступы под фикс-бар сверху/снизу */
+html,body{margin:0;padding:0;}
+/* отступы под фиксированные панели + safe area */
+body{
   padding-top: calc(var(--header-h) + env(safe-area-inset-top));
   padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom));
 }
 
-/* ЕДИНЫЙ стиль для полос (внутри будет .bar-inner, чтобы было «как система») */
-#app-header, #bottom-nav {
-  position: fixed;
-  left: 0; right: 0;
-  z-index: 4000;
-}
-#app-header { top: 0; }
-#bottom-nav { bottom: 0; }
-
-/* Внутренняя «полоса» — белая, с радиусом и тенью, тянется на всю ширину */
-#app-header .bar-inner,
-#bottom-nav .bar-inner {
+/* ===== ШАПКА ===== */
+#app-header{position:fixed;left:0;right:0;top:0;z-index:4000;}
+#app-header .bar-inner{
+  position: relative;
   height: var(--header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: #fff;
-  border-radius: 0 0 var(--bar-radius) var(--bar-radius); /* только низ у шапки */
-  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  display:flex; align-items:center;
+  padding: 0 14px;
+  background: var(--header-bg);
+  color: #fff;
+  box-shadow: var(--header-shadow);
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
-/* нижняя полоса — радиус только сверху */
-#bottom-nav .bar-inner {
+/* бургер — стеклянная кнопка */
+#menuButton{
+  width:38px;height:38px;border:none;cursor:pointer;border-radius:12px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background: rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  outline:none;
+  transition: background .2s ease, transform .1s ease;
+}
+#menuButton:hover{ background: rgba(255,255,255,.18); }
+#menuButton:active{ transform: scale(.98); }
+#menuButton span{
+  display:block;width:18px;height:2px;border-radius:2px;
+  background:#ffffff;margin:2.8px 0;
+}
+
+/* логотип по центру шапки */
+#app-header .logo{
+  position:absolute; left:50%; transform: translateX(-50%);
+  font-weight:800; font-size:18px; letter-spacing:.5px; color:#fff;
+  user-select:none;
+}
+
+/* ===== САЙДБАР (чуть ниже шапки) ===== */
+#sidebar{
+  position: fixed; top: var(--header-h); left: -240px; width:240px;
+  height: calc(100vh - var(--header-h));
+  background:#fff; box-shadow: 4px 0 24px rgba(0,0,0,.12);
+  border-top-right-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  padding-top: 8px; display:flex; flex-direction:column;
+  transition: left .35s cubic-bezier(.4,0,.2,1); z-index:3500;
+}
+#sidebar.active{ left:0; }
+#sidebar a{ padding:16px 22px; text-decoration:none; color:#1e293b; font-weight:600; border-bottom:1px solid #e6ebf2; }
+#sidebar a:hover{ background:#e0e7ff; color:#3b82f6; }
+
+/* ===== НИЖНЯЯ ПАНЕЛЬ ===== */
+#bottom-nav{ position:fixed; left:0; right:0; bottom:0; z-index:4000; }
+#bottom-nav .bar-inner{
   height: var(--bottom-h);
-  justify-content: space-around;
-  border-radius: var(--bar-radius) var(--bar-radius) 0 0;
-  box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+  display:flex; align-items:center; justify-content:space-around;
+  background: var(--bottom-bg);
+  box-shadow: var(--bottom-shadow);
+  border-radius: var(--radius) var(--radius) 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
-
-/* Бургер — теперь компактная кнопка без «плавающей карточки» */
-#menuButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px; height: 36px;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background-color .2s ease;
+#bottom-nav a{
+  font-size:22px; color:#1e293b; text-decoration:none;
+  padding:10px 12px; border-radius:14px;
+  transition: background .2s ease,color .2s ease, transform .1s ease;
 }
-#menuButton:hover { background: #f2f4ff; }
-#menuButton span {
-  display:block;
-  width: 18px; height: 2px;
-  background:#0f172a;
-  margin: 2.5px 0;
-  border-radius: 2px;
-}
-
-/* Лого слева, жирное */
-.logo { font-weight: 700; font-size: 18px; color:#0d253f; }
-
-/* Сайдбар смещаем ниже шапки, чтобы не наезжал */
-#sidebar {
-  position: fixed;
-  top: var(--header-h);
-  left: -240px;
-  width: 240px;
-  height: calc(100vh - var(--header-h));
-  background: #fff;
-  box-shadow: 4px 0 24px rgba(0,0,0,.12);
-  padding-top: 8px;
-  display: flex;
-  flex-direction: column;
-  transition: left .35s cubic-bezier(.4,0,.2,1);
-  z-index: 3500;
-  border-top-right-radius: var(--bar-radius);
-  border-bottom-right-radius: var(--bar-radius);
-}
-#sidebar.active { left: 0; }
-#sidebar a {
-  padding: 16px 22px;
-  border-bottom: 1px solid #e1e8f0;
-  color:#1e293b;
-  text-decoration:none;
-  font-weight:600;
-}
-#sidebar a:hover { background:#e0e7ff; color:#3b82f6; }
-
-/* Низ: иконки ровно и читаемо */
-#bottom-nav a {
-  font-size: 22px;
-  line-height: 1;
-  color:#1e293b;
-  text-decoration:none;
-  padding: 8px 10px;
-  border-radius: 12px;
-  transition: background-color .2s, color .2s;
-}
-#bottom-nav a.active,
-#bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
+#bottom-nav a:hover{ background:#eef2ff; color:#3b82f6; }
+#bottom-nav a.active{ background:#e0e7ff; color:#3b82f6; }
 
 /* Контент-обёртка (если используешь) */
-#main-content { max-width: 420px; margin:0 auto; padding: 0 20px; }
+#main-content{ max-width:420px; margin:0 auto; padding:0 20px; }
 
-/* Мобилки */
-@media (max-width: 480px) {
-  :root { --header-h: 54px; --bottom-h: 60px; }
-  #sidebar { width: 200px; }
+/* мобилки */
+@media (max-width:480px){
+  :root{ --header-h:54px; --bottom-h:60px; }
+  #sidebar{ width:200px; }
 }
