@@ -4,9 +4,9 @@ function menuBtn()  { return document.getElementById('menuButton'); }
 
 let scrollLockY = 0;
 let isOpen = false;
+let canAutoClose = false; // защита от мгновенного закрытия
 
 function lockScroll() {
-  // сохраняем позицию и фиксируем body — работает на iOS
   scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
   document.body.style.position = 'fixed';
   document.body.style.top = `-${scrollLockY}px`;
@@ -17,7 +17,6 @@ function lockScroll() {
 }
 
 function unlockScroll() {
-  // возвращаем позицию
   document.body.style.position = '';
   document.body.style.top = '';
   document.body.style.left = '';
@@ -25,6 +24,28 @@ function unlockScroll() {
   document.body.style.width = '';
   document.documentElement.classList.remove('no-scroll');
   window.scrollTo(0, scrollLockY);
+}
+
+function addAutoCloseListeners() {
+  const closeOnMove = () => { if (isOpen && canAutoClose) closeSidebar(); };
+  // сохраняем ссылки, чтобы снять позже
+  addAutoCloseListeners._refs = [
+    ['scroll', window, closeOnMove, { passive:true }],
+    ['wheel', window, closeOnMove, { passive:true }],
+    ['touchmove', window, closeOnMove, { passive:true }],
+    ['scroll', document, closeOnMove, { passive:true }],
+    ['touchmove', document.body, closeOnMove, { passive:true }],
+    ['resize', window, closeOnMove],
+    ['orientationchange', window, closeOnMove],
+  ];
+  addAutoCloseListeners._refs.forEach(([ev, target, fn, opt]) => target.addEventListener(ev, fn, opt));
+}
+
+function removeAutoCloseListeners() {
+  (addAutoCloseListeners._refs || []).forEach(([ev, target, fn, opt]) => {
+    target.removeEventListener(ev, fn, opt);
+  });
+  addAutoCloseListeners._refs = [];
 }
 
 function openSidebar() {
@@ -37,6 +58,11 @@ function openSidebar() {
   lockScroll();
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'true');
   isOpen = true;
+
+  // вешаем слушатели только сейчас
+  addAutoCloseListeners();
+  canAutoClose = false;
+  setTimeout(() => { canAutoClose = true; }, 250); // защита от «дрожи» при открытии
 }
 
 function closeSidebar() {
@@ -49,43 +75,27 @@ function closeSidebar() {
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'false');
   unlockScroll();
   isOpen = false;
+  canAutoClose = false;
+
+  // снимаем слушатели
+  removeAutoCloseListeners();
 }
 
-function toggleSidebar() {
-  isOpen ? closeSidebar() : openSidebar();
-}
-window.toggleSidebar = toggleSidebar; // для кнопки в HTML
+function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
+window.toggleSidebar = toggleSidebar; // для кнопки
 
-// === Закрытие по кликам ===
+// Клик по ссылке в сайдбаре — закрыть
 document.addEventListener('click', e => {
-  // клик по ссылке в сайдбаре — закрываем
   if (e.target.closest('#sidebar a')) closeSidebar();
-  // клик по фону — закрываем
   if (backdrop() && e.target === backdrop()) closeSidebar();
 });
 
-// === Закрытие по Esc ===
+// Закрытие по Esc
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && isOpen) closeSidebar();
 });
 
-// === Закрытие при скролле / свайпе / колесике ===
-// на некоторых iOS скролл не всплывает — добавляем несколько слушателей
-const closeOnUserMove = () => { if (isOpen) closeSidebar(); };
-
-window.addEventListener('scroll', closeOnUserMove, { passive: true });
-window.addEventListener('wheel',  closeOnUserMove, { passive: true });
-window.addEventListener('touchmove', closeOnUserMove, { passive: true });
-
-// иногда скролл слушается только на уровне документа/бади
-document.addEventListener('scroll', closeOnUserMove, { passive: true });
-document.body.addEventListener('touchmove', closeOnUserMove, { passive: true });
-
-// === Закрытие при изменении экрана ===
-window.addEventListener('resize', closeOnUserMove);
-window.addEventListener('orientationchange', closeOnUserMove);
-
-// авто-подсветка активных ссылок
+// Авто-подсветка активной ссылки
 (function setActiveLinks() {
   const path = location.pathname.split('/').pop() || 'home.html';
   const links = document.querySelectorAll('#bottom-nav a, #sidebar a');
@@ -94,6 +104,6 @@ window.addEventListener('orientationchange', closeOnUserMove);
       const href = a.getAttribute('href') || '';
       const file = href.split('?')[0].split('#')[0];
       if (file && path === file) a.classList.add('active');
-    } catch (_) {}
+    } catch(_) {}
   });
 })();
