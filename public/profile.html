@@ -15,17 +15,18 @@
   <main id="main-content">
     <div class="form-container">
       <h1>Личный кабинет</h1>
-      <form onsubmit="saveProfile(event)">
+      <form id="profileForm">
         <input type="text" id="fullName" placeholder="ФИО" required />
         <input type="email" id="email" placeholder="Email" required />
         <input type="tel" id="phone" placeholder="Телефон" />
-        <button type="submit">Сохранить</button>
+        <button type="submit">💾 Сохранить</button>
       </form>
 
-      <button onclick="goHome()">Перейти на главную</button>
-      <button onclick="logout()">Выйти</button>
+      <button class="btn" onclick="goHome()">Перейти на главную</button>
+      <button class="btn" onclick="logout()">Выйти</button>
     </div>
-</main>
+  </main>
+
   <!-- подгружаем меню, затем menu.js и auth.js -->
   <script>
     fetch("menu.html")
@@ -34,29 +35,98 @@
         document.getElementById("menu-container").innerHTML = html;
 
         const menuJs = document.createElement("script");
-        menuJs.src = "menu.js";               // здесь лежит toggleSidebar(), обработчики и т.п.
+        menuJs.src = "menu.js";  // сайдбар/нижняя панель
         document.body.appendChild(menuJs);
 
         const authJs = document.createElement("script");
-        authJs.src = "auth.js";               // здесь goHome(), logout() и проверка авторизации
+        authJs.src = "auth.js";  // проверка токена + goHome/logout
         document.body.appendChild(authJs);
       });
 
-    function saveProfile(event) {
-      event.preventDefault();
-      const fullName = document.getElementById('fullName').value;
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
+    const API_BASE = 'https://uaround.onrender.com';
 
-      let userData = JSON.parse(localStorage.getItem('userData')) || {};
-      userData.profileCompleted = true;
-      userData.fullName = fullName;
-      userData.email = email;
-      userData.phone = phone;
-      localStorage.setItem('userData', JSON.stringify(userData));
-
-      alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+    function fillFromLocalStorage() {
+      try {
+        const ud = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (ud.fullName) document.getElementById('fullName').value = ud.fullName;
+        if (ud.email)    document.getElementById('email').value    = ud.email;
+        if (ud.phone)    document.getElementById('phone').value    = ud.phone;
+      } catch (_) {}
     }
+
+    async function loadProfile() {
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href = 'login.html';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 401) return location.href = 'login.html';
+        if (!res.ok) throw new Error('Не удалось загрузить профиль');
+
+        const data = await res.json();
+        document.getElementById('fullName').value = data.fullName || '';
+        document.getElementById('email').value    = data.email    || '';
+        document.getElementById('phone').value    = data.phone    || '';
+
+        // синхронизируем localStorage (полезно оффлайн)
+        const ud = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          fullName: data.fullName || '',
+          email: data.email || '',
+          phone: data.phone || ''
+        };
+        localStorage.setItem('userData', JSON.stringify(ud));
+      } catch (e) {
+        console.warn('API недоступно, подставляю из localStorage:', e);
+        fillFromLocalStorage();
+      }
+    }
+
+    async function saveProfile(e) {
+      e.preventDefault();
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href = 'login.html';
+
+      const body = {
+        fullName: document.getElementById('fullName').value.trim(),
+        email:    document.getElementById('email').value.trim(),
+        phone:    document.getElementById('phone').value.trim()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/user/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (res.status === 401) return location.href = 'login.html';
+        if (!res.ok) throw new Error('Не удалось сохранить профиль');
+
+        // обновляем localStorage
+        const ud = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          fullName: body.fullName,
+          email: body.email,
+          phone: body.phone
+        };
+        localStorage.setItem('userData', JSON.stringify(ud));
+
+        alert('Профиль сохранён!');
+      } catch (e) {
+        console.error('Ошибка сохранения профиля:', e);
+        alert('Не удалось сохранить. Попробуйте ещё раз.');
+      }
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', saveProfile);
+    loadProfile();
   </script>
 </body>
 </html>
