@@ -143,3 +143,11 @@ body {
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
 }
+
+/* Бэкдроп под сайдбар */
+#menu-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.28);
+  z-index: 3490;           /* ниже сайдбара (3500), выше контента/шапки */
+}
