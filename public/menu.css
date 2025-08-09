@@ -38,7 +38,8 @@ body {
 /* бургер — стеклянная кнопка */
 #menuButton{
   position: static;           /* убрали absolute */
-  transform: none;            /* убрали translateY */
+   transform: translateY(3px); /* выше на 3px */
+}     /* убрали translateY */
   margin-right: auto;         /* слева, а логотип по центру */
   width:38px; height:38px;
   border:none; cursor:pointer; border-radius:12px;
