@@ -2,26 +2,75 @@
 <header id="app-header">
   <div class="bar-inner">
     <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">
-      <span></span><span></span><span></span>
+      <!-- бургер svg -->
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M4 6h16M4 12h16M4 18h16" stroke-width="2" stroke-linecap="round"/>
+      </svg>
     </button>
     <div class="logo">LOGO</div>
   </div>
 </header>
 
-<!-- Сайдбар (как у тебя) -->
+<!-- Сайдбар -->
 <div id="sidebar">
-  <a href="home.html">🏠 Домой</a>
-  <a href="profile.html">👤 Профиль</a>
-  <a href="settings.html">⚙ Настройки</a>
-  <a href="#" onclick="logout()">🚪 Выйти</a>
+  <a href="home.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M9 21V9h6v12" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+    Домой
+  </a>
+  <a href="profile.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Z" stroke-width="2"/>
+      <path d="M4 20a8 8 0 0 1 16 0" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Профиль
+  </a>
+  <a href="settings.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M12 15a3 3 0 1 0-3-3 3 3 0 0 0 3 3Z" stroke-width="2"/>
+      <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.76l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.6 1.6 0 0 0 15 19.4a1.6 1.6 0 0 0-1 .36 1.6 1.6 0 0 0-.53 1.64 2 2 0 1 1-3.9 0 1.6 1.6 0 0 0-.53-1.64A1.6 1.6 0 0 0 8.99 19.4 1.6 1.6 0 0 0 6 19.65l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.6 1.6 0 0 0 4.6 15a1.6 1.6 0 0 0-.36-1 1.6 1.6 0 0 0-1.64-.53 2 2 0 1 1 0-3.9 1.6 1.6 0 0 0 1.64-.53A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.36-1L4.18 7.9A2 2 0 1 1 7 5.06l.06.06A1.6 1.6 0 0 0 9 4.6a1.6 1.6 0 0 0 1-.36 1.6 1.6 0 0 0 .53-1.64 2 2 0 1 1 3.9 0 1.6 1.6 0 0 0 .53 1.64 1.6 1.6 0 0 0 1 .36 1.6 1.6 0 0 0 1.94-1.4L18 3.06A2 2 0 1 1 20.83 5.9l-.06.06A1.6 1.6 0 0 0 19.4 9c0 .37.12.73.34 1.02.22.3.52.52.86.63" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Настройки
+  </a>
+  <a href="#" onclick="logout()">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M8 7 3 12l5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M21 4v16" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Выйти
+  </a>
 </div>
 
 <!-- Нижняя панель -->
 <nav id="bottom-nav">
   <div class="bar-inner">
-    <a href="home.html" class="active" aria-label="Домой">🏠</a>
-    <a href="profile.html" aria-label="Профиль">👤</a>
-    <a href="settings.html" aria-label="Настройки">⚙</a>
-    <a href="#" onclick="logout()" aria-label="Выйти">🚪</a>
+    <a href="home.html" aria-label="Домой">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M9 21V9h6v12" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <a href="profile.html" aria-label="Профиль">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Z" stroke-width="2"/>
+        <path d="M4 20a8 8 0 0 1 16 0" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <a href="settings.html" aria-label="Настройки">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="3" stroke-width="2"/>
+        <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.76l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.6 1.6 0 0 0 15 19.4M4.6 9A1.6 1.6 0 0 0 4.24 8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <a href="#" onclick="logout()" aria-label="Выйти">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8 7 3 12l5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M21 4v16" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
   </div>
 </nav>
