@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Вход</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
-  <!-- меню -->
-  <div id="menu-container"></div>
-
-  <!-- контент -->
   <main id="main-content">
     <div class="form-container">
       <h1>Вход</h1>
@@ -21,27 +16,17 @@
         <button type="submit">Войти</button>
       </form>
       <p id="error-message" style="color:red;display:none;"></p>
-      <p>Нет аккаунта? <a href="register.html">Зарегистрироваться</a></p>
+      <p>Нет аккаунта? <a href="index.html">Зарегистрироваться</a></p>
     </div>
   </main>
 
   <script>
-    // Загружаем меню
-    fetch("menu.html")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("menu-container").innerHTML = html;
-
-        const menuJs = document.createElement("script");
-        menuJs.src = "menu.js";
-        document.body.appendChild(menuJs);
-
-        const authJs = document.createElement("script");
-        authJs.src = "auth.js"; // проверка токена + logout
-        document.body.appendChild(authJs);
-      });
-
     const API_BASE = 'https://uaround.onrender.com';
+
+    // Если токен уже есть — переходим на главную
+    if (localStorage.getItem('userToken')) {
+      window.location.href = 'home.html';
+    }
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
