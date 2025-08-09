@@ -1,10 +1,14 @@
 <!-- Шапка -->
 <header id="app-header">
-  <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">☰</button>
-  <div class="logo">LOGO</div>
+  <div class="bar-inner">
+    <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logo">LOGO</div>
+  </div>
 </header>
 
-<!-- Боковое меню -->
+<!-- Боковое меню (как было) -->
 <div id="sidebar">
   <a href="home.html">🏠 Домой</a>
   <a href="profile.html">👤 Профиль</a>
@@ -14,20 +18,10 @@
 
 <!-- Нижняя панель -->
 <nav id="bottom-nav">
-  <a href="home.html">🏠</a>
-  <a href="profile.html">👤</a>
-  <a href="settings.html">⚙</a>
-  <a href="#" onclick="logout()">🚪</a>
+  <div class="bar-inner">
+    <a href="home.html" class="active" aria-label="Домой">🏠</a>
+    <a href="profile.html" aria-label="Профиль">👤</a>
+    <a href="settings.html" aria-label="Настройки">⚙</a>
+    <a href="#" onclick="logout()" aria-label="Выйти">🚪</a>
+  </div>
 </nav>
-
-<script>
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('active');
-  }
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.getElementById('sidebar').classList.remove('active');
-  });
-  document.querySelectorAll('#sidebar a').forEach(a=>{
-    a.addEventListener('click', ()=>document.getElementById('sidebar').classList.remove('active'));
-  });
-</script>
