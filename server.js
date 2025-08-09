@@ -2,10 +2,11 @@ require('dotenv').config(); // Загрузка переменных окруж�
 
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken'); // 📌 JWT
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +36,21 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS,
     },
 });
+
+// 📌 Middleware для проверки токена
+function authMiddleware(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
+
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Токен не найден' });
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.status(401).json({ error: 'Токен недействителен' });
+        req.user = user; // { userId: ... }
+        next();
+    });
+}
 
 // 🔥 Активация аккаунта
 app.get('/activate/:token', async (req, res) => {
@@ -92,7 +108,7 @@ app.post('/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const activationToken = crypto.randomBytes(16).toString('hex');
-        const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+        const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         const result = await db.collection('users').insertOne({
             email,
@@ -124,7 +140,6 @@ app.post('/register', async (req, res) => {
         });
 
     } catch (err) {
-        // Обработка ошибки уникальности email
         if (err.code === 11000 && err.keyPattern?.email) {
             return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
         }
@@ -133,7 +148,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// 📌 Вход
+// 📌 Логин с JWT
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -156,11 +171,52 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        // тут можно сгенерировать JWT вместо "fake-jwt-token"
-        res.json({ userId: user._id, token: 'fake-jwt-token' });
+        // 📌 Генерируем JWT
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            userId: user._id,
+            token,
+            email: user.email,
+            country: user.country
+        });
     } catch (err) {
         console.error('Ошибка при логине:', err);
         res.status(500).json({ error: 'Ошибка сервера при входе' });
+    }
+});
+
+// 📌 Получить профиль (JWT-защита)
+app.get('/api/user/profile', authMiddleware, async (req, res) => {
+    try {
+        const user = await db.collection('users').findOne(
+            { _id: new ObjectId(req.user.userId) },
+            { projection: { password: 0 } }
+        );
+        if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+        res.json(user);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка при получении профиля' });
+    }
+});
+
+// 📌 Обновить профиль (JWT-защита)
+app.put('/api/user/profile', authMiddleware, async (req, res) => {
+    try {
+        const { fullName, email, phone } = req.body;
+        await db.collection('users').updateOne(
+            { _id: new ObjectId(req.user.userId) },
+            { $set: { fullName, email, phone } }
+        );
+        res.json({ message: 'Профиль обновлён' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка при обновлении профиля' });
     }
 });
 
