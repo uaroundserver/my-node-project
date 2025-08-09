@@ -5,20 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Вход</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
-  <div class="form-container">
-    <h1>Вход</h1>
-    <form id="loginForm">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="password" id="password" placeholder="Пароль" required />
-      <button type="submit">Войти</button>
-    </form>
-    <p id="error-message" style="color:red;display:none;"></p>
-    <p>Нет аккаунта? <a href="register.html">Зарегистрироваться</a></p>
-  </div>
+  <!-- меню -->
+  <div id="menu-container"></div>
+
+  <!-- контент -->
+  <main id="main-content">
+    <div class="form-container">
+      <h1>Вход</h1>
+      <form id="loginForm">
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Пароль" required />
+        <button type="submit">Войти</button>
+      </form>
+      <p id="error-message" style="color:red;display:none;"></p>
+      <p>Нет аккаунта? <a href="register.html">Зарегистрироваться</a></p>
+    </div>
+  </main>
 
   <script>
+    // Загружаем меню
+    fetch("menu.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("menu-container").innerHTML = html;
+
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";
+        document.body.appendChild(menuJs);
+
+        const authJs = document.createElement("script");
+        authJs.src = "auth.js"; // проверка токена + logout
+        document.body.appendChild(authJs);
+      });
+
     const API_BASE = 'https://uaround.onrender.com';
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -47,7 +69,7 @@
         // Сохраняем токен
         localStorage.setItem('userToken', data.token);
 
-        // Запрашиваем профиль пользователя
+        // Запрашиваем профиль
         const profileRes = await fetch(`${API_BASE}/api/user/profile`, {
           headers: { Authorization: `Bearer ${data.token}` }
         });
@@ -56,7 +78,6 @@
           const profile = await profileRes.json();
           localStorage.setItem('userData', JSON.stringify(profile));
         } else {
-          // Если профиль не загрузился — хотя бы email сохраним
           localStorage.setItem('userData', JSON.stringify({ email }));
         }
 
