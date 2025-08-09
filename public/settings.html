@@ -8,16 +8,15 @@
   <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
-  <!-- сюда подгружается меню -->
+  <!-- меню -->
   <div id="menu-container"></div>
 
-  <!-- основной контент -->
   <main id="main-content">
     <div class="form-container">
       <h1>Настройки профиля</h1>
       <form id="settingsForm">
         <input type="text" id="fullName" placeholder="ФИО" required />
-        <input type="email" id="email" placeholder="Email" required />
+        <input type="email" id="email" placeholder="Email" disabled required />
         <input type="tel" id="phone" placeholder="Телефон" />
         <input type="text" id="country" placeholder="Страна проживания" disabled />
         <button type="submit">💾 Сохранить изменения</button>
@@ -26,9 +25,7 @@
   </main>
 
   <script>
-    const API_BASE = 'https://uaround.onrender.com';
-
-    // Загружаем меню и auth.js
+    // Загружаем меню
     fetch("menu.html")
       .then(res => res.text())
       .then(html => {
@@ -39,24 +36,12 @@
         document.body.appendChild(menuJs);
 
         const authJs = document.createElement("script");
-        authJs.src = "auth.js";
+        authJs.src = "auth.js"; // проверка токена + logout
         document.body.appendChild(authJs);
       });
 
-    // Подставляем локальные данные (если есть)
-    function fillFromLocalStorage() {
-      try {
-        const raw = localStorage.getItem('userData');
-        if (!raw) return;
-        const ud = JSON.parse(raw);
-        if (ud.fullName) document.getElementById('fullName').value = ud.fullName;
-        if (ud.email)    document.getElementById('email').value    = ud.email;
-        if (ud.phone)    document.getElementById('phone').value    = ud.phone;
-        if (ud.country)  document.getElementById('country').value  = ud.country;
-      } catch (_) {}
-    }
+    const API_BASE = 'https://uaround.onrender.com';
 
-    // Загружаем профиль с сервера
     async function loadSettings() {
       const token = localStorage.getItem('userToken');
       if (!token) return location.href = 'login.html';
@@ -70,21 +55,32 @@
         if (!response.ok) throw new Error('Не удалось загрузить профиль');
 
         const data = await response.json();
-
         document.getElementById('fullName').value = data.fullName || '';
         document.getElementById('email').value    = data.email    || '';
         document.getElementById('phone').value    = data.phone    || '';
         document.getElementById('country').value  = data.country  || 'Не указано';
 
-        // Сохраняем в localStorage для оффлайна
-        localStorage.setItem('userData', JSON.stringify(data));
+        // Обновляем localStorage
+        const ud = {
+          ...(JSON.parse(localStorage.getItem('userData') || '{}')),
+          fullName: data.fullName || '',
+          email: data.email || '',
+          phone: data.phone || ''
+        };
+        localStorage.setItem('userData', JSON.stringify(ud));
       } catch (err) {
-        console.warn('API недоступно, подставляю из localStorage:', err);
-        fillFromLocalStorage();
+        console.warn('Ошибка API, беру данные из localStorage:', err);
+        const raw = localStorage.getItem('userData');
+        if (raw) {
+          const ud = JSON.parse(raw);
+          document.getElementById('fullName').value = ud.fullName || '';
+          document.getElementById('email').value    = ud.email    || '';
+          document.getElementById('phone').value    = ud.phone    || '';
+          document.getElementById('country').value  = ud.country  || 'Не указано';
+        }
       }
     }
 
-    // Сохранение настроек
     async function saveSettings(e) {
       e.preventDefault();
       const token = localStorage.getItem('userToken');
@@ -93,8 +89,8 @@
       try {
         const body = {
           fullName: document.getElementById('fullName').value.trim(),
-          email:    document.getElementById('email').value.trim(),
           phone:    document.getElementById('phone').value.trim()
+          // email и country не отправляем, они заблокированы
         };
 
         const response = await fetch(`${API_BASE}/api/user/profile`, {
@@ -109,12 +105,13 @@
         if (response.status === 401) return location.href = 'login.html';
         if (!response.ok) throw new Error('Не удалось сохранить профиль');
 
-        // Обновляем данные в localStorage
-        const updated = {
+        // Обновим localStorage
+        const ud = {
           ...(JSON.parse(localStorage.getItem('userData') || '{}')),
-          ...body
+          fullName: body.fullName,
+          phone: body.phone
         };
-        localStorage.setItem('userData', JSON.stringify(updated));
+        localStorage.setItem('userData', JSON.stringify(ud));
 
         alert('Настройки успешно сохранены!');
       } catch (err) {
