@@ -94,3 +94,14 @@ body{
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
 }
+/* Иконки */
+.nav-icon { width: 26px; height: 26px; }
+#bottom-nav a, #sidebar a { display:flex; gap:10px; align-items:center; }
+
+/* Цвета и активка */
+#bottom-nav a, #sidebar a { color:#1e293b; }
+#bottom-nav a.active, #bottom-nav a:hover { background:#e0e7ff; color:#3b82f6; }
+#sidebar a.active, #sidebar a:hover { background:#e0e7ff; color:#3b82f6; }
+
+/* Чтобы SVG реагировал на цвет ссылки */
+#bottom-nav a .nav-icon, #sidebar a .nav-icon { stroke: currentColor; }
