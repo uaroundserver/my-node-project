@@ -9,8 +9,8 @@
   --bottom-shadow: 0 -2px 12px rgba(0,0,0,.10);
   --header-shadow: 0 2px 12px rgba(0,0,0,.18);
 
-  /* на сколько опустить бургер от самой верхней кромки панели */
-  --burger-offset: 0px; /* подгони 0–3px при желании */
+  /* чуть опускаем бургер от верхней кромки панели */
+  --burger-offset: 3px; /* подгоняй 2–4px по вкусу */
 }
 
 html,body{
@@ -33,19 +33,18 @@ body {
   position: relative;
   height: var(--header-h);
   display:flex; align-items:center; justify-content:center;
-  /* БЫЛО: calc(4px + env(safe-area-inset-top)) 14px 0; */
-  padding: 4px 14px 0;                   /* одинаково на всех устройствах */
+  padding: 4px 14px 0;
   background: var(--header-bg);
   color: #fff;
   box-shadow: var(--header-shadow);
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
-/* бургер — стеклянная кнопка слева (привязка к ВЕРХУ панели) */
+/* бургер — стеклянная кнопка слева */
 #menuButton{
   position: absolute;
   left: 14px;
-  top: var(--burger-offset);             /* ключевая строка */
+  top: var(--burger-offset); /* ключевая строка */
   width:38px; height:38px;
   border:none; cursor:pointer; border-radius:12px;
   display:inline-flex; align-items:center; justify-content:center;
