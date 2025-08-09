@@ -6,7 +6,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken'); // 📌 JWT
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,17 +37,17 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// 📌 Middleware для проверки токена
+// Middleware для проверки токена
 function authMiddleware(req, res, next) {
     const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
+    if (!authHeader) return res.status(401).json({ error: 'Токен отсутствует' });
 
     const token = authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Токен не найден' });
+    if (!token) return res.status(401).json({ error: 'Токен отсутствует' });
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.status(401).json({ error: 'Токен недействителен' });
-        req.user = user; // { userId: ... }
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: 'Неверный или истекший токен' });
+        req.userId = decoded.userId;
         next();
     });
 }
@@ -108,7 +108,7 @@ app.post('/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const activationToken = crypto.randomBytes(16).toString('hex');
-        const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
 
         const result = await db.collection('users').insertOne({
             email,
@@ -148,7 +148,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// 📌 Логин с JWT
+// 📌 Вход (JWT)
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -171,18 +171,11 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный пароль' });
         }
 
-        // 📌 Генерируем JWT
-        const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({
-            userId: user._id,
+        res.json({ 
             token,
-            email: user.email,
-            country: user.country
+            userId: user._id
         });
     } catch (err) {
         console.error('Ошибка при логине:', err);
@@ -190,33 +183,33 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// 📌 Получить профиль (JWT-защита)
+// 📌 Получение профиля
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
     try {
         const user = await db.collection('users').findOne(
-            { _id: new ObjectId(req.user.userId) },
-            { projection: { password: 0 } }
+            { _id: new ObjectId(req.userId) },
+            { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
         );
         if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
         res.json(user);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Ошибка при получении профиля' });
+        res.status(500).json({ error: 'Ошибка сервера при получении профиля' });
     }
 });
 
-// 📌 Обновить профиль (JWT-защита)
+// 📌 Обновление профиля
 app.put('/api/user/profile', authMiddleware, async (req, res) => {
     try {
         const { fullName, email, phone } = req.body;
         await db.collection('users').updateOne(
-            { _id: new ObjectId(req.user.userId) },
+            { _id: new ObjectId(req.userId) },
             { $set: { fullName, email, phone } }
         );
         res.json({ message: 'Профиль обновлён' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Ошибка при обновлении профиля' });
+        res.status(500).json({ error: 'Ошибка сервера при обновлении профиля' });
     }
 });
 
