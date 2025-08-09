@@ -5,52 +5,168 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Личный кабинет</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    .profile-container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 30px;
+      text-align: center;
+    }
+
+    .avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #4a90e2;
+      margin-bottom: 15px;
+    }
+
+    .upload-btn {
+      display: inline-block;
+      background: #4a90e2;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      text-align: left;
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .btn {
+      background: #4a90e2;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 8px;
+      transition: background 0.3s;
+    }
+
+    .btn:hover {
+      background: #357ABD;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    p.subtitle {
+      color: #666;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
+
   <div id="menu-container"></div>
- <script>
-  fetch("menu.html")
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById("menu-container").innerHTML = data;
+  <script>
+    fetch("menu.html")
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById("menu-container").innerHTML = data;
+        let script = document.createElement("script");
+        script.src = "public/auth.js";
+        document.body.appendChild(script);
+      });
+  </script>
 
-      // Подключаем auth.js после загрузки меню
-      let script = document.createElement("script");
-      script.src = "public/auth.js";
-      document.body.appendChild(script);
-    });
-</script>
-<div class="form-container">
-  <h1>Личный кабинет</h1>
-  <form onsubmit="saveProfile(event)">
-    <input type="text" id="fullName" placeholder="ФИО" required />
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="tel" id="phone" placeholder="Телефон" />
-    <button type="submit">Сохранить</button>
-  </form>
+  <div class="profile-container">
+    <img id="avatarPreview" src="default-avatar.png" alt="Аватар" class="avatar">
+    <div>
+      <label for="avatarUpload" class="upload-btn">Загрузить аватар</label>
+      <input type="file" id="avatarUpload" accept="image/*" style="display:none" onchange="previewAvatar(event)">
+    </div>
 
-  <button onclick="goHome()">Перейти на главную</button>
-  <button onclick="logout()">Выйти</button>
-</div>
+    <h1>Личный кабинет</h1>
+    <p class="subtitle">Ваши данные</p>
 
-<script src="public/auth.js"></script>
-<script src="auth.js"></script>
-<script>
-  function saveProfile(event) {
-    event.preventDefault();
-    const fullName = document.getElementById('fullName').value;
-    const email = document.getElementById('email').value;
-    const phone = document.getElementById('phone').value;
+    <form onsubmit="saveProfile(event)">
+      <div class="form-group">
+        <label for="fullName">ФИО</label>
+        <input type="text" id="fullName" placeholder="ФИО" required />
+      </div>
 
-    let userData = JSON.parse(localStorage.getItem('userData')) || {};
-    userData.profileCompleted = true;
-    userData.fullName = fullName;
-    userData.email = email;
-    userData.phone = phone;
-    localStorage.setItem('userData', JSON.stringify(userData));
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="Email" required />
+      </div>
 
-    alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
-  }
-</script>
+      <div class="form-group">
+        <label for="phone">Телефон</label>
+        <input type="tel" id="phone" placeholder="Телефон" />
+      </div>
+
+      <button type="submit" class="btn">💾 Сохранить</button>
+    </form>
+
+    <hr style="margin: 20px 0;">
+
+    <button class="btn" onclick="goHome()">🏠 На главную</button>
+    <button class="btn" style="background:#e94e4e" onclick="logout()">🚪 Выйти</button>
+  </div>
+
+  <script src="public/auth.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    function previewAvatar(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('avatarPreview').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function saveProfile(event) {
+      event.preventDefault();
+      const fullName = document.getElementById('fullName').value;
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+
+      let userData = JSON.parse(localStorage.getItem('userData')) || {};
+      userData.profileCompleted = true;
+      userData.fullName = fullName;
+      userData.email = email;
+      userData.phone = phone;
+      localStorage.setItem('userData', JSON.stringify(userData));
+
+      alert('Профиль сохранён. Проверьте ваш email для активации (пока просто текст).');
+    }
+  </script>
 </body>
 </html>
