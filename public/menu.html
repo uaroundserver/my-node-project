@@ -1,7 +1,10 @@
-<!-- Кнопка меню -->
-<div id="menuButton" onclick="toggleSidebar()">☰</div>
+<!-- Шапка -->
+<header id="app-header">
+  <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">☰</button>
+  <div class="logo">LOGO</div>
+</header>
 
-<!-- Само меню -->
+<!-- Боковое меню -->
 <div id="sidebar">
   <a href="home.html">🏠 Домой</a>
   <a href="profile.html">👤 Профиль</a>
@@ -9,4 +12,22 @@
   <a href="#" onclick="logout()">🚪 Выйти</a>
 </div>
 
-<script src="auth.js"></script>
+<!-- Нижняя панель -->
+<nav id="bottom-nav">
+  <a href="home.html">🏠</a>
+  <a href="profile.html">👤</a>
+  <a href="settings.html">⚙</a>
+  <a href="#" onclick="logout()">🚪</a>
+</nav>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('active');
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('sidebar').classList.remove('active');
+  });
+  document.querySelectorAll('#sidebar a').forEach(a=>{
+    a.addEventListener('click', ()=>document.getElementById('sidebar').classList.remove('active'));
+  });
+</script>
