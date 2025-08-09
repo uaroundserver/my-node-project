@@ -1,50 +1,48 @@
-// Получение элементов
 const sidebar  = () => document.getElementById('sidebar');
 const backdrop = () => document.getElementById('menu-backdrop');
 const menuBtn  = () => document.getElementById('menuButton');
 
-// Открыть меню
 function openSidebar() {
   sidebar().classList.add('active');
-  if (backdrop()) backdrop().hidden = false;
+  if (backdrop()) {
+    backdrop().hidden = false;
+    setTimeout(() => backdrop().classList.add('active'), 10);
+  }
   document.documentElement.classList.add('no-scroll');
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'true');
 }
 
-// Закрыть меню
 function closeSidebar() {
   sidebar().classList.remove('active');
-  if (backdrop()) backdrop().hidden = true;
+  if (backdrop()) {
+    backdrop().classList.remove('active');
+    setTimeout(() => { backdrop().hidden = true; }, 300);
+  }
   document.documentElement.classList.remove('no-scroll');
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'false');
 }
 
-// Переключить меню
 function toggleSidebar() {
   sidebar().classList.contains('active') ? closeSidebar() : openSidebar();
 }
-
-// Делаем функцию доступной из HTML
 window.toggleSidebar = toggleSidebar;
 
-// Закрытие по Esc
+// Esc
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSidebar();
 });
 
-// Закрытие по бэкдропу
+// Клик по бэкдропу
 if (backdrop()) {
   backdrop().addEventListener('click', closeSidebar);
 }
 
-// Закрытие по клику на ссылку в сайдбаре
+// Клик по ссылке в сайдбаре
 document.addEventListener('click', (e) => {
-  if (e.target.closest('#sidebar a')) {
-    closeSidebar();
-  }
+  if (e.target.closest('#sidebar a')) closeSidebar();
 });
 
-// Закрытие по клику вне сайдбара и кнопки
+// Клик вне меню и кнопки
 document.addEventListener('click', (e) => {
   if (!sidebar().classList.contains('active')) return;
   if (e.target.closest('#sidebar')) return;
@@ -54,9 +52,7 @@ document.addEventListener('click', (e) => {
 
 // Закрытие при скролле
 window.addEventListener('scroll', () => {
-  if (sidebar().classList.contains('active')) {
-    closeSidebar();
-  }
+  if (sidebar().classList.contains('active')) closeSidebar();
 });
 
 // Подсветка активных ссылок
