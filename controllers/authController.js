@@ -28,7 +28,6 @@ async function register(req, res, db) {
             activationToken,
             createdAt: new Date(),
         });
-
         const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
 
         await transporter.sendMail({
