@@ -1,5 +1,4 @@
 function initMenu() {
-  // защита от повторной инициализации
   if (window.__menu_inited) return;
   window.__menu_inited = true;
 
@@ -92,14 +91,32 @@ function initMenu() {
   function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
   window.toggleSidebar = toggleSidebar;
 
-  // --- Выход (работает везде): .js-logout
-  document.addEventListener('pointerdown', (e) => {
-    const btn = e.target.closest('.js-logout');
-    if (!btn) return;
+  // --- Выход (гарантированный)
+  function fallbackLogout() {
+    try {
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userData');
+    } catch (_) {}
+    window.location.href = 'login.html';
+  }
+
+  function handleLogoutClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof window.logout === 'function') window.logout();
+    (window.logout || fallbackLogout)();
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.js-logout, [data-logout], [onclick="logout()"]');
+    if (!btn) return;
+    handleLogoutClick(e);
   }, true);
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-logout, [data-logout], [onclick="logout()"]');
+    if (!btn) return;
+    handleLogoutClick(e);
+  });
 
   // --- Закрытие при клике на ссылку внутри сайдбара
   document.addEventListener('click', e => {
@@ -138,7 +155,6 @@ function initMenu() {
   })();
 }
 
-// Если меню уже есть в DOM — сразу запускаем
 if (document.readyState !== 'loading') {
   initMenu();
 } else {
