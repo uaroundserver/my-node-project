@@ -62,15 +62,18 @@ body {
 }
 
 /* ===== БЭКДРОП ===== */
+/* ===== БЭКДРОП ===== */
 #menu-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0);
   transition: background 0.3s ease;
-  z-index: 3499;
+  z-index: 3499;            /* оставляем твой слой */
+  pointer-events: none;      /* по умолчанию НЕ ловит клики */
 }
 #menu-backdrop.active {
   background: rgba(0,0,0,0.28);
+  pointer-events: auto;      /* когда активен — ловит клики/тапы */
 }
 
 /* ===== САЙДБАР ===== */
