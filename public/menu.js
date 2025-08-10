@@ -88,24 +88,30 @@ function initMenu() {
   function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
   window.toggleSidebar = toggleSidebar;
 
+  // --- Закрытие при клике на ссылку внутри сайдбара
   document.addEventListener('click', e => {
     if (e.target.closest('#sidebar a')) closeSidebar();
   });
 
-  document.addEventListener('click', e => {
+  // --- Закрытие при тапе по бэкдропу
+  document.addEventListener('pointerdown', e => {
+    if (!isOpen) return;
     if (backdrop() && e.target === backdrop()) closeSidebar();
   });
 
-  document.addEventListener('click', (e) => {
+  // --- Закрытие при тапе в любое место вне меню (capture)
+  document.addEventListener('pointerdown', e => {
     if (!isOpen) return;
     if (e.target.closest('#sidebar') || e.target.closest('#menuButton')) return;
     closeSidebar();
   }, true);
 
+  // --- Закрытие по Esc
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isOpen) closeSidebar();
   });
 
+  // --- Подсветка активных ссылок
   (function setActiveLinks() {
     const path = location.pathname.split('/').pop() || 'home.html';
     const links = document.querySelectorAll('#bottom-nav a, #sidebar a');
