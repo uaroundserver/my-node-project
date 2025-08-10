@@ -6,90 +6,6 @@
   <title>Профиль</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="menu.css" />
-  <style>
-    .profile-card{
-      background:#fff; max-width:540px; width:100%;
-      margin:0 auto; padding:24px 18px 22px;
-      border-radius:14px; box-shadow:0 12px 28px rgba(0,0,0,.12);
-      text-align:left; overflow:hidden;
-    }
-    .profile-header{
-      display:flex; flex-direction:column; align-items:center; text-align:center;
-    }
-    .avatar-wrap{
-      width:120px; height:120px; border-radius:50%;
-      overflow:hidden; background:#f3f4f6; box-shadow:0 6px 16px rgba(0,0,0,.12);
-      cursor: zoom-in;
-    }
-    .avatar-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
-    .profile-hint{ font-size:13px; color:#64748b; margin:10px 0 8px; }
-    .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
-    .btn-link{
-      border:none; background:transparent; color:#3b82f6; font-weight:700; cursor:pointer;
-      padding:8px 10px; border-radius:10px;
-    }
-    .btn-primary{
-      background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none;
-      font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer;
-      box-shadow:0 8px 15px rgba(59,130,246,.30);
-    }
-    .btn-primary[disabled]{ opacity:.5; cursor:not-allowed; box-shadow:none; }
-
-    .profile-grid{
-      margin-top:18px; border-top:1px solid #e6ebf2; padding-top:14px;
-      display:grid; grid-template-columns:140px 1fr; row-gap:10px; column-gap:14px;
-    }
-    .label{ color:#64748b; }
-    .value{ color:#0f172a; font-weight:600; }
-    @media (max-width:520px){ .profile-grid{ grid-template-columns:1fr; } }
-
-    /* ===== МОДАЛКА ПРОСМОТРА АВАТАРКИ ===== */
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 5000; /* выше шапки/меню */
-    }
-    .modal[hidden]{ display:none; }
-
-    .modal-content {
-      position: relative;
-      max-width: 90vw;
-      max-height: 90vh;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .modal-content img {
-      display: block;
-      max-width: 90vw;
-      max-height: 90vh;
-      width: auto;
-      height: auto;
-      background:#fff;
-    }
-    .close-btn {
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      background: #fff;
-      color: #111;
-      font-size: 24px;
-      font-weight: 800;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      width: 36px;
-      height: 36px;
-      line-height: 32px;
-      text-align: center;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-    }
-    .close-btn:hover { background:#f3f4f6; }
-  </style>
 </head>
 <body>
   <!-- меню -->
@@ -98,7 +14,7 @@
   <main id="main-content">
     <div class="profile-card">
       <div class="profile-header">
-        <div class="avatar-wrap" id="avatarOpen">
+        <div class="avatar-wrap" id="avatarWrap" title="Нажми, чтобы открыть">
           <img id="avatar" alt="Аватар" />
         </div>
 
@@ -125,10 +41,10 @@
   </main>
 
   <!-- Модалка просмотра аватарки -->
-  <div id="avatarModal" class="modal" hidden>
+  <div id="avatarModal" class="modal" hidden aria-hidden="true" role="dialog" aria-label="Просмотр аватарки">
     <div class="modal-content">
-      <button class="close-btn" aria-label="Закрыть">&times;</button>
-      <img id="modalAvatar" src="" alt="Аватар (увеличенный)">
+      <button class="close-btn" id="avatarCloseBtn" aria-label="Закрыть">×</button>
+      <img id="avatarFull" alt="Аватар в полном размере" />
     </div>
   </div>
 
@@ -151,13 +67,13 @@
 
         // menu.js + гарантированный initMenu()
         const menuJs = document.createElement("script");
-        menuJs.src = "menu.js?v=6";
+        menuJs.src = "menu.js?v=7";
         menuJs.onload = () => { if (typeof initMenu === "function") initMenu(); };
         document.body.appendChild(menuJs);
 
         // auth.js
         const authJs = document.createElement("script");
-        authJs.src = "auth.js?v=3";
+        authJs.src = "auth.js?v=4";
         document.body.appendChild(authJs);
       });
 
@@ -190,7 +106,7 @@
       }
     }
 
-    // === загрузка аватара ===
+    // === загрузка/сохранение аватара ===
     const fileInput = document.getElementById('fileInput');
     const btnChoose = document.getElementById('btnChoose');
     const btnSave   = document.getElementById('btnSave');
@@ -241,48 +157,49 @@
       }
     });
 
-    // ===== Просмотр аватарки в модалке =====
-    const avatarOpen  = document.getElementById('avatarOpen');
-    const avatarModal = document.getElementById('avatarModal');
-    const modalImg    = document.getElementById('modalAvatar');
-    const closeBtn    = avatarModal.querySelector('.close-btn');
+    // === Модалка просмотра аватарки ===
+    const avatarWrap   = document.getElementById('avatarWrap');
+    const avatarModal  = document.getElementById('avatarModal');
+    const avatarFull   = document.getElementById('avatarFull');
+    const avatarClose  = document.getElementById('avatarCloseBtn');
 
-    function isDefaultAvatar(src){
-      return !src || src.includes('data:image/svg+xml');
-    }
-
-    // Открыть модалку по клику на аватар
-    avatarOpen.addEventListener('click', () => {
-      const src = imgEl.getAttribute('src') || '';
-      if (isDefaultAvatar(src)) return; // дефолтную не открываем
-      modalImg.src = src;
+    function openAvatarModal(src){
+      // не открываем пустую/дефолтную
+      if (!src || src === DEFAULT_AVATAR) return;
+      avatarFull.src = src;
       avatarModal.hidden = false;
+      avatarModal.setAttribute('aria-hidden', 'false');
       document.documentElement.classList.add('no-scroll');
-    });
-
-    // Закрытия
-    function closeModal(){
-      avatarModal.hidden = true;
-      modalImg.src = '';
-      document.documentElement.classList.remove('no-scroll');
     }
 
-    // по крестику
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeModal();
+    function closeAvatarModal(){
+      avatarModal.hidden = true;
+      avatarModal.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.remove('no-scroll');
+      // маленькая защита от залипания изображения в памяти
+      setTimeout(() => { avatarFull.removeAttribute('src'); }, 50);
+    }
+
+    // клик по аватару — открыть
+    avatarWrap.addEventListener('click', () => {
+      const currentSrc = imgEl.getAttribute('src');
+      openAvatarModal(currentSrc);
     });
 
-    // по клику вне изображения
+    // крестик
+    avatarClose.addEventListener('click', closeAvatarModal);
+
+    // клик вне изображения
     avatarModal.addEventListener('click', (e) => {
-      if (e.target === avatarModal) closeModal();
+      if (!e.target.closest('.modal-content')) closeAvatarModal();
     });
 
-    // по Esc
+    // Esc
     document.addEventListener('keydown', (e) => {
-      if (!avatarModal.hidden && e.key === 'Escape') closeModal();
+      if (e.key === 'Escape' && avatarModal.hidden === false) closeAvatarModal();
     });
 
+    // Старт
     document.addEventListener('DOMContentLoaded', loadProfile);
   </script>
 </body>
