@@ -31,12 +31,17 @@
       .then(html => {
         document.getElementById("menu-container").innerHTML = html;
 
+        // menu.js с версией + вызов initMenu
         const menuJs = document.createElement("script");
-        menuJs.src = "menu.js";
+        menuJs.src = "menu.js?v=6";
+        menuJs.onload = () => {
+          if (typeof initMenu === "function") initMenu();
+        };
         document.body.appendChild(menuJs);
 
+        // auth.js с версией
         const authJs = document.createElement("script");
-        authJs.src = "auth.js"; // проверка токена + logout
+        authJs.src = "auth.js?v=3";
         document.body.appendChild(authJs);
       });
 
