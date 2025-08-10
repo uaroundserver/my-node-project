@@ -1,4 +1,4 @@
-const API_BASE = window.API_BASE || '';
+const API_BASE = 'https://uaround.onrender.com';
 
 // --- Глобальная функция выхода ---
 window.logout = function () {
@@ -14,20 +14,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const res = await fetch(`${API_BASE}/api/user/profile`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     if (res.status === 401) return logout();
-    if (!res.ok) throw new Error('Ошибка профиля');
+    if (!res.ok) throw new Error('Ошибка проверки токена');
 
-    const user = await res.json();
-    // Обновляем UI, если на странице есть элементы
-    const elEmail = document.getElementById('email');
-    if (elEmail && user.email) elEmail.textContent = user.email;
-    const avatarEl = document.getElementById('avatar');
-    if (avatarEl && user.avatar) avatarEl.src = user.avatar;
-  } catch (e) {
-    console.error(e);
+    const userData = await res.json();
+    localStorage.setItem('userData', JSON.stringify(userData));
+
+    // показываем меню
+    const menuButton = document.getElementById('menuButton');
+    const sidebar = document.getElementById('sidebar');
+    if (menuButton) menuButton.style.display = '';
+    if (sidebar) sidebar.style.display = '';
+
+  } catch (err) {
+    console.error('Ошибка авторизации:', err);
     logout();
   }
 });

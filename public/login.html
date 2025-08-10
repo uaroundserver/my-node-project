@@ -6,7 +6,7 @@
   <title>Вход</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-api-base="https://uaround.onrender.com">
+<body>
   <main id="main-content">
     <div class="form-container">
       <h1>Вход</h1>
@@ -20,7 +20,61 @@
     </div>
   </main>
 
-  <!-- Подключаем внешний JS -->
-  <script src="scripts/login.js" defer></script>
+  <script>
+    const API_BASE = 'https://uaround.onrender.com';
+
+    // Если токен уже есть — переходим на главную
+    if (localStorage.getItem('userToken')) {
+      window.location.href = 'home.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorMessage = document.getElementById('error-message');
+      errorMessage.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMessage.textContent = data.error || 'Ошибка входа';
+          errorMessage.style.display = 'block';
+          return;
+        }
+
+        // Сохраняем токен
+        localStorage.setItem('userToken', data.token);
+
+        // Запрашиваем профиль
+        const profileRes = await fetch(`${API_BASE}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          localStorage.setItem('userData', JSON.stringify(profile));
+        } else {
+          localStorage.setItem('userData', JSON.stringify({ email }));
+        }
+
+        // Переход на главную
+        window.location.href = 'home.html';
+
+      } catch (err) {
+        console.error('Ошибка входа:', err);
+        errorMessage.textContent = 'Сервер недоступен, попробуйте позже';
+        errorMessage.style.display = 'block';
+      }
+    });
+  </script>
 </body>
 </html>
