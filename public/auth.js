@@ -35,9 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// --- Делегирование события выхода ---
+// --- Делегирование события выхода (работает с любыми кнопками) ---
 document.addEventListener('click', (e) => {
-  if (e.target.closest('.js-logout')) {
+  const logoutBtn = e.target.closest('[onclick="logout()"], .js-logout, [data-logout]');
+  if (logoutBtn) {
     e.preventDefault();
     logout();
   }
