@@ -1,9 +1,16 @@
 const API_BASE = 'https://uaround.onrender.com';
 
-// Проверка авторизации при загрузке страницы
+// --- Глобальная функция выхода ---
+window.logout = function () {
+  localStorage.removeItem('userToken');
+  localStorage.removeItem('userData');
+  window.location.href = 'login.html';
+};
+
+// --- Проверка авторизации при загрузке ---
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('userToken');
-  if (!token) return logout(); // нет токена → сразу на логин
+  if (!token) return logout();
 
   try {
     const res = await fetch(`${API_BASE}/api/user/profile`, {
@@ -22,23 +29,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (menuButton) menuButton.style.display = '';
     if (sidebar) sidebar.style.display = '';
 
-    // навешиваем обработчики выхода на все кнопки с onclick="logout()" в menu.html
-    document.querySelectorAll('[onclick="logout()"]').forEach(btn => {
-      btn.addEventListener('click', logout);
-    });
-
   } catch (err) {
     console.error('Ошибка авторизации:', err);
     logout();
   }
 });
 
+// --- Делегирование события выхода ---
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.js-logout')) {
+    e.preventDefault();
+    logout();
+  }
+});
+
+// --- Переход на главную ---
 window.goHome = function () {
   window.location.href = 'home.html';
-};
-
-window.logout = function () {
-  localStorage.removeItem('userToken');
-  localStorage.removeItem('userData');
-  window.location.href = 'login.html';
 };
