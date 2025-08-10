@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const userData = await res.json();
     localStorage.setItem('userData', JSON.stringify(userData)); // обновляем локальные данные
 
-    // показываем меню, если авторизован
+    // показываем меню, если оно уже подгружено (на всякий случай)
     const menuButton = document.getElementById('menuButton');
     const sidebar = document.getElementById('sidebar');
     if (menuButton) menuButton.style.display = '';
@@ -40,8 +40,5 @@ window.logout = function () {
   window.location.href = 'login.html';
 };
 
-// Переключение бокового меню
-window.toggleSidebar = function () {
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.classList.toggle('active');
-};
+// ВАЖНО: никаких функций управления сайдбаром здесь!
+// toggleSidebar и всё, что открывает/закрывает меню, должно быть только в menu.js
