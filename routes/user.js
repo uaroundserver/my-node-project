@@ -1,32 +1,13 @@
 const express = require('express');
-const { ObjectId } = require('mongodb');
 const auth = require('../middleware/auth');
+const { getProfile, updateProfile, updateAvatar } = require('../controllers/userController');
 
-module.exports = function(db) {
-  const r = express.Router();
+module.exports = function(db){
+  const router = express.Router();
 
-  r.get('/profile', auth, async (req, res) => {
-    const user = await db.collection('users').findOne(
-      { _id: new ObjectId(req.user.sub) },
-      { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
-    );
-    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
-    res.json({
-      fullName: user.fullName || '',
-      email: user.email,
-      phone: user.phone || '',
-      country: user.country || ''
-    });
-  });
+  router.get('/profile', auth, (req, res) => getProfile(req, res, db));
+  router.put('/profile', auth, (req, res) => updateProfile(req, res, db));
+  router.put('/avatar', auth, (req, res) => updateAvatar(req, res, db));
 
-  r.put('/profile', auth, async (req, res) => {
-    const { fullName, email, phone } = req.body || {};
-    await db.collection('users').updateOne(
-      { _id: new ObjectId(req.user.sub) },
-      { $set: { fullName, email: (email||'').toLowerCase(), phone } }
-    );
-    res.json({ message: 'OK' });
-  });
-
-  return r;
+  return router;
 };
