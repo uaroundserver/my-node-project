@@ -5,49 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Добро пожаловать | UAround</title>
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    body {
-      text-align: center;
-    }
-  </style>
 </head>
 <body>
-  <div class="form-container">
-    <h1>Добро пожаловать на платформу <span style="color:#1e90ff;">UAround.com</span></h1>
-    <p>Пройдите авторизацию или зарегистрируйтесь, чтобы начать пользоваться платформой.</p>
+  <main id="main-content">
+    <div class="form-container">
+      <h1>Добро пожаловать на платформу <span style="color:#1e90ff;">UAround.com</span></h1>
+      <p>Пройдите авторизацию или зарегистрируйтесь, чтобы начать пользоваться платформой.</p>
 
-    <h1>Регистрация</h1> 
-    <form id="registerForm">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="password" id="password" placeholder="Пароль" required />
- <select id="country" class="input" required>
-        <option value="" disabled selected>🌍Выберите страну проживания</option>
-        <option value="Польша">🇵🇱 Польша</option>
-        <option value="Германия">🇩🇪 Германия</option>
-        <option value="Чехия">🇨🇿 Чехия</option>
-        <option value="Италия">🇮🇹 Италия</option>
-        <option value="Испания">🇪🇸 Испания</option>
-        <option value="Франция">🇫🇷 Франция</option>
-        <option value="Румыния">🇷🇴 Румыния</option>
-        <option value="Hungary">🇭🇺 Hungary</option>
-        <option value="Словакия">🇸🇰 Словакия</option>
-        <option value="Нидерланды">🇳🇱 Нидерланды</option>
-      </select>
+      <h1>Регистрация</h1>
+      <form id="registerForm">
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Пароль" required />
+        <select id="country" class="input" required>
+          <option value="" disabled selected>🌍Выберите страну проживания</option>
+          <option value="Польша">🇵🇱 Польша</option>
+          <option value="Германия">🇩🇪 Германия</option>
+          <option value="Чехия">🇨🇿 Чехия</option>
+          <option value="Италия">🇮🇹 Италия</option>
+          <option value="Испания">🇪🇸 Испания</option>
+          <option value="Франция">🇫🇷 Франция</option>
+          <option value="Румыния">🇷🇴 Румыния</option>
+          <option value="Hungary">🇭🇺 Hungary</option>
+          <option value="Словакия">🇸🇰 Словакия</option>
+          <option value="Нидерланды">🇳🇱 Нидерланды</option>
+        </select>
+        <button type="submit">Зарегистрироваться</button>
+      </form>
 
-      <button type="submit">Зарегистрироваться</button>
-    </form>
-    <p>Уже есть аккаунт? <a href="login.html">Войти</a></p>
-  </div>
+      <p id="error-message" style="color:red;display:none;"></p>
+      <p>Уже есть аккаунт? <a href="login.html">Войти</a></p>
+    </div>
+  </main>
 
-  <script src="scripts/register.js" defer></script>
   <script>
-    // Убедимся, что функция register загружена, и повесим обработчик после загрузки скрипта
-    window.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('registerForm');
-      if (form && typeof register === 'function') {
-        form.addEventListener('submit', register);
-      } else {
-        console.error('Функция register не найдена или форма отсутствует.');
+    const API_BASE = 'https://uaround.onrender.com';
+
+    // Если уже авторизован — на главную
+    if (localStorage.getItem('userToken')) {
+      window.location.href = 'home.html';
+    }
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const country = document.getElementById('country').value;
+      const errorMessage = document.getElementById('error-message');
+      errorMessage.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, country })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMessage.textContent = data.error || 'Ошибка регистрации';
+          errorMessage.style.display = 'block';
+          return;
+        }
+
+        // Сохраняем токен
+        localStorage.setItem('userToken', data.token);
+
+        // Профиль
+        const profileRes = await fetch(`${API_BASE}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          localStorage.setItem('userData', JSON.stringify(profile));
+        } else {
+          localStorage.setItem('userData', JSON.stringify({ email, country }));
+        }
+
+        // На главную
+        window.location.href = 'home.html';
+
+      } catch (err) {
+        console.error('Ошибка регистрации:', err);
+        errorMessage.textContent = 'Сервер недоступен, попробуйте позже';
+        errorMessage.style.display = 'block';
       }
     });
   </script>
