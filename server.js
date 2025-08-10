@@ -1,4 +1,4 @@
-require('dotenv').config(); // Загрузка переменных окружения
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
@@ -12,8 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-// ↑ важное изменение: увеличили лимит тела для base64-изображений
-app.use(express.json({ limit: '3mb' }));
+// Для base64-аватара до ~5 МБ
+app.use(express.json({ limit: '6mb' }));
 
 let db;
 const client = new MongoClient(process.env.MONGO_URI);
@@ -22,6 +22,8 @@ async function connectDB() {
   try {
     await client.connect();
     db = client.db('DBUA');
+    // уникальность email
+    await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
   } catch (err) {
     console.error('❌ Ошибка подключения к MongoDB:', err);
@@ -29,20 +31,16 @@ async function connectDB() {
 }
 connectDB();
 
-// Настройка почты
+// Почта
 const transporter = nodemailer.createTransport({
   service: 'Gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-// Middleware для проверки токена
+// JWT middleware
 function authMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'Токен отсутствует' });
-
   const token = authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Токен отсутствует' });
 
@@ -53,13 +51,13 @@ function authMiddleware(req, res, next) {
   });
 }
 
-// 🔥 Активация аккаунта
+// Активация
 app.get('/activate/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const user = await db.collection('users').findOne({
       activationToken: token,
-      activationExpires: { $gt: new Date() }
+      activationExpires: { $gt: new Date() },
     });
 
     if (!user) {
@@ -71,20 +69,13 @@ app.get('/activate/:token', async (req, res) => {
 
     await db.collection('users').updateOne(
       { _id: user._id },
-      {
-        $set: { activated: true },
-        $unset: { activationToken: "", activationExpires: "" },
-      }
+      { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
     );
 
     res.send(`
       <h2>✅ Аккаунт активирован!</h2>
       <p>Через 3 секунды вы будете перенаправлены на сайт.</p>
-      <script>
-        setTimeout(() => {
-          window.location.href = "${process.env.CLIENT_URL}";
-        }, 3000);
-      </script>
+      <script>setTimeout(()=>{window.location.href="${process.env.CLIENT_URL}"},3000)</script>
     `);
   } catch (err) {
     console.error(err);
@@ -92,27 +83,31 @@ app.get('/activate/:token', async (req, res) => {
   }
 });
 
-// Подключение статики
+// Статика
 app.use(express.static('public'));
+app.get('/', (_, res) => res.send('Сервер работает, добро пожаловать!'));
 
-app.get('/', (req, res) => {
-  res.send('Сервер работает, добро пожаловать!');
-});
-
-// 📌 Регистрация
+// Регистрация
 app.post('/register', async (req, res) => {
   try {
-    const { email, password, country } = req.body;
+    let { email, password, country } = req.body;
     if (!email || !password || !country) {
       return res.status(400).json({ error: 'Заполните email, пароль и страну проживания' });
     }
 
+    email = String(email).trim().toLowerCase(); // ← нормализация
+
+    const existingUser = await db.collection('users').findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(16).toString('hex');
-    const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+    const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const result = await db.collection('users').insertOne({
-      email,
+      email, // сохраняем уже в нижнем регистре
       password: hashedPassword,
       country,
       activated: false,
@@ -122,14 +117,13 @@ app.post('/register', async (req, res) => {
     });
 
     const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
-
     await transporter.sendMail({
       from: `"MyApp" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Подтверждение регистрации',
       html: `
         <h3>Спасибо за регистрацию!</h3>
-        <p>Пожалуйста, активируйте свой аккаунт, перейдя по ссылке ниже:</p>
+        <p>Пожалуйста, активируйте аккаунт по ссылке ниже:</p>
         <a href="${activationLink}">${activationLink}</a>
         <p><b>Срок действия:</b> 24 часа</p>
       `,
@@ -139,7 +133,6 @@ app.post('/register', async (req, res) => {
       message: 'Регистрация успешна! Проверьте почту для активации.',
       userId: result.insertedId,
     });
-
   } catch (err) {
     if (err.code === 11000 && err.keyPattern?.email) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
@@ -149,19 +142,18 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// 📌 Вход (JWT)
+// Логин (JWT)
 app.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-
+    let { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email и пароль обязательны' });
     }
 
+    email = String(email).trim().toLowerCase(); // ← нормализация
+
     const user = await db.collection('users').findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: 'Пользователь не найден' });
-    }
+    if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
 
     if (!user.activated) {
       return res.status(403).json({ error: 'Аккаунт не активирован. Проверьте почту.' });
@@ -173,18 +165,14 @@ app.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-    res.json({ 
-      token,
-      userId: user._id
-    });
+    res.json({ token, userId: user._id });
   } catch (err) {
     console.error('Ошибка при логине:', err);
     res.status(500).json({ error: 'Ошибка сервера при входе' });
   }
 });
 
-// 📌 Получение профиля
+// Профиль: получить
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await db.collection('users').findOne(
@@ -199,13 +187,13 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// 📌 Обновление профиля
+// Профиль: обновить (email здесь НЕ меняем)
 app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
-    const { fullName, email, phone } = req.body;
+    const { fullName, phone } = req.body; // email намеренно не принимаем
     await db.collection('users').updateOne(
       { _id: new ObjectId(req.userId) },
-      { $set: { fullName, email, phone } }
+      { $set: { fullName: fullName || '', phone: phone || '' } }
     );
     res.json({ message: 'Профиль обновлён' });
   } catch (err) {
@@ -214,8 +202,7 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// 📌 Обновление аватара (JWT-защита) — Шаг 2
-// ожидает { avatar: 'data:image/png;base64,...' } в теле
+// Аватар: обновить (base64 data URL)
 app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -223,10 +210,16 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Неверный формат изображения' });
     }
 
-    // грубая проверка объёма (до ~2 МБ)
+    // разрешим только jpg/png
+    const isOkType = /^data:image\/(png|jpeg|jpg);base64,/i.test(avatar);
+    if (!isOkType) {
+      return res.status(400).json({ error: 'Допустимы только JPG/PNG' });
+    }
+
+    // до 5 МБ
     const approxBytes = Math.ceil((avatar.length * 3) / 4);
-    if (approxBytes > 2 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Изображение слишком большое (макс. 2 МБ)' });
+    if (approxBytes > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Изображение слишком большое (макс. 5 МБ)' });
     }
 
     await db.collection('users').updateOne(
@@ -241,7 +234,6 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   }
 });
 
-// Запуск сервера
 app.listen(PORT, () => {
   console.log(`🔊 Сервер запущен на порту ${PORT}`);
 });
