@@ -92,8 +92,19 @@
       .then(r => r.text())
       .then(html => {
         document.getElementById("menu-container").innerHTML = html;
-        const menuJs = document.createElement("script"); menuJs.src = "menu.js"; document.body.appendChild(menuJs);
-        const authJs = document.createElement("script"); authJs.src = "auth.js"; document.body.appendChild(authJs);
+
+        // menu.js (с версией) + гарантированный initMenu()
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js?v=6";
+        menuJs.onload = () => {
+          if (typeof initMenu === "function") initMenu();
+        };
+        document.body.appendChild(menuJs);
+
+        // auth.js (с версией)
+        const authJs = document.createElement("script");
+        authJs.src = "auth.js?v=3";
+        document.body.appendChild(authJs);
       });
 
     const state = { token: null, avatarChangedDataUrl: null };
@@ -177,6 +188,7 @@
       }
     });
 
+    // если скрипт внизу страницы — DOM уже готов, но оставим на всякий
     document.addEventListener('DOMContentLoaded', loadProfile);
   </script>
 </body>
