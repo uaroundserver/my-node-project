@@ -5,22 +5,22 @@
 *::before,
 *::after { box-sizing: border-box; }
 
-html, body { overflow-x: hidden; } /* убираем горизонтальную полосу */
+html, body { overflow-x: hidden; }
 
 /* фон и типографика страницы */
 body {
   font-family: 'Inter', Arial, sans-serif;
   background: linear-gradient(135deg, #f0f3f7, #d9e2ec);
   margin: 0;
-  padding: 0; /* отступы под шапку/табы задаёт menu.css */
+  padding: 0;
   color: #222;
   text-align: center;
   min-height: 100vh;
 }
 
-/* контейнер контента: центрируем и делаем компактные поля */
+/* контейнер контента */
 #main-content {
-  padding: 0 12px;              /* единый компактный отступ */
+  padding: 0 12px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -35,9 +35,8 @@ body {
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0,0,0,0.12);
   transition: box-shadow 0.3s ease;
-  overflow-x: hidden; /* чтобы тени/скругления не давали лишнюю ширину */
+  overflow-x: hidden;
 }
-
 .form-container:hover {
   box-shadow: 0 18px 36px rgba(0,0,0,0.18);
 }
@@ -60,7 +59,6 @@ select {
   background-color: #f9fbfc;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
-
 input:focus,
 select:focus {
   outline: none;
@@ -69,7 +67,7 @@ select:focus {
   background-color: #fff;
 }
 
-/* КНОПКИ — больше не глобально! Только внутри формы или по классу .btn */
+/* Кнопки */
 .form-container button,
 .btn {
   background: linear-gradient(135deg, #3b82f6, #2563eb);
@@ -86,7 +84,6 @@ select:focus {
   margin-top: 20px;
   max-width: 100%;
 }
-
 .form-container button:hover,
 .btn:hover {
   background: linear-gradient(135deg, #2563eb, #1e40af);
@@ -100,7 +97,6 @@ a {
   text-decoration: none;
   font-weight: 600;
 }
-
 a:hover { text-decoration: underline; }
 
 /* адаптив */
@@ -108,3 +104,132 @@ a:hover { text-decoration: underline; }
   #main-content { padding: 0 12px; }
   .form-container { padding: 24px 18px; border-radius: 12px; }
 }
+
+/* ===== Профиль ===== */
+.profile-card {
+  background: #fff;
+  max-width: 540px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 18px 22px;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12);
+  text-align: left;
+  overflow: hidden;
+}
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.avatar-wrap {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f3f4f6;
+  box-shadow: 0 6px 16px rgba(0,0,0,.12);
+  cursor: pointer;
+}
+.avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 10px 0 8px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn-link {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 8px 15px rgba(59,130,246,.30);
+}
+.btn-primary[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.profile-grid {
+  margin-top: 18px;
+  border-top: 1px solid #e6ebf2;
+  padding-top: 14px;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  row-gap: 10px;
+  column-gap: 14px;
+}
+.label { color: #64748b; }
+.value { color: #0f172a; font-weight: 600; }
+@media (max-width: 520px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== Модалка просмотра аватарки ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+}
+.modal[hidden] { display: none; }
+.modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.modal-content img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  background: #fff;
+}
+.close-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #fff;
+  color: #111;
+  font-size: 24px;
+  font-weight: 800;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  line-height: 32px;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+}
+.close-btn:hover { background: #f3f4f6; }
