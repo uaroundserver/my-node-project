@@ -5,11 +5,9 @@ module.exports = function auth(req, res, next) {
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Нет токена' });
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    if (!payload || !payload.sub) return res.status(401).json({ error: 'Неверный токен' });
-    req.user = { sub: payload.sub, email: payload.email || null };
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
-  } catch (e) {
-    return res.status(401).json({ error: 'Неверный или истёкший токен' });
+  } catch {
+    return res.status(401).json({ error: 'Неверный токен' });
   }
 };
