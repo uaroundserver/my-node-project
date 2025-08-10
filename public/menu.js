@@ -4,7 +4,7 @@ function menuBtn()  { return document.getElementById('menuButton'); }
 
 let scrollLockY = 0;
 let isOpen = false;
-let canAutoClose = false; // защита от мгновенного закрытия
+let canAutoClose = false; // защита от мгновенного закрытия сразу после открытия
 
 function lockScroll() {
   scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -28,7 +28,6 @@ function unlockScroll() {
 
 function addAutoCloseListeners() {
   const closeOnMove = () => { if (isOpen && canAutoClose) closeSidebar(); };
-  // сохраняем ссылки, чтобы снять позже
   addAutoCloseListeners._refs = [
     ['scroll', window, closeOnMove, { passive:true }],
     ['wheel', window, closeOnMove, { passive:true }],
@@ -51,51 +50,68 @@ function removeAutoCloseListeners() {
 function openSidebar() {
   if (!sidebar()) return;
   sidebar().classList.add('active');
+
   if (backdrop()) {
     backdrop().hidden = false;
     requestAnimationFrame(() => backdrop().classList.add('active'));
   }
+
   lockScroll();
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'true');
   isOpen = true;
 
-  // вешаем слушатели только сейчас
   addAutoCloseListeners();
+
+  // небольшая задержка, чтобы клики/скролл, которые инициировали открытие, не закрыли меню
   canAutoClose = false;
-  setTimeout(() => { canAutoClose = true; }, 250); // защита от «дрожи» при открытии
+  setTimeout(() => { canAutoClose = true; }, 250);
 }
 
 function closeSidebar() {
   if (!sidebar()) return;
+
   sidebar().classList.remove('active');
+
   if (backdrop()) {
     backdrop().classList.remove('active');
     setTimeout(() => { if (backdrop()) backdrop().hidden = true; }, 300);
   }
+
   if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'false');
   unlockScroll();
+
   isOpen = false;
   canAutoClose = false;
-
-  // снимаем слушатели
   removeAutoCloseListeners();
 }
 
 function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
-window.toggleSidebar = toggleSidebar; // для кнопки
+window.toggleSidebar = toggleSidebar; // для кнопки в меню
 
-// Клик по ссылке в сайдбаре — закрыть
+// --- Клик по ссылке внутри сайдбара — закрываем
 document.addEventListener('click', e => {
   if (e.target.closest('#sidebar a')) closeSidebar();
+});
+
+// --- Клик по бэкдропу — закрываем
+document.addEventListener('click', e => {
   if (backdrop() && e.target === backdrop()) closeSidebar();
 });
 
-// Закрытие по Esc
+// --- ВАЖНО: закрывать по ЛЮБОМУ клику вне сайдбара/кнопки (включая шапку/табы)
+// capture=true, чтобы отработать раньше перехода по ссылкам
+document.addEventListener('click', (e) => {
+  if (!isOpen) return;
+  if (e.target.closest('#sidebar') || e.target.closest('#menuButton')) return;
+  closeSidebar();
+}, true);
+
+// --- Закрытие по Esc
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && isOpen) closeSidebar();
 });
 
-// Авто-подсветка активной ссылки
+// --- Авто-подсветка активных ссылок
 (function setActiveLinks() {
   const path = location.pathname.split('/').pop() || 'home.html';
   const links = document.querySelectorAll('#bottom-nav a, #sidebar a');
