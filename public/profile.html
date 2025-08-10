@@ -19,6 +19,7 @@
     .avatar-wrap{
       width:120px; height:120px; border-radius:50%;
       overflow:hidden; background:#f3f4f6; box-shadow:0 6px 16px rgba(0,0,0,.12);
+      cursor: zoom-in;
     }
     .avatar-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
     .profile-hint{ font-size:13px; color:#64748b; margin:10px 0 8px; }
@@ -41,6 +42,53 @@
     .label{ color:#64748b; }
     .value{ color:#0f172a; font-weight:600; }
     @media (max-width:520px){ .profile-grid{ grid-template-columns:1fr; } }
+
+    /* ===== МОДАЛКА ПРОСМОТРА АВАТАРКИ ===== */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5000; /* выше шапки/меню */
+    }
+    .modal[hidden]{ display:none; }
+
+    .modal-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .modal-content img {
+      display: block;
+      max-width: 90vw;
+      max-height: 90vh;
+      width: auto;
+      height: auto;
+      background:#fff;
+    }
+    .close-btn {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: #fff;
+      color: #111;
+      font-size: 24px;
+      font-weight: 800;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      line-height: 32px;
+      text-align: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+    }
+    .close-btn:hover { background:#f3f4f6; }
   </style>
 </head>
 <body>
@@ -50,7 +98,7 @@
   <main id="main-content">
     <div class="profile-card">
       <div class="profile-header">
-        <div class="avatar-wrap">
+        <div class="avatar-wrap" id="avatarOpen">
           <img id="avatar" alt="Аватар" />
         </div>
 
@@ -76,6 +124,14 @@
     </div>
   </main>
 
+  <!-- Модалка просмотра аватарки -->
+  <div id="avatarModal" class="modal" hidden>
+    <div class="modal-content">
+      <button class="close-btn" aria-label="Закрыть">&times;</button>
+      <img id="modalAvatar" src="" alt="Аватар (увеличенный)">
+    </div>
+  </div>
+
   <script>
     const API_BASE = 'https://uaround.onrender.com';
     const DEFAULT_AVATAR =
@@ -93,15 +149,13 @@
       .then(html => {
         document.getElementById("menu-container").innerHTML = html;
 
-        // menu.js (с версией) + гарантированный initMenu()
+        // menu.js + гарантированный initMenu()
         const menuJs = document.createElement("script");
         menuJs.src = "menu.js?v=6";
-        menuJs.onload = () => {
-          if (typeof initMenu === "function") initMenu();
-        };
+        menuJs.onload = () => { if (typeof initMenu === "function") initMenu(); };
         document.body.appendChild(menuJs);
 
-        // auth.js (с версией)
+        // auth.js
         const authJs = document.createElement("script");
         authJs.src = "auth.js?v=3";
         document.body.appendChild(authJs);
@@ -148,7 +202,6 @@
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
 
-      // формат + размер (5 МБ)
       const okType = /image\/(jpeg|jpg|png)/i.test(file.type);
       if (!okType){ alert('Допустимы JPG или PNG'); fileInput.value=''; return; }
       if (file.size > 5 * 1024 * 1024){ alert('Файл больше 5 МБ'); fileInput.value=''; return; }
@@ -188,7 +241,48 @@
       }
     });
 
-    // если скрипт внизу страницы — DOM уже готов, но оставим на всякий
+    // ===== Просмотр аватарки в модалке =====
+    const avatarOpen  = document.getElementById('avatarOpen');
+    const avatarModal = document.getElementById('avatarModal');
+    const modalImg    = document.getElementById('modalAvatar');
+    const closeBtn    = avatarModal.querySelector('.close-btn');
+
+    function isDefaultAvatar(src){
+      return !src || src.includes('data:image/svg+xml');
+    }
+
+    // Открыть модалку по клику на аватар
+    avatarOpen.addEventListener('click', () => {
+      const src = imgEl.getAttribute('src') || '';
+      if (isDefaultAvatar(src)) return; // дефолтную не открываем
+      modalImg.src = src;
+      avatarModal.hidden = false;
+      document.documentElement.classList.add('no-scroll');
+    });
+
+    // Закрытия
+    function closeModal(){
+      avatarModal.hidden = true;
+      modalImg.src = '';
+      document.documentElement.classList.remove('no-scroll');
+    }
+
+    // по крестику
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeModal();
+    });
+
+    // по клику вне изображения
+    avatarModal.addEventListener('click', (e) => {
+      if (e.target === avatarModal) closeModal();
+    });
+
+    // по Esc
+    document.addEventListener('keydown', (e) => {
+      if (!avatarModal.hidden && e.key === 'Escape') closeModal();
+    });
+
     document.addEventListener('DOMContentLoaded', loadProfile);
   </script>
 </body>
