@@ -25,12 +25,20 @@
     fetch("menu.html")
       .then(r => r.text())
       .then(html => {
+        // Вставляем меню в контейнер
         document.getElementById("menu-container").innerHTML = html;
 
+        // Загружаем menu.js
         const menuJs = document.createElement("script");
         menuJs.src = "menu.js";
+        menuJs.onload = () => {
+          if (typeof initMenu === "function") {
+            initMenu(); // Запускаем инициализацию меню
+          }
+        };
         document.body.appendChild(menuJs);
 
+        // Загружаем auth.js
         const auth = document.createElement("script");
         auth.src = "auth.js";
         document.body.appendChild(auth);
