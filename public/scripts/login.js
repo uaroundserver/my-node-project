@@ -1,11 +1,13 @@
+const API_BASE = window.API_BASE || '';
+
 async function login(event) {
   event.preventDefault();
 
-  const email = document.getElementById('email').value.toLowerCase(); // приводим к нижнему регистру
+  const email = document.getElementById('email').value.toLowerCase();
   const password = document.getElementById('password').value;
 
   try {
-    const response = await fetch('https://uaround.onrender.com/login', {
+    const response = await fetch(`${API_BASE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -14,10 +16,8 @@ async function login(event) {
     const data = await response.json();
 
     if (response.ok) {
-      // Успешный вход — сохраняем токен и переходим
-      localStorage.setItem('userToken', data.token); // вместо 'fake-token'
+      localStorage.setItem('userToken', data.token);
       localStorage.setItem('userData', JSON.stringify({ email }));
-     // alert(data.message || 'Вход выполнен');
       window.location.href = 'home.html';
     } else {
       alert(data.error || 'Ошибка входа');
