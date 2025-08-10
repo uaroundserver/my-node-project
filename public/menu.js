@@ -1,4 +1,8 @@
 function initMenu() {
+  // защита от повторной инициализации
+  if (window.__menu_inited) return;
+  window.__menu_inited = true;
+
   function sidebar() { return document.getElementById('sidebar'); }
   function backdrop() { return document.getElementById('menu-backdrop'); }
   function menuBtn()  { return document.getElementById('menuButton'); }
@@ -88,6 +92,15 @@ function initMenu() {
   function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
   window.toggleSidebar = toggleSidebar;
 
+  // --- Выход (работает везде): .js-logout
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.js-logout');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window.logout === 'function') window.logout();
+  }, true);
+
   // --- Закрытие при клике на ссылку внутри сайдбара
   document.addEventListener('click', e => {
     if (e.target.closest('#sidebar a')) closeSidebar();
@@ -96,7 +109,7 @@ function initMenu() {
   // --- Закрытие при тапе по бэкдропу
   document.addEventListener('pointerdown', e => {
     if (!isOpen) return;
-    if (backdrop() && e.target === backdrop()) closeSidebar();
+    if (backdrop() && (e.target === backdrop() || e.target.id === 'menu-backdrop')) closeSidebar();
   });
 
   // --- Закрытие при тапе в любое место вне меню (capture)
