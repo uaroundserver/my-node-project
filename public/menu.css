@@ -169,6 +169,7 @@ body {
 /* Бэйдж уведомлений */
 .badge {
   display: inline-block;
+  top: var(--burger-offset);
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
