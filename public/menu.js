@@ -338,5 +338,4 @@ if (document.readyState !== 'loading') {
 
 }
 
-}
 
