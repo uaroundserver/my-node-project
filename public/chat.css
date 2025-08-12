@@ -101,34 +101,9 @@ html,body{
 }
 
 /* ===== MESSAGES ===== */
-.messages{
-  flex:1;
-  overflow:auto;
-  padding:16px;
-  padding-right:16px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  max-width:100vw;
-}
-@supports(padding: max(0px)){
-  .messages{
-    padding-left:max(12px, env(safe-area-inset-left));
-    padding-right:max(12px, env(safe-area-inset-right));
-  }
-}
-.msg{
-  max-width:86%;
-  padding:8px 10px;border-radius:var(--bubble-radius);
-  position:relative;display:inline-flex;flex-direction:column;gap:6px;
-  word-break:break-word;overflow-wrap:anywhere;
-}
-.msg.mine{
-  align-self:flex-end;
-  background:linear-gradient(180deg,#1b2f72,#13214a);
-  margin-right:max(8px, env(safe-area-inset-right));
-  border-bottom-right-radius:6px;
-}
+.messages{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:70%;padding:8px 10px;border-radius:var(--bubble-radius);position:relative;display:inline-flex;flex-direction:column;gap:6px}
+.msg.mine{align-self:flex-end;background:linear-gradient(180deg,#1b2f72,#13214a)}
 .msg.their{align-self:flex-start;background:var(--their)}
 .mrow{display:flex;align-items:center;gap:8px}
 .mavatar{
