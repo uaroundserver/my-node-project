@@ -152,3 +152,21 @@ html,body{
   padding:8px 10px;color:var(--text);cursor:pointer
 }
 .composer button:hover{background:#152037}
+/* --- Mobile screens: list OR chat --- */
+@media (max-width: 899px){
+  .chat-app{ grid-template-columns: 1fr; }
+  .chat-list{ display:block; }
+  .chat-main{ display:none; }
+
+  /* когда открыт конкретный чат */
+  html.show-chat .chat-list{ display:none; }
+  html.show-chat .chat-main{ display:flex; }
+
+  /* показать кнопку "назад" в шапке чата */
+  .chat-header .back-btn{ display:inline-flex; }
+}
+
+/* на десктопе кнопка "назад" не нужна */
+@media (min-width: 900px){
+  .chat-header .back-btn{ display:none; }
+}
