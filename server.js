@@ -8,6 +8,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
+<<<<<<< HEAD
 // ✨ Новое: http-сервер и инициализация чата
 const http = require('http');
 const { initChat } = require('./chat');
@@ -18,6 +19,11 @@ const PORT = process.env.PORT || 5000;
 // ✨ Новое: создаём http-сервер на базе app (нужно для Socket.IO)
 const server = http.createServer(app);
 
+=======
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
 app.use(cors());
 // Для base64-аватара до ~5 МБ
 app.use(express.json({ limit: '6mb' }));
@@ -25,7 +31,10 @@ app.use(express.json({ limit: '6mb' }));
 let db;
 const client = new MongoClient(process.env.MONGO_URI);
 
+<<<<<<< HEAD
 // Подключение к БД и старт сервера/чата
+=======
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
 async function connectDB() {
   try {
     await client.connect();
@@ -33,6 +42,7 @@ async function connectDB() {
     // уникальность email
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
+<<<<<<< HEAD
 
     // ✨ Новое: инициализируем чат (Socket.IO + REST), передаём server и db
     initChat(server, db, app);
@@ -41,6 +51,8 @@ async function connectDB() {
     server.listen(PORT, () => {
       console.log(`🔊 Сервер запущен на порту ${PORT}`);
     });
+=======
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
   } catch (err) {
     console.error('❌ Ошибка подключения к MongoDB:', err);
   }
@@ -84,8 +96,13 @@ app.get('/activate/:token', async (req, res) => {
     }
 
     await db.collection('users').updateOne(
+<<<<<<< HEAD
         { _id: user._id },
         { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
+=======
+      { _id: user._id },
+      { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
 
     res.send(`
@@ -192,8 +209,13 @@ app.post('/login', async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await db.collection('users').findOne(
+<<<<<<< HEAD
         { _id: new ObjectId(req.userId) },
         { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
+=======
+      { _id: new ObjectId(req.userId) },
+      { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json(user);
@@ -208,8 +230,13 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const { fullName, phone } = req.body; // email намеренно не принимаем
     await db.collection('users').updateOne(
+<<<<<<< HEAD
         { _id: new ObjectId(req.userId) },
         { $set: { fullName: fullName || '', phone: phone || '' } }
+=======
+      { _id: new ObjectId(req.userId) },
+      { $set: { fullName: fullName || '', phone: phone || '' } }
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
     res.json({ message: 'Профиль обновлён' });
   } catch (err) {
@@ -239,8 +266,13 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
     }
 
     await db.collection('users').updateOne(
+<<<<<<< HEAD
         { _id: new ObjectId(req.userId) },
         { $set: { avatar } }
+=======
+      { _id: new ObjectId(req.userId) },
+      { $set: { avatar } }
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
 
     res.json({ avatar });
@@ -250,4 +282,10 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // ❌ УДАЛЕНО: app.listen(...) — теперь слушаем через server.listen в connectDB()
+=======
+app.listen(PORT, () => {
+  console.log(`🔊 Сервер запущен на порту ${PORT}`);
+});
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650

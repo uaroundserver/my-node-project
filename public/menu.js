@@ -153,6 +153,7 @@ function initMenu() {
       } catch(_) {}
     });
   })();
+<<<<<<< HEAD
 
   // === Бэйдж уведомлений чата ===
   window.updateChatBadge = function(n){
@@ -327,10 +328,16 @@ function initMenu() {
     });
   })();
 
+=======
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
 }
 
 if (document.readyState !== 'loading') {
   initMenu();
 } else {
   document.addEventListener('DOMContentLoaded', initMenu);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
