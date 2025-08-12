@@ -1,208 +1,120 @@
-/* public/chat.css - Mobile-only Telegram-inspired */
+/* public/chat.css – mobile only */
+
 :root{
-  --bg:#0f1620;
-  --panel:#151e2b;
-  --panel-2:#0c121b;
-  --accent:#5aa9ff;
-  --accent-2:#84ffdb;
-  --text:#e6eef7;
-  --muted:#90a4b4;
-  --my:#1f4aff;
-  --my-2:#1a2a50;
-  --their:#223043;
+  --bg:#0f1620; --panel:#151e2b; --panel-2:#0c121b;
+  --accent:#5aa9ff; --accent-2:#84ffdb;
+  --text:#e6eef7; --muted:#90a4b4;
+  --my:#1f4aff; --their:#223043;
   --bubble-radius:18px;
 }
 
 *{box-sizing:border-box}
 html,body{
-  height:100%;
-  width:100%;
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
+  height:100%; width:100%; margin:0;
+  background:var(--bg); color:var(--text);
   font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
-  overflow-x:hidden;
-  max-width:100vw;
+  overflow-x:hidden; max-width:100vw;
 }
 
-/* ===== LAYOUT (mobile only) ===== */
+/* LAYOUT */
 .chat-app{
-  display:grid;
-  grid-template-columns:1fr;           /* всегда один столбец */
-  height:100vh;
-  overflow:hidden;
-  max-width:100vw;
+  display:grid; grid-template-columns:1fr;
+  height:100vh; max-width:100vw;
 }
 
-/* ===== SIDEBAR ===== */
-.chat-list{
-  border-right:1px solid #1f2a3a;
-  background:var(--panel);
-  display:block;                       /* список чатов по умолчанию */
-  flex-direction:column;
-  max-width:100vw;
-}
+/* SIDEBAR */
+.chat-list{border-right:1px solid #1f2a3a;background:var(--panel);display:block;flex-direction:column;max-width:100vw}
 .list-header{padding:14px 16px;border-bottom:1px solid #1f2a3a}
 #chatList{list-style:none;margin:0;padding:0;overflow:auto}
-.chat-item{
-  display:flex;gap:12px;
-  padding:12px 14px;cursor:pointer;
-  border-bottom:1px solid #1a2434;
-}
+.chat-item{display:flex;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1a2434}
 .chat-item:hover{background:var(--panel-2)}
-.chat-item .avatar{
-  width:40px;height:40px;border-radius:50%;
-  position:relative;flex:0 0 auto;overflow:hidden;
-}
-.chat-item .avatar img{width:100%;height:100%;object-fit:cover;}
-.chat-item .online{
-  position:absolute;right:-2px;bottom:-2px;
-  width:12px;height:12px;border-radius:50%;
-  border:2px solid var(--panel);background:#3ddc84;
-}
+.chat-item .avatar{width:40px;height:40px;border-radius:50%;position:relative;flex:0 0 auto;overflow:hidden}
+.chat-item .avatar img{width:100%;height:100%;object-fit:cover}
+.chat-item .online{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--panel);background:#3ddc84}
 .cmeta{display:flex;flex-direction:column;gap:4px;min-width:0;width:100%}
 .crow{display:flex;align-items:center;gap:6px}
 .crow .title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .crow .time{margin-left:auto;color:var(--muted);font-size:12px}
-.cpreview{
-  color:var(--muted);font-size:13px;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;
-}
-.badge{background:#2b7bff;color:white;border-radius:999px;padding:2px 7px;font-size:12px;margin-left:6px}
+.cpreview{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.badge{background:#2b7bff;color:#fff;border-radius:999px;padding:2px 7px;font-size:12px;margin-left:6px}
 
-/* ===== MAIN ===== */
+/* MAIN */
 .chat-main{
-  display:none;                        /* чат скрыт по умолчанию */
+  display:none;            /* по умолчанию скрыт */
   flex-direction:column;
   background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  height:100dvh;           /* вся высота экрана */
   max-width:100vw;
 }
 
-/* --- HEADER: без наложений --- */
+/* HEADER */
 .chat-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:10px 12px;
-  border-bottom:1px solid #1f2a3a;
-  background:var(--panel);
-  max-width:100vw;
-  flex-wrap:nowrap;
+  flex:0 0 auto;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:10px 12px; border-bottom:1px solid #1f2a3a; background:var(--panel); max-width:100vw;
 }
-.chat-meta{
-  display:flex;align-items:center;gap:10px;
-  flex:1 1 auto;
-  min-width:0;                         /* позволяет сжиматься заголовку */
-}
-.chat-avatar{width:36px;height:36px;border-radius:50%;overflow:hidden;flex:0 0 auto;}
-.chat-avatar img{width:100%;height:100%;object-fit:cover;}
+.chat-meta{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
+.chat-avatar{width:36px;height:36px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.chat-avatar img{width:100%;height:100%;object-fit:cover}
 .chat-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-typing{font-size:12px;color:var(--muted);height:16px}
-
-/* поиск — резиновый, не растягивает шапку */
 .search{
-  background:#0c1520;border:1px solid #223147;border-radius:10px;
-  padding:8px 10px;color:var(--text);
-  flex:0 1 55vw;                       /* не больше ~половины */
-  max-width:360px;
-  min-width:0;
-  width:100%;
+  background:#0c1520;border:1px solid #223147;border-radius:10px;padding:8px 10px;color:var(--text);
+  flex:0 1 55vw; max-width:360px; min-width:0; width:100%;
 }
-
-/* на очень узких экранах переносим поиск на вторую строку */
 @media (max-width:380px){
-  .chat-header{ flex-wrap:wrap; }
-  .search{ flex:1 1 100%; max-width:100%; order:2; margin-top:8px; }
-  .chat-meta{ order:1; }
+  .chat-header{flex-wrap:wrap}
+  .search{flex:1 1 100%;max-width:100%;order:2;margin-top:8px}
+  .chat-meta{order:1}
 }
 
-/* ===== MESSAGES ===== */
+/* MESSAGES (скролл внутри) */
 .messages{
-  flex:1;
-  overflow:auto;
-  padding:16px;
-  padding-right:16px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  max-width:100vw;
-  padding-bottom:96px;                 /* запас под composer */
+  flex:1 1 auto;           /* занимает остаток */
+  min-height:0;            /* КЛЮЧ: разрешает сжиматься и скроллиться */
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:16px 16px 96px;  /* место под composer */
+  display:flex; flex-direction:column; gap:8px; max-width:100vw;
 }
-@supports(padding: max(0px)){
+@supports(padding:max(0px)){
   .messages{
     padding-left:max(16px, env(safe-area-inset-left));
     padding-right:max(16px, env(safe-area-inset-right));
     padding-bottom:max(96px, calc(72px + env(safe-area-inset-bottom)));
   }
 }
-
-.msg{
-  max-width:86%;
-  padding:8px 10px;border-radius:var(--bubble-radius);
-  position:relative;display:inline-flex;flex-direction:column;gap:6px;
-  word-break:break-word;overflow-wrap:anywhere;
-}
-.msg.mine{
-  align-self:flex-end;
-  background:linear-gradient(180deg,#1b2f72,#13214a);
-  margin-right:8px;
-  border-bottom-right-radius:6px;
-}
+.msg{max-width:86%;padding:8px 10px;border-radius:var(--bubble-radius);position:relative;display:inline-flex;flex-direction:column;gap:6px;word-break:break-word;overflow-wrap:anywhere}
+.msg.mine{align-self:flex-end;background:linear-gradient(180deg,#1b2f72,#13214a);margin-right:8px;border-bottom-right-radius:6px}
 .msg.their{align-self:flex-start;background:var(--their)}
 .mrow{display:flex;align-items:center;gap:8px}
-.mavatar{
-  width:18px;height:18px;border-radius:50%;
-  position:relative;flex:0 0 auto;overflow:hidden;
-}
-.mavatar img{width:100%;height:100%;object-fit:cover;}
-.mavatar .online{
-  position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;
-  border:1px solid var(--their);background:#3ddc84;
-}
+.mavatar{width:18px;height:18px;border-radius:50%;position:relative;flex:0 0 auto;overflow:hidden}
+.mavatar img{width:100%;height:100%;object-fit:cover}
+.mavatar .online{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;border:1px solid var(--their);background:#3ddc84}
 .mname{font-size:12px;color:var(--muted)}
 .mtext{white-space:pre-wrap}
 .mmeta{display:flex;gap:8px;align-items:center;justify-content:flex-end;color:var(--muted);font-size:11px}
 .ticks{font-size:12px}
 .reply{border-left:3px solid var(--accent);padding-left:8px;margin-bottom:4px;color:var(--muted);font-size:12px}
 
-/* вложения */
+/* attachments */
 .attach{border:1px dashed #2d3e56;border-radius:10px;padding:6px 8px;font-size:12px;margin-top:4px;display:inline-block}
-.attach img,
-.attach video{
-  display:block;
-  max-width:min(70vw, 360px) !important;
-  max-height:50vh !important;
-  width:auto !important;height:auto !important;
-  border-radius:12px;
-  background:#0b1220;object-fit:contain;
-  outline:1px solid rgba(255,255,255,.08);
-}
+.attach img,.attach video{display:block;max-width:min(70vw,360px)!important;max-height:50vh!important;width:auto!important;height:auto!important;border-radius:12px;background:#0b1220;object-fit:contain;outline:1px solid rgba(255,255,255,.08)}
 
-/* ===== COMPOSER (приклеен к низу) ===== */
+/* COMPOSER — всегда снизу */
 .composer{
-  display:flex;gap:8px;padding:12px;
-  border-top:1px solid #1f2a3a;background:var(--panel);
-  max-width:100vw;
-  position:sticky;
-  bottom:0;
-  z-index:10;
+  flex:0 0 auto;
+  position:sticky; bottom:0; z-index:10;
+  display:flex; gap:8px; padding:12px; border-top:1px solid #1f2a3a; background:var(--panel); max-width:100vw;
   padding-bottom:calc(12px + env(safe-area-inset-bottom));
 }
-#msgInput{
-  flex:1;resize:none;background:#0c1520;border:1px solid #223147;
-  border-radius:14px;padding:10px 12px;color:var(--text);
-  max-height:160px;overflow:auto;
-}
-.composer button{
-  background:#0e1522;border:1px solid #23324a;border-radius:12px;
-  padding:8px 10px;color:var(--text);cursor:pointer;
-}
+#msgInput{flex:1;resize:none;background:#0c1520;border:1px solid #223147;border-radius:14px;padding:10px 12px;color:var(--text);max-height:160px;overflow:auto}
+.composer button{background:#0e1522;border:1px solid #23324a;border-radius:12px;padding:8px 10px;color:var(--text);cursor:pointer}
 .composer button:hover{background:#152037}
 
-/* ===== MOBILE SHOW CHAT ===== */
-html.show-chat .chat-list{ display:none; }
-html.show-chat .chat-main{ display:flex; }
+/* переключение список/чат */
+html.show-chat .chat-list{display:none}
+html.show-chat .chat-main{display:flex}
 
-/* Кнопка "назад" всегда на мобилке */
-.chat-header .back-btn{ display:inline-flex; }
+/* back button видим всегда на мобиле */
+.chat-header .back-btn{display:inline-flex}
