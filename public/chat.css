@@ -92,6 +92,7 @@ html,body{
 .messages{
   flex:1;overflow:auto;padding:16px;
   display:flex;flex-direction:column;gap:8px
+  padding-right: 12px; /* чтобы все сообщения от правого края были на одинаковом расстоянии */
 }
 .msg{
   max-width:86%; /* шире на мобиле */
@@ -99,7 +100,12 @@ html,body{
   position:relative;display:inline-flex;flex-direction:column;gap:6px;
   word-break:break-word;overflow-wrap:anywhere; /* переносы */
 }
-.msg.mine{align-self:flex-end;background:linear-gradient(180deg,#1b2f72,#13214a)}
+.msg.mine {
+  align-self: flex-end;
+  background: linear-gradient(180deg,#1b2f72,#13214a);
+  margin-right: 8px;       /* отступ от правого края */
+  border-bottom-right-radius: 6px; /* немного скруглить, если хочешь */
+}
 .msg.their{align-self:flex-start;background:var(--their)}
 .mrow{display:flex;align-items:center;gap:8px}
 .mavatar{
