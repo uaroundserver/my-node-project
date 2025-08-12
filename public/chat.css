@@ -16,6 +16,11 @@ html,body{
   overflow-x:hidden; max-width:100vw;
 }
 
+/* убираем зум на iOS при фокусе */
+input, textarea {
+  font-size: 16px;
+}
+
 /* LAYOUT */
 .chat-app{
   display:grid; grid-template-columns:1fr;
@@ -23,10 +28,18 @@ html,body{
 }
 
 /* SIDEBAR */
-.chat-list{border-right:1px solid #1f2a3a;background:var(--panel);display:block;flex-direction:column;max-width:100vw}
+.chat-list{
+  border-right:1px solid #1f2a3a;
+  background:var(--panel);
+  display:block;
+  flex-direction:column;
+  max-width:100vw;
+}
 .list-header{padding:14px 16px;border-bottom:1px solid #1f2a3a}
 #chatList{list-style:none;margin:0;padding:0;overflow:auto}
-.chat-item{display:flex;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1a2434}
+.chat-item{
+  display:flex;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1a2434
+}
 .chat-item:hover{background:var(--panel-2)}
 .chat-item .avatar{width:40px;height:40px;border-radius:50%;position:relative;flex:0 0 auto;overflow:hidden}
 .chat-item .avatar img{width:100%;height:100%;object-fit:cover}
@@ -40,10 +53,10 @@ html,body{
 
 /* MAIN */
 .chat-main{
-  display:none;            /* по умолчанию скрыт */
+  display:none;
   flex-direction:column;
   background:linear-gradient(180deg,var(--panel),var(--panel-2));
-  height:100dvh;           /* вся высота экрана */
+  height:100dvh;
   max-width:100vw;
 }
 
@@ -68,13 +81,13 @@ html,body{
   .chat-meta{order:1}
 }
 
-/* MESSAGES (скролл внутри) */
+/* MESSAGES */
 .messages{
-  flex:1 1 auto;           /* занимает остаток */
-  min-height:0;            /* КЛЮЧ: разрешает сжиматься и скроллиться */
+  flex:1 1 auto;
+  min-height:0;
   overflow-y:auto; overflow-x:hidden;
   -webkit-overflow-scrolling:touch;
-  padding:16px 16px 96px;  /* место под composer */
+  padding:16px 16px 96px;
   display:flex; flex-direction:column; gap:8px; max-width:100vw;
 }
 @supports(padding:max(0px)){
@@ -84,7 +97,12 @@ html,body{
     padding-bottom:max(96px, calc(72px + env(safe-area-inset-bottom)));
   }
 }
-.msg{max-width:86%;padding:8px 10px;border-radius:var(--bubble-radius);position:relative;display:inline-flex;flex-direction:column;gap:6px;word-break:break-word;overflow-wrap:anywhere}
+.msg{
+  max-width:86%;
+  padding:8px 10px;border-radius:var(--bubble-radius);
+  position:relative;display:inline-flex;flex-direction:column;gap:6px;
+  word-break:break-word;overflow-wrap:anywhere
+}
 .msg.mine{align-self:flex-end;background:linear-gradient(180deg,#1b2f72,#13214a);margin-right:8px;border-bottom-right-radius:6px}
 .msg.their{align-self:flex-start;background:var(--their)}
 .mrow{display:flex;align-items:center;gap:8px}
@@ -101,14 +119,18 @@ html,body{
 .attach{border:1px dashed #2d3e56;border-radius:10px;padding:6px 8px;font-size:12px;margin-top:4px;display:inline-block}
 .attach img,.attach video{display:block;max-width:min(70vw,360px)!important;max-height:50vh!important;width:auto!important;height:auto!important;border-radius:12px;background:#0b1220;object-fit:contain;outline:1px solid rgba(255,255,255,.08)}
 
-/* COMPOSER — всегда снизу */
+/* COMPOSER */
 .composer{
   flex:0 0 auto;
   position:sticky; bottom:0; z-index:10;
   display:flex; gap:8px; padding:12px; border-top:1px solid #1f2a3a; background:var(--panel); max-width:100vw;
   padding-bottom:calc(12px + env(safe-area-inset-bottom));
 }
-#msgInput{flex:1;resize:none;background:#0c1520;border:1px solid #223147;border-radius:14px;padding:10px 12px;color:var(--text);max-height:160px;overflow:auto}
+#msgInput{
+  flex:1;resize:none;background:#0c1520;border:1px solid #223147;
+  border-radius:14px;padding:10px 12px;color:var(--text);max-height:160px;overflow:auto;
+  font-size:16px; /* фикс зума iOS */
+}
 .composer button{background:#0e1522;border:1px solid #23324a;border-radius:12px;padding:8px 10px;color:var(--text);cursor:pointer}
 .composer button:hover{background:#152037}
 
@@ -116,5 +138,5 @@ html,body{
 html.show-chat .chat-list{display:none}
 html.show-chat .chat-main{display:flex}
 
-/* back button видим всегда на мобиле */
+/* back button всегда на мобиле */
 .chat-header .back-btn{display:inline-flex}
