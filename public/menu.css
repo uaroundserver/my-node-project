@@ -38,6 +38,17 @@ body {
   box-shadow: var(--header-shadow);
   border-radius: 0 0 var(--radius) var(--radius);
 }
+#app-header .logo{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: .5px;
+  color: #fff;
+  user-select: none;
+  pointer-events: none; /* чтобы клики по центру не перехватывало */
+}
 
 /* бургер — стеклянная кнопка слева */
 #menuButton{
