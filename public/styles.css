@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+/* базовые фиксы */
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ overflow-x:hidden; }
+
+/* фон и типографика страницы */
+body{
+  font-family:'Inter', Arial, sans-serif;
+  background:linear-gradient(135deg,#f0f3f7,#d9e2ec);
+  margin:0; padding:0; color:#222; text-align:center; min-height:100vh;
+}
+
+/* контейнер контента */
+#main-content{
+  padding:0 12px;
+  display:flex; justify-content:center; align-items:flex-start;
+}
+
+/* карточка формы */
+.form-container{
+  background:#fff; max-width:420px; width:100%;
+  padding:30px 35px; border-radius:14px;
+  box-shadow:0 12px 28px rgba(0,0,0,.12);
+  transition:box-shadow .3s ease; overflow-x:hidden;
+}
+.form-container:hover{ box-shadow:0 18px 36px rgba(0,0,0,.18); }
+
+h1{ font-weight:600; margin:0 0 20px; color:#0d253f; }
+
+/* поля формы */
+input,select{
+  width:100%; padding:14px 16px; margin:14px 0; font-size:16px;
+  border-radius:10px; border:1.5px solid #cbd2d9; background:#f9fbfc;
+  transition:border-color .25s ease, box-shadow .25s ease;
+}
+input:focus,select:focus{
+  outline:none; border-color:#3b82f6; box-shadow:0 0 8px rgba(59,130,246,.4); background:#fff;
+}
+
+/* кнопки */
+.form-container button,.btn{
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  border:none; border-radius:12px; padding:14px 28px; color:#fff;
+  font-size:18px; font-weight:600; cursor:pointer;
+  transition:background .3s ease, transform .2s ease;
+  box-shadow:0 8px 15px rgba(59,130,246,.3);
+  user-select:none; margin-top:20px; max-width:100%;
+}
+.form-container button:hover,.btn:hover{
+  background:linear-gradient(135deg,#2563eb,#1e40af);
+  transform:translateY(-2px); box-shadow:0 12px 20px rgba(30,64,175,.5);
+}
+
+/* ссылки */
+a{ color:#3b82f6; text-decoration:none; font-weight:600; }
+a:hover{ text-decoration:underline; }
+
+/* адаптив */
+@media (max-width:480px){
+  #main-content{ padding:0 12px; }
+  .form-container{ padding:24px 18px; border-radius:12px; }
+}
+
+/* ===== Профиль ===== */
+.profile-card{
+  background:#fff; max-width:540px; width:100%; margin:0 auto;
+  padding:24px 18px 22px; border-radius:14px;
+  box-shadow:0 12px 28px rgba(0,0,0,.12); text-align:left; overflow:hidden;
+}
+.profile-header{ display:flex; flex-direction:column; align-items:center; text-align:center; }
+.avatar-wrap{
+  width:120px; height:120px; border-radius:50%; overflow:hidden;
+  background:#f3f4f6; box-shadow:0 6px 16px rgba(0,0,0,.12); cursor:pointer;
+}
+.avatar-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+.profile-hint{ font-size:13px; color:#64748b; margin:10px 0 8px; }
+.actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.btn-link{
+  border:none; background:transparent; color:#3b82f6; font-weight:700; cursor:pointer;
+  padding:8px 10px; border-radius:10px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none;
+  font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer;
+  box-shadow:0 8px 15px rgba(59,130,246,.30);
+}
+.btn-primary[disabled]{ opacity:.5; cursor:not-allowed; box-shadow:none; }
+.profile-grid{
+  margin-top:18px; border-top:1px solid #e6ebf2; padding-top:14px;
+  display:grid; grid-template-columns:140px 1fr; row-gap:10px; column-gap:14px;
+}
+.label{ color:#64748b; } .value{ color:#0f172a; font-weight:600; }
+@media (max-width:520px){ .profile-grid{ grid-template-columns:1fr; } }
+
+/* ===== Модалка просмотра аватарки ===== */
+.modal[hidden]{ display:none !important; }
+.modal{
+  position:fixed; inset:0; z-index:5000;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(6px);
+}
+
+.modal-content{
+  position:relative;
+  background:#0b1220;
+  border-radius:16px;
+  padding:8px;                      /* пространство под крестик */
+  box-shadow:0 20px 50px rgba(0,0,0,.35);
+  max-width:min(92vw,640px);
+  max-height:min(82vh,780px);
+}
+
+.modal-content img{
+  display:block;
+  max-width:calc(92vw - 16px);
+  max-height:calc(82vh - 16px);
+  width:auto; height:auto;
+  border-radius:12px;
+  background:#111;
+}
+
+/* крестик внутри, не прилипает к краям */
+.close-btn{
+  position:absolute; top:6px; right:6px;
+  width:36px; height:36px;
+  border:none; border-radius:50%;
+  background:rgba(255,255,255,.92); color:#111;
+  font-size:22px; line-height:36px; text-align:center;
+  cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.25);
+}
+.close-btn:active{ transform:scale(.98); }

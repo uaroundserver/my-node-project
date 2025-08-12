@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Главная</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="menu.css" />
+</head>
+<body>
+  <!-- сюда подгружается меню -->
+  <div id="menu-container"></div>
+
+  <!-- основной контент -->
+  <main id="main-content">
+    <div class="form-container">
+      <h1>Добро пожаловать!</h1>
+      <p>Вы успешно вошли.</p>
+      <button onclick="logout()">Выйти</button>
+    </div>
+  </main>
+
+  <!-- скрипт подгрузки меню + menu.js + auth.js -->
+  <script>
+    fetch("menu.html")
+      .then(r => r.text())
+      .then(html => {
+        // Вставляем меню в контейнер
+        document.getElementById("menu-container").innerHTML = html;
+
+        // Загружаем menu.js
+        const menuJs = document.createElement("script");
+        menuJs.src = "menu.js";
+        menuJs.onload = () => {
+          if (typeof initMenu === "function") {
+            initMenu(); // Запускаем инициализацию меню
+          }
+        };
+        document.body.appendChild(menuJs);
+
+        // Загружаем auth.js
+        const auth = document.createElement("script");
+        auth.src = "auth.js";
+        document.body.appendChild(auth);
+      });
+  </script>
+</body>
+</html>

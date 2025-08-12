@@ -1,0 +1,53 @@
+
+<!-- public/chat.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Чат</title>
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <div id="chat-app" class="chat-app">
+    <aside class="chat-list">
+      <header class="list-header">
+        <h2>Чаты</h2>
+      </header>
+      <ul id="chatList"></ul>
+    </aside>
+
+    <main class="chat-main">
+      <header class="chat-header">
+        <div class="chat-meta">
+          <img id="chatAvatar" class="chat-avatar" alt="A"/>
+          <div>
+            <div id="chatTitle" class="chat-title">General chat</div>
+            <div id="chatTyping" class="chat-typing"></div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <input id="searchInput" class="search" placeholder="Поиск по чату"/>
+        </div>
+      </header>
+
+      <section id="messageList" class="messages"></section>
+
+      <footer class="composer">
+        <div class="composer-left">
+          <button id="attachBtn" title="Вложения">📎</button>
+          <input id="fileInput" type="file" multiple hidden />
+        </div>
+        <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
+        <div class="composer-right">
+          <button id="emojiBtn" title="Смайлы">😊</button>
+          <button id="sendBtn" title="Отправить">➤</button>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="scripts/chat.js"></script>
+</body>
+</html>

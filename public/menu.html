@@ -1,0 +1,125 @@
+<!-- Шапка -->
+<header id="app-header">
+  <div class="bar-inner">
+    <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M4 6h16M4 12h16M4 18h16" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="logo">LOGO</div>
+
+    <!-- кнопка чата (без onclick) -->
+    <button id="chatHeaderIcon"
+            aria-label="Открыть чат-уведомления"
+            aria-expanded="false"
+            style="margin-left:auto; position:relative; width:38px; height:38px; border:none; cursor:pointer; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background: rgba(255,255,255,.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M21 15a4 4 0 0 1-4 4H8l-4 3v-3H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4z"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span id="chatBadgeHeader"
+            style="position:absolute; top:-3px; right:-3px; display:none; min-width:16px; height:16px; padding:0 4px; background:#ef4444; color:#fff; border-radius:999px; font-size:11px; font-weight:700; line-height:16px; text-align:center;">
+        +1
+      </span>
+    </button>
+
+    <!-- ▼ выпадающий список уведомлений -->
+    <div id="chatNotifDropdown" style="
+      position:absolute; right:10px; top:54px; width:320px; max-height:360px; overflow:auto;
+      background:#0f172a; color:#e6eef7; border:1px solid #223147; border-radius:12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); display:none; z-index:5000;">
+      <div style="padding:10px 12px; border-bottom:1px solid #223147; font-weight:700;">Ответы вам</div>
+      <div id="chatNotifList"></div>
+      <div id="chatNotifEmpty" style="padding:14px; color:#9fb3c8; display:none;">Пока нет новых ответов</div>
+    </div>
+  </div>
+</header>
+
+<!-- Клик по фону закрывает меню -->
+<div id="menu-backdrop" hidden></div>
+
+<!-- Сайдбар -->
+<div id="sidebar">
+  <a href="home.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M9 21V9h6v12" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+    Домой
+  </a>
+
+  <a href="profile.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Z" stroke-width="2"/>
+      <path d="M4 20a8 8 0 0 1 16 0" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Профиль
+  </a>
+
+  <a href="settings.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" preserveAspectRatio="xMidYMid meet">
+      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82л.06.06a2 2 0 0 1-2.83 2.83л-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 0 1-4 0в-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33л-.06.06a2 2 0 1 1 2.83-2.83л.06.06A1.65 1.65 0 0 0 19 9c0 .37.12.73.34 1.02.22.3.52.52.86.63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Настройки
+  </a>
+
+  <!-- Чат (ссылка только в меню) -->
+  <a href="chat.html">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M21 15a4 4 0 0 1-4 4H8л-4 3v-3H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4z"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Чат
+  </a>
+
+  <!-- Кнопка выхода: класс js-logout вместо inline onclick -->
+  <a href="#" class="js-logout" role="button">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M8 7 3 12л5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M21 4v16" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Выйти
+  </a>
+</div>
+
+<!-- Нижняя панель -->
+<nav id="bottom-nav">
+  <div class="bar-inner">
+    <a href="home.html" aria-label="Домой">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M9 21V9h6v12" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+    <a href="profile.html" aria-label="Профиль">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Z" stroke-width="2"/>
+        <path d="M4 20a8 8 0 0 1 16 0" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+
+    <a href="settings.html" aria-label="Настройки">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" preserveAspectRatio="xMidYMid meet">
+        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82л.06.06a2 2 0 0 1-2.83 2.83л-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 0 1-4 0в-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33л-.06.06a2 2 0 1 1 2.83-2.83л.06.06A1.65 1.65 0 0 0 19 9c0 .37.12.73.34 1.02.22.3.52.52.86.63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+    <!-- Кнопка выхода в нижнем меню -->
+    <a href="#" class="js-logout" aria-label="Выйти" role="button">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8 7 3 12л5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M21 4v16" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+<!-- Socket.IO клиент (до menu.js) -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!-- <script src="menu.js"></script> -->
