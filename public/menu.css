@@ -26,17 +26,26 @@ body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
-/* ===== ШАПКА ===== */
-#app-header{position:fixed;left:0;right:0;top:0;z-index:4000;}
+/* ШАПКА */
 #app-header .bar-inner{
   position: relative;
   height: var(--header-h);
-  display:flex; align-items:center; justify-content:center;
+  display:flex; align-items:center;
+  justify-content:center;             /* ок, но центр даст .logo */
   padding: 4px 14px 0;
   background: var(--header-bg);
-  color: #fff;
+  color:#fff;
   box-shadow: var(--header-shadow);
   border-radius: 0 0 var(--radius) var(--radius);
+}
+/* ЛОГО — РЕАЛЬНЫЙ ЦЕНТР */
+#app-header .logo{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  font-weight:800; font-size:18px; letter-spacing:.5px; color:#fff;
+  user-select:none;
+  pointer-events:none;                /* чтобы клики по центру не перехватывал */
 }
 
 /* бургер — стеклянная кнопка слева */
@@ -55,10 +64,36 @@ body {
 }
 #menuButton:hover{ background: rgba(255,255,255,.2); transform: scale(1.05); }
 
-/* логотип */
-#app-header .logo{
-  font-weight:800; font-size:18px; letter-spacing:.5px; color:#fff;
-  user-select:none;
+/* КНОПКА ЧАТА СПРАВА */
+#chatHeaderIcon{
+  position:absolute;
+  right:14px;
+  top:var(--burger-offset);
+  width:38px; height:38px;
+  border:none; cursor:pointer; border-radius:12px;
+  display:inline-flex; align-items:center; justify-content:center;
+  background: rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  outline:none;
+  transition: background .2s ease, transform .1s ease;
+}
+#chatHeaderIcon:hover{ background: rgba(255,255,255,.2); transform: scale(1.05); }
+
+/* Бейдж на кнопке чата */
+#chatHeaderIcon .badge{
+  position:absolute;
+  top:-3px; right:-3px;
+}
+
+/* Иконки */
+.nav-icon{
+  width:24px; height:24px;
+  display:block;
+  padding:3px;
+  box-sizing:content-box;
+  overflow:visible;
+  stroke:currentColor;
 }
 
 /* ===== БЭКДРОП ===== */
