@@ -8,51 +8,37 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-<<<<<<< HEAD
-// ✨ Новое: http-сервер и инициализация чата
+// http + чат (Socket.IO)
 const http = require('http');
 const { initChat } = require('./chat');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✨ Новое: создаём http-сервер на базе app (нужно для Socket.IO)
+// http-сервер (важно для socket.io)
 const server = http.createServer(app);
 
-=======
-const app = express();
-const PORT = process.env.PORT || 5000;
-
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
 app.use(cors());
-// Для base64-аватара до ~5 МБ
-app.use(express.json({ limit: '6mb' }));
+app.use(express.json({ limit: '6mb' })); // для base64 аватаров
 
 let db;
 const client = new MongoClient(process.env.MONGO_URI);
 
-<<<<<<< HEAD
-// Подключение к БД и старт сервера/чата
-=======
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
+// подключение к БД и старт сервера/чата
 async function connectDB() {
   try {
     await client.connect();
     db = client.db('DBUA');
-    // уникальность email
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
-<<<<<<< HEAD
 
-    // ✨ Новое: инициализируем чат (Socket.IO + REST), передаём server и db
+    // инициализируем чат (routes + socket.io)
     initChat(server, db, app);
 
-    // ✨ Новое: запускаем сервер ТУТ (после инициализации чата)
+    // запускаем http-сервер
     server.listen(PORT, () => {
       console.log(`🔊 Сервер запущен на порту ${PORT}`);
     });
-=======
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
   } catch (err) {
     console.error('❌ Ошибка подключения к MongoDB:', err);
   }
@@ -96,13 +82,8 @@ app.get('/activate/:token', async (req, res) => {
     }
 
     await db.collection('users').updateOne(
-<<<<<<< HEAD
-        { _id: user._id },
-        { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
-=======
       { _id: user._id },
       { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
 
     res.send(`
@@ -128,7 +109,7 @@ app.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Заполните email, пароль и страну проживания' });
     }
 
-    email = String(email).trim().toLowerCase(); // ← нормализация
+    email = String(email).trim().toLowerCase();
 
     const existingUser = await db.collection('users').findOne({ email });
     if (existingUser) {
@@ -140,7 +121,7 @@ app.post('/register', async (req, res) => {
     const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const result = await db.collection('users').insertOne({
-      email, // сохраняем уже в нижнем регистре
+      email,
       password: hashedPassword,
       country,
       activated: false,
@@ -183,7 +164,7 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email и пароль обязательны' });
     }
 
-    email = String(email).trim().toLowerCase(); // ← нормализация
+    email = String(email).trim().toLowerCase();
 
     const user = await db.collection('users').findOne({ email });
     if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
@@ -209,13 +190,8 @@ app.post('/login', async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await db.collection('users').findOne(
-<<<<<<< HEAD
-        { _id: new ObjectId(req.userId) },
-        { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
-=======
       { _id: new ObjectId(req.userId) },
       { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json(user);
@@ -225,18 +201,13 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// Профиль: обновить (email здесь НЕ меняем)
+// Профиль: обновить
 app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
-    const { fullName, phone } = req.body; // email намеренно не принимаем
+    const { fullName, phone } = req.body;
     await db.collection('users').updateOne(
-<<<<<<< HEAD
-        { _id: new ObjectId(req.userId) },
-        { $set: { fullName: fullName || '', phone: phone || '' } }
-=======
       { _id: new ObjectId(req.userId) },
       { $set: { fullName: fullName || '', phone: phone || '' } }
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
     res.json({ message: 'Профиль обновлён' });
   } catch (err) {
@@ -245,7 +216,7 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// Аватар: обновить (base64 data URL)
+// Аватар: base64 JPG/PNG до 5 МБ
 app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -253,26 +224,19 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Неверный формат изображения' });
     }
 
-    // разрешим только jpg/png
     const isOkType = /^data:image\/(png|jpeg|jpg);base64,/i.test(avatar);
     if (!isOkType) {
       return res.status(400).json({ error: 'Допустимы только JPG/PNG' });
     }
 
-    // до 5 МБ
     const approxBytes = Math.ceil((avatar.length * 3) / 4);
     if (approxBytes > 5 * 1024 * 1024) {
       return res.status(400).json({ error: 'Изображение слишком большое (макс. 5 МБ)' });
     }
 
     await db.collection('users').updateOne(
-<<<<<<< HEAD
-        { _id: new ObjectId(req.userId) },
-        { $set: { avatar } }
-=======
       { _id: new ObjectId(req.userId) },
       { $set: { avatar } }
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
     );
 
     res.json({ avatar });
@@ -282,10 +246,4 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-// ❌ УДАЛЕНО: app.listen(...) — теперь слушаем через server.listen в connectDB()
-=======
-app.listen(PORT, () => {
-  console.log(`🔊 Сервер запущен на порту ${PORT}`);
-});
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
+// ВНИМАНИЕ: тут НЕТ app.listen — слушаем через server.listen() в connectDB()

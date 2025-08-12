@@ -154,7 +154,6 @@ body {
 @media (max-width:480px){
   :root{ --header-h:54px; --bottom-h:60px; }
   #sidebar{ width:200px; }
-<<<<<<< HEAD
 }
 /* Бэйдж уведомлений */
 .badge {
@@ -169,6 +168,5 @@ body {
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-=======
->>>>>>> ac71128c177605d87177c3a1c21dacc4d6070650
+
 }

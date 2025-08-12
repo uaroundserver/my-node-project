@@ -9,7 +9,7 @@
     "build": "echo \"no build step\""
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "license": "ISC",
   "dependencies": {
