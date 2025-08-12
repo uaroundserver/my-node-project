@@ -1,4 +1,4 @@
-<!-- Шапка -->
+///<!-- Шапка -->
 <header id="app-header">
   <div class="bar-inner">
     <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">
@@ -10,7 +10,7 @@
 
     <div class="logo">LOGO</div>
 
-    <!-- кнопка чата (без onclick) -->
+////<!-- кнопка чата (без onclick) -->
     <button id="chatHeaderIcon"
             aria-label="Открыть чат-уведомления"
             aria-expanded="false"
@@ -25,7 +25,7 @@
       </span>
     </button>
 
-    <!-- ▼ выпадающий список уведомлений -->
+    ////<!-- ▼ выпадающий список уведомлений -->
     <div id="chatNotifDropdown" style="
       position:absolute; right:10px; top:54px; width:320px; max-height:360px; overflow:auto;
       background:#0f172a; color:#e6eef7; border:1px solid #223147; border-radius:12px;
@@ -40,10 +40,10 @@
   </div>
 </header>
 
-<!-- Клик по фону закрывает меню -->
+///<!-- Клик по фону закрывает меню -->
 <div id="menu-backdrop" hidden></div>
 
-<!-- Сайдбар -->
+///<!-- Сайдбар -->
 <div id="sidebar">
   <a href="home.html">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -74,7 +74,7 @@
   </a>
 
 
-  <!-- Чат (ссылка только в меню) -->
+  ///<!-- Чат (ссылка только в меню) -->
   <a href="chat.html">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M21 15a4 4 0 0 1-4 4H8л-4 3v-3H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4z"
@@ -84,7 +84,7 @@
   </a>
 
 
-  <!-- Кнопка выхода: класс js-logout вместо inline onclick -->
+  ///<!-- Кнопка выхода: класс js-logout вместо inline onclick -->
   <a href="#" class="js-logout" role="button">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
@@ -99,7 +99,7 @@
   </a>
 </div>
 
-<!-- Нижняя панель -->
+///<!-- Нижняя панель -->
 <nav id="bottom-nav">
   <div class="bar-inner">
     <a href="home.html" aria-label="Домой">
@@ -127,7 +127,7 @@
       </svg>
     </a>
 
-    <!-- Кнопка выхода в нижнем меню -->
+   ////<!-- Кнопка выхода в нижнем меню -->
     <a href="#" class="js-logout" aria-label="Выйти" role="button">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M15 12H3" stroke-width="2" stroke-linecap="round"/>
@@ -143,8 +143,8 @@
 
 </nav>
 
-<!-- Socket.IO клиент (до menu.js) -->
+
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="menu.js"></script> -->
+<script src="menu.js"></script>
 
 </nav>
