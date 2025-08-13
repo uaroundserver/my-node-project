@@ -78,7 +78,7 @@
     document.documentElement.classList.remove('show-chat');
     currentChat = null;
     messages = [];
-    els.messages.innerHTML = '';
+    els.messages && (els.messages.innerHTML = '');
     setHeader({ title: '', avatar: '' });
     if (els.search) els.search.value = '';
     clearReply();
@@ -93,11 +93,12 @@
   // --- scroll helpers ---
   function isNearBottom() {
     const el = els.messages;
+    if (!el) return true;
     const threshold = 120;
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }
   function scrollToBottom() {
-    els.messages.scrollTop = els.messages.scrollHeight + 999;
+    if (els.messages) els.messages.scrollTop = els.messages.scrollHeight + 999;
   }
 
   // --- my profile ---
@@ -108,6 +109,7 @@
   // --- chat list ---
   async function loadChats() {
     const data = await API('/chats');
+    if (!els.list) return;
     els.list.innerHTML = '';
     data.forEach((c) => {
       const li = document.createElement('li');
@@ -153,12 +155,14 @@
       if (chat?.avatar) {
         img.src = chat.avatar;
         img.style.display = 'block';
-        letter.style.display = 'none';
+        if (letter) letter.style.display = 'none';
       } else {
-        img.src = '';
-        img.style.display = 'none';
-        letter.style.display = 'grid';
-        letter.textContent = firstChar;
+        img && (img.src = '');
+        img && (img.style.display = 'none');
+        if (letter) {
+          letter.style.display = 'grid';
+          letter.textContent = firstChar;
+        }
       }
     }
   }
@@ -178,7 +182,7 @@
     currentChat = c;
     setHeader(c);
 
-    els.messages.innerHTML = '';
+    if (els.messages) els.messages.innerHTML = '';
     messages = [];
     enterChatView();
     await loadHistory();
@@ -219,7 +223,7 @@
     loadingHistory = false;
   }
 
-  els.messages.addEventListener('scroll', () => {
+  els.messages && els.messages.addEventListener('scroll', () => {
     const el = els.messages;
     atBottom = isNearBottom();
     if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
@@ -227,6 +231,7 @@
 
   // --- render messages (with swipe-to-reply + vibration) ---
   function renderMessages() {
+    if (!els.messages) return;
     const prevIsNearBottom = isNearBottom();
     els.messages.innerHTML = '';
 
@@ -275,7 +280,7 @@
         showContextMenu(e.clientX, e.clientY, m);
       };
 
-      // --- Клик (мобилка/десктоп) — меню ---
+      // --- Клик — меню ---
       div.addEventListener('click', (e) => {
         if (e.target.closest('a, img, video, button, input, textarea')) return;
         const x = e.clientX || 20;
@@ -283,23 +288,16 @@
         showContextMenu(x, y, m);
       });
 
-      // --- Свайп вправо (только на мобилке) с анимацией и вибрацией ---
+      // --- Свайп вправо (мобилка) с анимацией и вибрацией ---
       if (mqMobile.matches) {
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let swipedDX = 0;
-        let vibed = false;
-        const SWIPE_READY = 56;  // порог срабатывания "Ответить"
-        const SWIPE_MAX   = 84;  // максимальное смещение пузыря
-        const V_TOL       = 24;  // вертикальная толерантность
+        let touchStartX = 0, touchStartY = 0, swipedDX = 0, vibed = false;
+        const SWIPE_READY = 56, SWIPE_MAX = 84, V_TOL = 24;
 
         div.addEventListener('touchstart', (e) => {
           if (e.touches.length !== 1) return;
           const t = e.touches[0];
-          touchStartX = t.clientX;
-          touchStartY = t.clientY;
-          swipedDX = 0;
-          vibed = false;
+          touchStartX = t.clientX; touchStartY = t.clientY;
+          swipedDX = 0; vibed = false;
           div.classList.add('is-swiping');
         }, { passive: true });
 
@@ -308,31 +306,16 @@
           const t = e.touches[0];
           const dx = t.clientX - touchStartX;
           const dy = Math.abs(t.clientY - touchStartY);
-
-          // если вертикаль стала доминировать — отменяем свайп (отдаём скроллу)
-          if (dy > V_TOL) {
-            touchStartX = 0;
-            touchStartY = 0;
-            div.style.transform = '';
-            div.classList.remove('is-swiping', 'swipe-ready');
-            return;
-          }
-
+          if (dy > V_TOL) { resetSwipe(); return; }
           if (dx > 0) {
             swipedDX = Math.min(dx, SWIPE_MAX);
             div.style.transform = `translateX(${swipedDX}px)`;
-
             if (swipedDX >= SWIPE_READY) {
               div.classList.add('swipe-ready');
-              if (!vibed) {
-                navigator.vibrate?.(30); // лёгкая вибрация один раз при достижении порога
-                vibed = true;
-              }
+              if (!vibed) { navigator.vibrate?.(30); vibed = true; }
             } else {
               div.classList.remove('swipe-ready');
             }
-
-            // предотвращаем горизонтальные коллизии при свайпе
             e.preventDefault();
           }
         }, { passive: false });
@@ -341,10 +324,7 @@
           div.style.transition = 'transform 160ms ease';
           div.style.transform = 'translateX(0)';
           setTimeout(() => { div.style.transition = ''; }, 180);
-          touchStartX = 0;
-          touchStartY = 0;
-          swipedDX = 0;
-          vibed = false;
+          touchStartX = 0; touchStartY = 0; swipedDX = 0; vibed = false;
           div.classList.remove('is-swiping', 'swipe-ready');
         };
 
@@ -355,9 +335,7 @@
           if (shouldReply) setReply(m);
         }, { passive: true });
 
-        div.addEventListener('touchcancel', () => {
-          resetSwipe();
-        }, { passive: true });
+        div.addEventListener('touchcancel', () => resetSwipe(), { passive: true });
       }
 
       els.messages.appendChild(div);
@@ -482,16 +460,92 @@
     };
   }
 
+  // --- уведомления: helper'ы ---
+  async function isReplyToMe(m) {
+    try {
+      if (!m?.replyTo) return false;
+      const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(m.replyTo)}`);
+      const repliedSenderId = meta?.senderId || meta?.userId || meta?.fromId;
+      return String(repliedSenderId) === String(myId) && String(m.senderId) !== String(myId);
+    } catch {
+      return false;
+    }
+  }
+
+  function showReplyToast(m) {
+    // лёгкая вибрация
+    navigator.vibrate?.(20);
+
+    // системное уведомление, если вкладка скрыта
+    if (document.hidden && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        const n = new Notification(`Ответ от ${m.senderName || 'user'}`, {
+          body: (m.text || 'Вложение'),
+        });
+        n.onclick = () => {
+          window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`;
+          n.close();
+        };
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+
+    // web-toast
+    let wrap = document.getElementById('replyToastWrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'replyToastWrap';
+      wrap.style.position = 'fixed';
+      wrap.style.right = '12px';
+      wrap.style.top = '12px';
+      wrap.style.zIndex = '9999';
+      wrap.style.display = 'flex';
+      wrap.style.flexDirection = 'column';
+      wrap.style.gap = '8px';
+      document.body.appendChild(wrap);
+    }
+
+    const el = document.createElement('div');
+    el.style.background = '#0e1522';
+    el.style.color = '#e6eef7';
+    el.style.border = '1px solid #223147';
+    el.style.borderRadius = '12px';
+    el.style.padding = '10px 12px';
+    el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
+    el.style.maxWidth = '80vw';
+    el.style.cursor = 'pointer';
+    el.innerHTML = `
+      <div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
+      <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>
+    `;
+    el.onclick = () => {
+      window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`;
+    };
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+
   // --- socket ---
   const socket = io('/', { auth: { token: token } });
 
-  socket.on('message:new', (m) => {
-    if (!currentChat || String(m.chatId) !== String(currentChat._id)) return;
-    messages.push(m);
-    renderMessages();
-    if (isNearBottom()) scrollToBottom();
-    maybeMarkRead([m]);
+  // Обработка новых сообщений
+  socket.on('message:new', async (m) => {
+    // Если открыт этот же чат — как раньше
+    if (currentChat && String(m.chatId) === String(currentChat._id)) {
+      messages.push(m);
+      renderMessages();
+      if (isNearBottom()) scrollToBottom();
+      maybeMarkRead([m]);
+      return;
+    }
+
+    // Иначе проверяем: это ответ мне? — показываем уведомление
+    if (await isReplyToMe(m)) {
+      showReplyToast(m);
+    }
   });
+
   socket.on('message:edited', ({ id, text, editedAt }) => {
     const m = messages.find((x) => String(x._id) === String(id));
     if (m) { m.text = text; m.editedAt = editedAt; renderMessages(); }
