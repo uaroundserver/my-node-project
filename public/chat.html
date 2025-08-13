@@ -28,6 +28,16 @@
         <img id="tgAvatarImg" class="chat-avatar" alt="" />
         <span id="tgAvatarLetter" class="chat-avatar chat-avatar-letter" style="display:none">G</span>
 
+        <!-- Кнопка уведомлений о входящих ответах -->
+        <div id="replyNotiBtn" class="reply-noti">
+          💬<span id="replyCount" class="reply-count" hidden>1</span>
+        </div>
+
+        <!-- Выпадающее меню входящих ответов -->
+        <div id="replyDropdown" class="reply-dropdown" hidden>
+          <div id="replyList" class="reply-list"></div>
+        </div>
+
         <!-- Поиск -->
         <input id="tgSearch" class="search" placeholder="Поиск по чату"/>
       </header>
