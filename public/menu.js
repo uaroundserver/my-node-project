@@ -1,9 +1,9 @@
+// public/menu.js
 function initMenu() {
   if (window.__menu_inited) return;
   window.__menu_inited = true;
 
-  // === Мобильная консоль (Eruda) — включается по ?debug=1 / #debug / localStorage.DEBUG_ERUDA="1"
-  // и долгим тапом (1.2с) по иконке чата в шапке.
+  // === Мобильная консоль (Eruda): ?debug=1 / #debug / localStorage.DEBUG_ERUDA="1", и долгий тап по иконке чата ===
   (async function setupEruda() {
     function needEruda() {
       const q = location.search + location.hash;
@@ -21,6 +21,7 @@ function initMenu() {
       try { window.eruda && window.eruda.init(); window.eruda && window.eruda.show(); } catch {}
     }
     if (needEruda()) { try { await loadEruda(); } catch {} }
+
     const setupLongPress = () => {
       const icon = document.getElementById('chatHeaderIcon');
       if (!icon) return;
@@ -31,8 +32,8 @@ function initMenu() {
           try {
             if (!window.eruda) await loadEruda();
             if (window.eruda) {
-              const isShown = window.eruda._isShow && window.eruda._isShow();
-              if (isShown) window.eruda.hide(); else window.eruda.show();
+              const shown = window.eruda._isShow && window.eruda._isShow();
+              if (shown) window.eruda.hide(); else window.eruda.show();
             }
           } catch {}
         }, 1200);
@@ -45,14 +46,10 @@ function initMenu() {
       icon.addEventListener('mouseup', cancel);
       icon.addEventListener('mouseleave', cancel);
     };
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', setupLongPress);
-    } else {
-      setupLongPress();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupLongPress); else setupLongPress();
   })();
 
-  // ⬇️ Подтягиваем socket.io, если меню вставлено через innerHTML и тег <script> из menu.html не выполнился
+  // === Гарантированная подгрузка Socket.IO (если меню вставили через innerHTML) ===
   async function ensureSocketIO(){
     if (window.io) return;
     await new Promise((resolve, reject) => {
@@ -81,7 +78,6 @@ function initMenu() {
     document.body.style.width = '100%';
     document.documentElement.classList.add('no-scroll');
   }
-
   function unlockScroll() {
     document.body.style.position = '';
     document.body.style.top = '';
@@ -105,7 +101,6 @@ function initMenu() {
     ];
     addAutoCloseListeners._refs.forEach(([ev, target, fn, opt]) => target.addEventListener(ev, fn, opt));
   }
-
   function removeAutoCloseListeners() {
     (addAutoCloseListeners._refs || []).forEach(([ev, target, fn, opt]) => {
       target.removeEventListener(ev, fn, opt);
@@ -116,92 +111,63 @@ function initMenu() {
   function openSidebar() {
     if (!sidebar()) return;
     sidebar().classList.add('active');
-
     if (backdrop()) {
       backdrop().hidden = false;
       requestAnimationFrame(() => backdrop().classList.add('active'));
     }
-
     lockScroll();
     if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'true');
     isOpen = true;
-
     addAutoCloseListeners();
-
     canAutoClose = false;
     setTimeout(() => { canAutoClose = true; }, 250);
   }
-
   function closeSidebar() {
     if (!sidebar()) return;
-
     sidebar().classList.remove('active');
-
     if (backdrop()) {
       backdrop().classList.remove('active');
       setTimeout(() => { if (backdrop()) backdrop().hidden = true; }, 300);
     }
-
     if (menuBtn()) menuBtn().setAttribute('aria-expanded', 'false');
     unlockScroll();
-
     isOpen = false;
     canAutoClose = false;
     removeAutoCloseListeners();
   }
-
   function toggleSidebar() { isOpen ? closeSidebar() : openSidebar(); }
   window.toggleSidebar = toggleSidebar;
 
-  // --- Выход (гарантированный)
+  // --- Выход
   function fallbackLogout() {
-    try {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
-    } catch (_) {}
+    try { localStorage.removeItem('userToken'); localStorage.removeItem('userData'); } catch (_) {}
     window.location.href = 'login.html';
   }
-
   function handleLogoutClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     (window.logout || fallbackLogout)();
   }
-
   document.addEventListener('pointerdown', (e) => {
     const btn = e.target.closest('.js-logout, [data-logout], [onclick="logout()"]');
-    if (!btn) return;
-    handleLogoutClick(e);
+    if (!btn) return; handleLogoutClick(e);
   }, true);
-
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-logout, [data-logout], [onclick="logout()"]');
-    if (!btn) return;
-    handleLogoutClick(e);
+    if (!btn) return; handleLogoutClick(e);
   });
 
-  // --- Закрытие при клике на ссылку внутри сайдбара
-  document.addEventListener('click', e => {
-    if (e.target.closest('#sidebar a')) closeSidebar();
-  });
-
-  // --- Закрытие при тапе по бэкдропу
+  // --- Закрытия
+  document.addEventListener('click', e => { if (e.target.closest('#sidebar a')) closeSidebar(); });
   document.addEventListener('pointerdown', e => {
     if (!isOpen) return;
     if (backdrop() && (e.target === backdrop() || e.target.id === 'menu-backdrop')) closeSidebar();
   });
-
-  // --- Закрытие при тапе в любое место вне меню (capture)
   document.addEventListener('pointerdown', e => {
     if (!isOpen) return;
     if (e.target.closest('#sidebar') || e.target.closest('#menuButton')) return;
     closeSidebar();
   }, true);
-
-  // --- Закрытие по Esc
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && isOpen) closeSidebar();
-  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) closeSidebar(); });
 
   // --- Подсветка активных ссылок
   (function setActiveLinks() {
@@ -226,7 +192,13 @@ function initMenu() {
     }
   };
 
-  // --- Восстановить счётчик при загрузке страницы
+  // === Локальная очередь уведомлений (до 10) для выпадушки ===
+  function notifLoad(){ try { return JSON.parse(sessionStorage.getItem('notifQueue') || '[]'); } catch { return []; } }
+  function notifSave(list){ try { sessionStorage.setItem('notifQueue', JSON.stringify(list.slice(-10))); } catch {} }
+  function notifPush(item){ const list = notifLoad(); list.push(item); notifSave(list); }
+  function notifClear(){ notifSave([]); }
+
+  // --- Восстановить счётчик при загрузке
   (function restoreChatBadge(){
     const n = Number(sessionStorage.getItem('chatBadgeCount') || '0');
     updateChatBadge(n);
@@ -238,6 +210,7 @@ function initMenu() {
     if (file === 'chat.html') {
       sessionStorage.setItem('chatBadgeCount', '0');
       updateChatBadge(0);
+      notifClear();
     }
   })();
 
@@ -246,7 +219,7 @@ function initMenu() {
     try {
       const token = localStorage.getItem('userToken');
       if (!token) return;
-      if (window.__notifSocket) return; // не плодим соединения
+      if (window.__notifSocket) return;
 
       // мой id
       let myId = null;
@@ -258,22 +231,18 @@ function initMenu() {
       } catch {}
       if (!myId) return;
 
-      // КЕШ для replyTo → senderId исходного сообщения (LRU-подобный, с пределом)
-      const replyMetaCache = new Map(); // key: messageId, value: { ownerId, ts }
+      // кеш владельцев исходных сообщений
+      const replyMetaCache = new Map(); // msgId -> { ownerId, ts }
       const CACHE_LIMIT = 200;
       function cacheSet(id, ownerId){
         replyMetaCache.set(String(id), { ownerId, ts: Date.now() });
         if (replyMetaCache.size > CACHE_LIMIT) {
-          // удалить самый старый
           let oldestK=null, oldestV=Infinity;
           replyMetaCache.forEach((v,k)=>{ if(v.ts<oldestV){oldestV=v.ts; oldestK=k;} });
           if (oldestK) replyMetaCache.delete(oldestK);
         }
       }
-      function cacheGet(id){
-        const x = replyMetaCache.get(String(id));
-        return x ? x.ownerId : null;
-      }
+      function cacheGet(id){ const x = replyMetaCache.get(String(id)); return x ? x.ownerId : null; }
 
       async function getOwnerOfMessage(msgId) {
         const cached = cacheGet(msgId);
@@ -288,27 +257,14 @@ function initMenu() {
         } catch { return null; }
       }
 
-      // Быстрая проверка "ответ на меня"
       async function isReplyToMeSmart(m) {
-        // свои сообщения не считаем
-        if (m?.senderId && String(m.senderId) === String(myId)) return false;
-
-        // 1) Сервер дал явный owner id
-        if (m?.replyToOwnerId) {
-          return String(m.replyToOwnerId) === String(myId);
-        }
-
-        // 2) Есть replyTo — узнаём владельца исходного
+        if (m?.senderId && String(m.senderId) === String(myId)) return false; // свои не считаем
+        if (m?.replyToOwnerId) return String(m.replyToOwnerId) === String(myId);
         if (m?.replyTo) {
           const ownerId = await getOwnerOfMessage(m.replyTo);
           if (ownerId) return String(ownerId) === String(myId);
         }
-
-        // 3) (необязательно) если есть mentions и там есть я — можно засчитать как «ответ»
-        if (Array.isArray(m?.mentions) && m.mentions.some(x => String(x) === String(myId))) {
-          return true;
-        }
-
+        if (Array.isArray(m?.mentions) && m.mentions.some(x => String(x) === String(myId))) return true;
         return false;
       }
 
@@ -316,22 +272,35 @@ function initMenu() {
       const s = io('/', { auth: { token } });
       window.__notifSocket = s;
 
-      s.on('connect_error', () => { /* молчим */ });
+      s.on('connect_error', () => { /* тихо */ });
 
       s.on('message:new', async (m) => {
         const file = (location.pathname.split('/').pop() || '').toLowerCase();
         if (file === 'chat.html') {
           sessionStorage.setItem('chatBadgeCount','0');
           updateChatBadge(0);
+          notifClear();
           return;
         }
 
-        // считаем ТОЛЬКО ответы на мои сообщения
         if (await isReplyToMeSmart(m)) {
+          const fromOther = !m?.senderId || String(m.senderId) !== String(myId);
+          if (!fromOther) return;
+
+          // бэйдж
           const curr = Number(sessionStorage.getItem('chatBadgeCount') || '0');
           const next = curr + 1;
           sessionStorage.setItem('chatBadgeCount', String(next));
           updateChatBadge(next);
+
+          // локальная очередь для выпадушки
+          notifPush({
+            id: m._id || m.id || String(Date.now()),
+            createdAt: m.createdAt || new Date().toISOString(),
+            chatTitle: m.chatTitle || m.chat?.title || 'Чат',
+            senderName: m.senderName || 'user',
+            text: m.text || (Array.isArray(m.attachments) && m.attachments.length ? 'Вложение' : ''),
+          });
         }
       });
     } catch (e) {
@@ -396,9 +365,29 @@ function initMenu() {
       btn.setAttribute('aria-expanded','true');
       panel.style.display = 'block';
 
-      const items = await fetchNotifs();
-      render(items);
+      // 1) сразу показываем локальные (мгновенно)
+      const localItems = notifLoad();
+      render(localItems);
 
+      // 2) подмешиваем серверные
+      let serverItems = [];
+      try {
+        const token = localStorage.getItem('userToken');
+        if (token) {
+          const res = await fetch('/api/chat/notifications?limit=10', {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (res.ok) serverItems = await res.json();
+        }
+      } catch {}
+
+      const map = new Map();
+      serverItems.forEach(x => map.set(String(x.id || x._id), x));
+      localItems.forEach(x => { const k = String(x.id); if (!map.has(k)) map.set(k, x); });
+      const merged = Array.from(map.values());
+      render(merged);
+
+      // 3) отметить прочитанными на сервере
       try {
         const token = localStorage.getItem('userToken');
         if (token) {
@@ -408,9 +397,13 @@ function initMenu() {
           });
         }
       } catch {}
+
+      // 4) локально очистить и сбросить бэйдж
+      notifClear();
       sessionStorage.setItem('chatBadgeCount','0');
       updateChatBadge(0);
 
+      // закрытие по клику вне
       setTimeout(()=> {
         const onDoc = (e) => {
           if (panel.contains(e.target) || btn.contains(e.target)) return;
@@ -435,6 +428,7 @@ function initMenu() {
   })();
 }
 
+// Автозапуск
 if (document.readyState !== 'loading') {
   initMenu();
 } else {
