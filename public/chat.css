@@ -198,3 +198,9 @@ html,body{
 /* переключение список/чат */
 html.show-chat .chat-list{display:none}
 html.show-chat .chat-main{display:flex}
+.chat-avatar-letter{
+  display:grid;
+  place-items:center;
+  font-weight:700;
+  font-size:16px;
+}
