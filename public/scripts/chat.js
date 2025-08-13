@@ -1,5 +1,6 @@
 // public/scripts/chat.js
 (function () {
+  // --- helpers to call API ---
   const API = (path, opts = {}) =>
     fetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, {
       ...opts,
@@ -20,25 +21,36 @@
       },
     }).then((r) => r.json());
 
+  // --- auth guard ---
   const token = localStorage.getItem('userToken');
   if (!token) {
     location.href = 'login.html';
     return;
   }
 
+  // --- elements ---
   const els = {
+    // список/лента/композер
     list: document.getElementById('chatList'),
     messages: document.getElementById('messageList'),
     msgInput: document.getElementById('msgInput'),
     sendBtn: document.getElementById('sendBtn'),
     fileInput: document.getElementById('fileInput'),
     attachBtn: document.getElementById('attachBtn'),
-    search: document.getElementById('searchInput'),
-    chatTitle: document.getElementById('chatTitle'),
-    chatTyping: document.getElementById('chatTyping'),
-    chatBack: document.getElementById('chatBack'),
-    chatAvatar: document.getElementById('chatAvatar'),
+
+    // новая шапка
+    tgBack: document.getElementById('tgBack'),
+    tgTitle: document.getElementById('tgTitle'),
+    tgSub: document.getElementById('tgSub'),
+    tgAvatarImg: document.getElementById('tgAvatarImg'),
+    tgAvatarLetter: document.getElementById('tgAvatarLetter'),
+
+    // поиск под шапкой
+    search: document.getElementById('tgSearch'),
   };
+
+  // поддержка старых id (если не всё успел заменить в HTML)
+  if (!els.search) els.search = document.getElementById('searchInput');
 
   const urlParams = new URLSearchParams(location.search);
   const jumpId = urlParams.get('jump');
@@ -51,31 +63,27 @@
   let typingTimeout = null;
   let replyTo = null;
 
-  // ——— helpers: responsive view ———
+  // --- responsive: список -> чат ---
   const mqMobile = window.matchMedia('(max-width: 900px)');
   function enterChatView() {
-    if (mqMobile.matches) {
-      document.documentElement.classList.add('show-chat');
-      if (els.chatBack) els.chatBack.style.display = 'inline-flex';
-    }
+    if (mqMobile.matches) document.documentElement.classList.add('show-chat');
   }
   function leaveChatView() {
     document.documentElement.classList.remove('show-chat');
-    if (els.chatBack) els.chatBack.style.display = 'none';
     currentChat = null;
     messages = [];
     els.messages.innerHTML = '';
-    els.chatTitle.textContent = '';
+    setHeader({ title: '', avatar: '' });
     if (els.search) els.search.value = '';
   }
-  if (els.chatBack) {
-    els.chatBack.addEventListener('click', (e) => {
+  if (els.tgBack) {
+    els.tgBack.addEventListener('click', (e) => {
       e.preventDefault();
       leaveChatView();
     });
   }
 
-  // Smart scroll helpers
+  // --- scroll helpers ---
   function isNearBottom() {
     const el = els.messages;
     const threshold = 120;
@@ -85,16 +93,12 @@
     els.messages.scrollTop = els.messages.scrollHeight + 999;
   }
 
-  // Load my profile
-  fetch('/api/user/profile', {
-    headers: { Authorization: 'Bearer ' + token },
-  })
+  // --- my profile ---
+  fetch('/api/user/profile', { headers: { Authorization: 'Bearer ' + token } })
     .then((r) => r.json())
-    .then((u) => {
-      myId = u._id || u.id;
-    });
+    .then((u) => { myId = u._id || u.id; });
 
-  // Load chat list
+  // --- chat list ---
   async function loadChats() {
     const data = await API('/chats');
     els.list.innerHTML = '';
@@ -103,7 +107,7 @@
       li.className = 'chat-item';
       li.innerHTML = `
         <div class="avatar">
-          <img src="${c.avatar || 'menu.css'.slice(999)}" style="display:none"/>
+          <img src="${c.avatar || ''}" onerror="this.style.display='none'"/>
           <span class="online" style="display:none"></span>
         </div>
         <div class="cmeta">
@@ -111,11 +115,12 @@
             <div class="title">${escapeHtml(c.title)}</div>
             <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
           </div>
-          <div class="cpreview">${
-            c.lastMessage
-              ? escapeHtml((c.lastMessage.senderName || 'user') + ': ' + truncate(c.lastMessage.text || '', 60))
-              : 'Нет сообщений'
-          }
+          <div class="cpreview">
+            ${
+              c.lastMessage
+                ? escapeHtml((c.lastMessage.senderName || 'user') + ': ' + truncate(c.lastMessage.text || '', 60))
+                : 'Нет сообщений'
+            }
             ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
           </div>
         </div>`;
@@ -124,26 +129,47 @@
     });
   }
 
+  // --- header setter (title + avatar fallback) ---
+  function setHeader(chat) {
+    const title = (chat?.title || '').trim() || 'Чат';
+    if (els.tgTitle) els.tgTitle.textContent = title;
+
+    // сабтайтл: печатает / пусто
+    if (els.tgSub) els.tgSub.textContent = ''; // будет меняться по typing
+
+    // аватар: если есть URL — показываем <img>, иначе буква
+    const img = els.tgAvatarImg;
+    const letter = els.tgAvatarLetter;
+    const firstChar = (title[0] || 'A').toUpperCase();
+
+    if (img && letter) {
+      if (chat?.avatar) {
+        img.src = chat.avatar;
+        img.style.display = 'block';
+        letter.style.display = 'none';
+      } else {
+        img.src = '';
+        img.style.display = 'none';
+        letter.style.display = 'grid';
+        letter.textContent = firstChar;
+      }
+    }
+  }
+
+  // --- utils ---
   function escapeHtml(s) {
-    return (s || '').replace(/[&<>"]/g, (c) => {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-    });
+    return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   }
-  function truncate(s, n) {
-    return (s || '').length > n ? s.slice(0, n - 1) + '…' : s;
-  }
+  function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
   function timeShort(t) {
     const d = new Date(t);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  // --- open chat ---
   async function openChat(c) {
     currentChat = c;
-    if (els.chatTitle) els.chatTitle.textContent = c.title || '';
-    if (els.chatAvatar) {
-      els.chatAvatar.src = c.avatar || '';
-      els.chatAvatar.alt = (c.title || 'A').slice(0, 1);
-    }
+    setHeader(c);
 
     els.messages.innerHTML = '';
     messages = [];
@@ -151,6 +177,7 @@
     await loadHistory();
     scrollToBottom();
 
+    // прыжок по messageId
     if (jumpId) {
       try {
         const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
@@ -173,9 +200,9 @@
     }
   }
 
+  // --- history / infinite up ---
   async function loadHistory(before) {
-    if (!currentChat) return;
-    if (loadingHistory) return;
+    if (!currentChat || loadingHistory) return;
     loadingHistory = true;
     const q = new URLSearchParams({ chatId: currentChat._id, limit: 30 });
     if (before) q.set('before', before);
@@ -185,15 +212,13 @@
     loadingHistory = false;
   }
 
-  // Infinite scroll up
   els.messages.addEventListener('scroll', () => {
     const el = els.messages;
     atBottom = isNearBottom();
-    if (el.scrollTop === 0 && messages.length) {
-      loadHistory(messages[0].createdAt);
-    }
+    if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
   });
 
+  // --- render messages ---
   function renderMessages() {
     const prevIsNearBottom = isNearBottom();
     els.messages.innerHTML = '';
@@ -223,7 +248,7 @@
 
       div.innerHTML = `
         <div class="mrow">
-          <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/><span class="online" style="display:none"></span></div>
+          <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/></div>
           <div class="mname">${escapeHtml(m.senderName || 'user')}</div>
         </div>
         ${replyHtml}
@@ -242,9 +267,8 @@
         showContextMenu(e.clientX, e.clientY, m);
       };
 
-      // Мобилка/десктоп: обычный тап/клик по сообщению — меню
+      // Мобилка/десктоп: тап/клик по пузырю — меню
       div.addEventListener('click', (e) => {
-        // игнорим клики по интерактивным элементам внутри
         if (e.target.closest('a, img, video, button, input, textarea')) return;
         const x = e.clientX || 20;
         const y = e.clientY || 20;
@@ -256,7 +280,7 @@
     if (prevIsNearBottom) scrollToBottom();
   }
 
-  // Мини-меню действий
+  // --- context menu ---
   let ctx;
   function showContextMenu(x, y, m) {
     hideContextMenu();
@@ -283,7 +307,7 @@
       b.style.color = 'white';
       b.style.padding = '10px 12px';
       b.style.textAlign = 'left';
-      b.style.fontSize = '16px'; // чтобы не дергать зум на iOS
+      b.style.fontSize = '16px';
       b.style.cursor = 'pointer';
       b.onmousedown = (ev) => ev.preventDefault();
       b.onclick = () => { fn(); hideContextMenu(); };
@@ -295,15 +319,14 @@
     if (mine) {
       mk('Редактировать', () => {
         const nt = prompt('Изменить сообщение', m.text || '');
-        if (nt != null) socket.emit('message:edit', { id:m._id, text:nt }, ackHandler);
+        if (nt != null) socket.emit('message:edit', { id: m._id, text: nt }, ackHandler);
       });
       mk('Удалить', () => {
-        if (confirm('Удалить?')) socket.emit('message:delete', { id:m._id }, ackHandler);
+        if (confirm('Удалить?')) socket.emit('message:delete', { id: m._id }, ackHandler);
       });
     }
 
     document.body.appendChild(ctx);
-    // Закрыть по тапу снаружи
     setTimeout(() => {
       window.addEventListener('click', hideContextMenu, { once:true });
       window.addEventListener('touchstart', hideContextMenu, { once:true, passive:true });
@@ -315,24 +338,25 @@
     socket.emit('message:react', { id: m._id, emoji }, ackHandler);
   }
 
-  // Attachments
-  els.attachBtn.onclick = () => els.fileInput.click();
-  els.fileInput.onchange = async () => {
-    const fd = new FormData();
-    [...els.fileInput.files].forEach((f) => fd.append('files', f));
-    const res = await fetch('/api/chat/attachments', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token },
-      body: fd,
-    }).then((r) => r.json());
-    pendingAttachments = res.files || [];
-  };
+  // --- attachments ---
+  els.attachBtn && (els.attachBtn.onclick = () => els.fileInput.click());
+  if (els.fileInput) {
+    els.fileInput.onchange = async () => {
+      const fd = new FormData();
+      [...els.fileInput.files].forEach((f) => fd.append('files', f));
+      const res = await fetch('/api/chat/attachments', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        body: fd,
+      }).then((r) => r.json());
+      pendingAttachments = res.files || [];
+    };
+  }
   let pendingAttachments = [];
 
-  // Socket connection
+  // --- socket ---
   const socket = io('/', { auth: { token: token } });
 
-  socket.on('connect', () => {});
   socket.on('message:new', (m) => {
     if (!currentChat || String(m.chatId) !== String(currentChat._id)) return;
     messages.push(m);
@@ -352,37 +376,33 @@
     const m = messages.find((x) => String(x._id) === String(id));
     if (m) { m.reactions = reactions; renderMessages(); }
   });
-  socket.on('message:reads', () => {});
   socket.on('typing', ({ userId, isTyping }) => {
-    els.chatTyping.textContent = isTyping ? '... печатает' : '';
+    // меняем сабтайтл под заголовком
+    if (els.tgSub) els.tgSub.textContent = isTyping ? 'печатает…' : '';
   });
 
-  // composer
-  els.msgInput.addEventListener('input', autoGrow);
+  // --- composer ---
+  if (els.msgInput) {
+    els.msgInput.addEventListener('input', autoGrow);
+  }
   function autoGrow() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 160) + 'px';
     socket.emit('typing', { isTyping: true });
     clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(
-      () => socket.emit('typing', { isTyping: false }),
-      1500,
-    );
+    typingTimeout = setTimeout(() => socket.emit('typing', { isTyping: false }), 1500);
   }
 
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  els.sendBtn.onclick = send;
-  els.msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
+  els.sendBtn && (els.sendBtn.onclick = send);
+  els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
 
   function send() {
     if (!currentChat) return;
-    const text = els.msgInput.value.trim();
+    const text = (els.msgInput.value || '').trim();
     if (!text && pendingAttachments.length === 0) return;
     const payload = { text, attachments: pendingAttachments };
     if (replyTo) payload.replyTo = replyTo._id;
@@ -398,6 +418,7 @@
     });
   }
 
+  // --- mark read ---
   function maybeMarkRead(newMsgs) {
     const ids = (newMsgs || messages)
       .filter((m) => String(m.senderId) !== String(myId))
@@ -405,28 +426,28 @@
     if (ids.length) socket.emit('message:read', { ids }, () => {});
   }
 
-  // search
+  // --- search ---
   let searchTimer;
-  els.search.addEventListener('input', () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(async () => {
-      if (!currentChat) return;
-      const q = els.search.value.trim();
-      if (!q) {
-        messages = await API(
-          '/messages?' + new URLSearchParams({ chatId: currentChat._id, limit: 30 }),
-        );
+  if (els.search) {
+    els.search.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        if (!currentChat) return;
+        const q = els.search.value.trim();
+        if (!q) {
+          messages = await API(
+            '/messages?' + new URLSearchParams({ chatId: currentChat._id, limit: 30 }),
+          );
+          renderMessages();
+          return;
+        }
+        const list = await API(`/search?chatId=${currentChat._id}&q=${encodeURIComponent(q)}`);
+        messages = list;
         renderMessages();
-        return;
-      }
-      const list = await API(
-        `/search?chatId=${currentChat._id}&q=${encodeURIComponent(q)}`,
-      );
-      messages = list;
-      renderMessages();
-    }, 300);
-  });
+      }, 300);
+    });
+  }
 
-  // init
+  // --- init ---
   loadChats();
 })();
