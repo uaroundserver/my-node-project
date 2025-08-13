@@ -1,6 +1,5 @@
 // public/scripts/chat.js
 (function () {
-  // --- helpers to call API ---
   const API = (path, opts = {}) =>
     fetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, {
       ...opts,
@@ -21,35 +20,30 @@
       },
     }).then((r) => r.json());
 
-  // --- auth guard ---
   const token = localStorage.getItem('userToken');
   if (!token) {
     location.href = 'login.html';
     return;
   }
 
-  // --- elements ---
   const els = {
-    // список/лента/композер
     list: document.getElementById('chatList'),
     messages: document.getElementById('messageList'),
     msgInput: document.getElementById('msgInput'),
     sendBtn: document.getElementById('sendBtn'),
     fileInput: document.getElementById('fileInput'),
     attachBtn: document.getElementById('attachBtn'),
-
-    // новая шапка
     tgBack: document.getElementById('tgBack'),
     tgTitle: document.getElementById('tgTitle'),
     tgSub: document.getElementById('tgSub'),
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
-
-    // поиск под шапкой
     search: document.getElementById('tgSearch'),
+    replyBar: document.getElementById('replyBar'),
+    replyText: document.getElementById('replyText'),
+    replyCancel: document.getElementById('replyCancel'),
   };
 
-  // поддержка старых id (если не всё успел заменить в HTML)
   if (!els.search) els.search = document.getElementById('searchInput');
 
   const urlParams = new URLSearchParams(location.search);
@@ -62,8 +56,24 @@
   let atBottom = true;
   let typingTimeout = null;
   let replyTo = null;
+  let pendingAttachments = [];
 
-  // --- responsive: список -> чат ---
+  function setReply(m) {
+    replyTo = m;
+    if (els.replyBar) {
+      els.replyBar.hidden = false;
+      els.replyText.textContent = (m.text || '(вложение)').slice(0, 140);
+    }
+    els.msgInput?.focus();
+  }
+
+  function clearReply() {
+    replyTo = null;
+    if (els.replyBar) els.replyBar.hidden = true;
+  }
+
+  els.replyCancel && (els.replyCancel.onclick = clearReply);
+
   const mqMobile = window.matchMedia('(max-width: 900px)');
   function enterChatView() {
     if (mqMobile.matches) document.documentElement.classList.add('show-chat');
@@ -83,7 +93,6 @@
     });
   }
 
-  // --- scroll helpers ---
   function isNearBottom() {
     const el = els.messages;
     const threshold = 120;
@@ -93,12 +102,10 @@
     els.messages.scrollTop = els.messages.scrollHeight + 999;
   }
 
-  // --- my profile ---
   fetch('/api/user/profile', { headers: { Authorization: 'Bearer ' + token } })
     .then((r) => r.json())
     .then((u) => { myId = u._id || u.id; });
 
-  // --- chat list ---
   async function loadChats() {
     const data = await API('/chats');
     els.list.innerHTML = '';
@@ -129,19 +136,13 @@
     });
   }
 
-  // --- header setter (title + avatar fallback) ---
   function setHeader(chat) {
     const title = (chat?.title || '').trim() || 'Чат';
     if (els.tgTitle) els.tgTitle.textContent = title;
-
-    // сабтайтл: печатает / пусто
-    if (els.tgSub) els.tgSub.textContent = ''; // будет меняться по typing
-
-    // аватар: если есть URL — показываем <img>, иначе буква
+    if (els.tgSub) els.tgSub.textContent = '';
     const img = els.tgAvatarImg;
     const letter = els.tgAvatarLetter;
     const firstChar = (title[0] || 'A').toUpperCase();
-
     if (img && letter) {
       if (chat?.avatar) {
         img.src = chat.avatar;
@@ -156,7 +157,6 @@
     }
   }
 
-  // --- utils ---
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   }
@@ -166,41 +166,16 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // --- open chat ---
   async function openChat(c) {
     currentChat = c;
     setHeader(c);
-
     els.messages.innerHTML = '';
     messages = [];
     enterChatView();
     await loadHistory();
     scrollToBottom();
-
-    // прыжок по messageId
-    if (jumpId) {
-      try {
-        const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
-        if (meta?.createdAt) {
-          const before = new Date(new Date(meta.createdAt).getTime() + 1).toISOString();
-          const q = new URLSearchParams({ chatId: currentChat._id, limit: 200, before });
-          const pack = await API('/messages?' + q.toString());
-          messages = pack;
-          renderMessages();
-          const target = els.messages.querySelector(`[data-id="${CSS.escape(jumpId)}"]`);
-          if (target) {
-            target.scrollIntoView({ block: 'center' });
-            target.style.outline = '2px solid #5aa9ff';
-            setTimeout(() => (target.style.outline = ''), 1500);
-          } else {
-            scrollToBottom();
-          }
-        }
-      } catch {}
-    }
   }
 
-  // --- history / infinite up ---
   async function loadHistory(before) {
     if (!currentChat || loadingHistory) return;
     loadingHistory = true;
@@ -218,7 +193,6 @@
     if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
   });
 
-  // --- render messages ---
   function renderMessages() {
     const prevIsNearBottom = isNearBottom();
     els.messages.innerHTML = '';
@@ -226,26 +200,10 @@
       const div = document.createElement('div');
       div.className = 'msg ' + (String(m.senderId) === String(myId) ? 'mine' : 'their');
       div.dataset.id = m._id;
-
       const replyHtml =
         m.replyTo && messages.find((x) => String(x._id) === String(m.replyTo))
           ? `<div class="reply">${escapeHtml(messages.find((x) => String(x._id) === String(m.replyTo)).text)}</div>`
           : '';
-
-      const attachHtml = (m.attachments || [])
-        .map((a) => {
-          if ((a.mimetype || '').startsWith('image/')) {
-            return `<div class="attach"><img src="${a.url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
-          } else if ((a.mimetype || '').startsWith('video/')) {
-            return `<div class="attach"><video src="${a.url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
-          } else {
-            return `<a class="attach" href="${a.url}" target="_blank">${escapeHtml(a.originalname || 'Файл')}</a>`;
-          }
-        })
-        .join('');
-
-      const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
-
       div.innerHTML = `
         <div class="mrow">
           <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/></div>
@@ -253,34 +211,20 @@
         </div>
         ${replyHtml}
         <div class="mtext">${escapeHtml(m.text || '')}</div>
-        ${attachHtml}
         <div class="mmeta">
           <span>${timeShort(m.createdAt)}</span>
-          ${String(m.senderId) === String(myId) ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-          ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
         </div>
       `;
-
-      // ПК: правый клик — меню
-      div.oncontextmenu = (e) => {
-        e.preventDefault();
-        showContextMenu(e.clientX, e.clientY, m);
-      };
-
-      // Мобилка/десктоп: тап/клик по пузырю — меню
+      div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
       div.addEventListener('click', (e) => {
         if (e.target.closest('a, img, video, button, input, textarea')) return;
-        const x = e.clientX || 20;
-        const y = e.clientY || 20;
-        showContextMenu(x, y, m);
+        showContextMenu(e.clientX || 20, e.clientY || 20, m);
       });
-
       els.messages.appendChild(div);
     });
     if (prevIsNearBottom) scrollToBottom();
   }
 
-  // --- context menu ---
   let ctx;
   function showContextMenu(x, y, m) {
     hideContextMenu();
@@ -294,8 +238,6 @@
     ctx.style.padding = '6px';
     ctx.style.zIndex = 10000;
     ctx.style.minWidth = '160px';
-    ctx.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
-
     const mine = String(m.senderId) === String(myId);
     const mk = (label, fn) => {
       const b = document.createElement('button');
@@ -313,8 +255,7 @@
       b.onclick = () => { fn(); hideContextMenu(); };
       ctx.appendChild(b);
     };
-
-    mk('Ответить', () => { replyTo = m; els.msgInput.focus(); });
+    mk('Ответить', () => setReply(m));
     mk('😊 Реакция', () => { react(m, '👍'); });
     if (mine) {
       mk('Редактировать', () => {
@@ -325,7 +266,6 @@
         if (confirm('Удалить?')) socket.emit('message:delete', { id: m._id }, ackHandler);
       });
     }
-
     document.body.appendChild(ctx);
     setTimeout(() => {
       window.addEventListener('click', hideContextMenu, { once:true });
@@ -333,12 +273,8 @@
     });
   }
   function hideContextMenu() { if (ctx) { ctx.remove(); ctx = null; } }
+  function react(m, emoji) { socket.emit('message:react', { id: m._id, emoji }, ackHandler); }
 
-  function react(m, emoji) {
-    socket.emit('message:react', { id: m._id, emoji }, ackHandler);
-  }
-
-  // --- attachments ---
   els.attachBtn && (els.attachBtn.onclick = () => els.fileInput.click());
   if (els.fileInput) {
     els.fileInput.onchange = async () => {
@@ -352,9 +288,7 @@
       pendingAttachments = res.files || [];
     };
   }
-  let pendingAttachments = [];
 
-  // --- socket ---
   const socket = io('/', { auth: { token: token } });
 
   socket.on('message:new', (m) => {
@@ -362,29 +296,9 @@
     messages.push(m);
     renderMessages();
     if (isNearBottom()) scrollToBottom();
-    maybeMarkRead([m]);
-  });
-  socket.on('message:edited', ({ id, text, editedAt }) => {
-    const m = messages.find((x) => String(x._id) === String(id));
-    if (m) { m.text = text; m.editedAt = editedAt; renderMessages(); }
-  });
-  socket.on('message:deleted', ({ id }) => {
-    const idx = messages.findIndex((x) => String(x._id) === String(id));
-    if (idx > -1) { messages.splice(idx, 1); renderMessages(); }
-  });
-  socket.on('message:reactions', ({ id, reactions }) => {
-    const m = messages.find((x) => String(x._id) === String(id));
-    if (m) { m.reactions = reactions; renderMessages(); }
-  });
-  socket.on('typing', ({ userId, isTyping }) => {
-    // меняем сабтайтл под заголовком
-    if (els.tgSub) els.tgSub.textContent = isTyping ? 'печатает…' : '';
   });
 
-  // --- composer ---
-  if (els.msgInput) {
-    els.msgInput.addEventListener('input', autoGrow);
-  }
+  if (els.msgInput) els.msgInput.addEventListener('input', autoGrow);
   function autoGrow() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 160) + 'px';
@@ -392,7 +306,6 @@
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => socket.emit('typing', { isTyping: false }), 1500);
   }
-
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
   els.sendBtn && (els.sendBtn.onclick = send);
@@ -411,43 +324,12 @@
         els.msgInput.value = '';
         els.msgInput.style.height = 'auto';
         pendingAttachments = [];
-        replyTo = null;
+        clearReply();
       } else {
         alert(ack?.error || 'Не отправлено');
       }
     });
   }
 
-  // --- mark read ---
-  function maybeMarkRead(newMsgs) {
-    const ids = (newMsgs || messages)
-      .filter((m) => String(m.senderId) !== String(myId))
-      .map((m) => m._id);
-    if (ids.length) socket.emit('message:read', { ids }, () => {});
-  }
-
-  // --- search ---
-  let searchTimer;
-  if (els.search) {
-    els.search.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(async () => {
-        if (!currentChat) return;
-        const q = els.search.value.trim();
-        if (!q) {
-          messages = await API(
-            '/messages?' + new URLSearchParams({ chatId: currentChat._id, limit: 30 }),
-          );
-          renderMessages();
-          return;
-        }
-        const list = await API(`/search?chatId=${currentChat._id}&q=${encodeURIComponent(q)}`);
-        messages = list;
-        renderMessages();
-      }, 300);
-    });
-  }
-
-  // --- init ---
   loadChats();
 })();
