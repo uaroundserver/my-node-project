@@ -63,6 +63,7 @@
   let currentChat = null;
   let messages = [];
   let myId = null;
+  let allChats = []; // <— КЕШ списка чатов для быстрого открытия по messageId
   let loadingHistory = false;
   let atBottom = true;
   let typingTimeout = null;
@@ -109,9 +110,11 @@
   // --- chat list ---
   async function loadChats() {
     const data = await API('/chats');
-    if (!els.list) return;
+    allChats = Array.isArray(data) ? data : [];
+    if (!els.list) return allChats;
+
     els.list.innerHTML = '';
-    data.forEach((c) => {
+    allChats.forEach((c) => {
       const li = document.createElement('li');
       li.className = 'chat-item';
       li.innerHTML = `
@@ -136,6 +139,7 @@
       li.onclick = () => openChat(c);
       els.list.appendChild(li);
     });
+    return allChats;
   }
 
   // --- header setter (title + avatar fallback) ---
@@ -188,7 +192,7 @@
     await loadHistory();
     scrollToBottom();
 
-    // прыжок по messageId
+    // прыжок по messageId (используем глобальный jumpId)
     if (jumpId) {
       try {
         const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
@@ -209,6 +213,25 @@
         }
       } catch {}
     }
+  }
+
+  // --- Открыть чат, зная только messageId (для ?jump=...) ---
+  async function openChatByMessageId(messageId) {
+    try {
+      const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(messageId)}`);
+      const chatId = meta?.chatId || meta?.chat?._id || meta?.chat_id;
+      if (!chatId) return;
+
+      if (!allChats || !allChats.length) {
+        await loadChats();
+      }
+
+      let chat = allChats.find(c => String(c._id) === String(chatId));
+      if (!chat) {
+        chat = { _id: chatId, title: meta?.chatTitle || 'Чат', avatar: meta?.chatAvatar || '' };
+      }
+      await openChat(chat);
+    } catch {}
   }
 
   // --- history / infinite up ---
@@ -630,5 +653,11 @@
   }
 
   // --- init ---
-  loadChats();
+  (async () => {
+    await loadChats();
+    if (jumpId) {
+      // Автооткрытие нужного чата и прыжок к сообщению
+      openChatByMessageId(jumpId);
+    }
+  })();
 })();
