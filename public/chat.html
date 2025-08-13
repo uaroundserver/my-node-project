@@ -3,7 +3,6 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <!-- отключаем зум на фокусе и держим масштаб 1:1 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Чат</title>
   <link rel="stylesheet" href="chat.css">
@@ -19,42 +18,41 @@
 
     <main class="chat-main">
 
-      <!-- Шапка + поиск (внутри шапки) -->
+      <!-- Шапка -->
       <header class="chat-header">
- <button id="tgBack" class="back-btn" type="button" aria-label="Назад">←</button>
-        <input id="tgSearch" class="search" placeholder="Поиск по чату"/>
+        <button id="tgBack" class="back-btn" type="button" aria-label="Назад">←</button>
         <div id="tgTitle" class="chat-title">General chat</div>
         <div id="tgSub" class="chat-typing"></div>
 
-        <!-- аватар справа: либо картинка, либо буква -->
+        <!-- аватар справа -->
         <img id="tgAvatarImg" class="chat-avatar" alt="" />
-        <span id="tgAvatarLetter"
-              <span id="tgAvatarLetter" class="chat-avatar chat-avatar-letter" style="display:none">G</span>
-        </span>
+        <span id="tgAvatarLetter" class="chat-avatar chat-avatar-letter" style="display:none">G</span>
 
         <!-- Поиск -->
-
+        <input id="tgSearch" class="search" placeholder="Поиск по чату"/>
       </header>
 
       <!-- Сообщения -->
-      <section id="messageList" class="messages"></<!-- Composer -->
-<footer class="composer">
-  <!-- Панель ответа -->
-  <div id="replyBar" class="reply-bar" hidden>
-    <div id="replyText" class="reply-snippet"></div>
-    <button id="replyCancel" class="reply-cancel" title="Отменить">✕</button>
-  </div>
+      <section id="messageList" class="messages"></section>
 
-  <div class="composer-left">
-    <button id="attachBtn" title="Вложения">📎</button>
-    <input id="fileInput" type="file" multiple hidden />
-  </div>
-  <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
-  <div class="composer-right">
-    <button id="emojiBtn" title="Смайлы">😊</button>
-    <button id="sendBtn" title="Отправить">➤</button>
-  </div>
-</footer>
+      <!-- Панель ответа -->
+      <div id="replyBar" class="reply-bar" hidden>
+        <span id="replyText"></span>
+        <button id="replyCancel" title="Отменить">✕</button>
+      </div>
+
+      <!-- Composer -->
+      <footer class="composer">
+        <div class="composer-left">
+          <button id="attachBtn" title="Вложения">📎</button>
+          <input id="fileInput" type="file" multiple hidden />
+        </div>
+        <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
+        <div class="composer-right">
+          <button id="emojiBtn" title="Смайлы">😊</button>
+          <button id="sendBtn" title="Отправить">➤</button>
+        </div>
+      </footer>
     </main>
   </div>
 
