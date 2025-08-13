@@ -2,6 +2,59 @@ function initMenu() {
   if (window.__menu_inited) return;
   window.__menu_inited = true;
 
+  // === Мобильная консоль (Eruda) — включается по ?debug=1 / #debug / localStorage.DEBUG_ERUDA="1"
+  // и долгим тапом (1.2с) по иконке чата в шапке.
+  (async function setupEruda() {
+    function needEruda() {
+      const q = location.search + location.hash;
+      return /\bdebug=1\b|\beruda=1\b/i.test(q) || localStorage.getItem('DEBUG_ERUDA') === '1';
+    }
+    async function loadEruda() {
+      if (window.eruda) return;
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/eruda@3/eruda.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      try { window.eruda && window.eruda.init(); window.eruda && window.eruda.show(); } catch {}
+    }
+    // авто-включение
+    if (needEruda()) { try { await loadEruda(); } catch {} }
+
+    // долгий тап по иконке чата — toggle Eruda
+    const setupLongPress = () => {
+      const icon = document.getElementById('chatHeaderIcon');
+      if (!icon) return;
+      let t = null;
+      const start = () => {
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          try {
+            if (!window.eruda) await loadEruda();
+            if (window.eruda) {
+              const isShown = window.eruda._isShow && window.eruda._isShow();
+              if (isShown) window.eruda.hide(); else window.eruda.show();
+            }
+          } catch {}
+        }, 1200);
+      };
+      const cancel = () => clearTimeout(t);
+      icon.addEventListener('touchstart', start, { passive: true });
+      icon.addEventListener('touchend', cancel, { passive: true });
+      icon.addEventListener('touchcancel', cancel, { passive: true });
+      icon.addEventListener('mousedown', start);
+      icon.addEventListener('mouseup', cancel);
+      icon.addEventListener('mouseleave', cancel);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupLongPress);
+    } else {
+      setupLongPress();
+    }
+  })();
+
   // ⬇️ Подтягиваем socket.io, если меню вставлено через innerHTML и тег <script> из menu.html не выполнился
   async function ensureSocketIO(){
     if (window.io) return;
@@ -215,12 +268,9 @@ function initMenu() {
         try {
           if (!m) return false;
 
-          // быстрый путь, если сервер прислал replyToOwnerId
           if (m.replyToOwnerId) {
             return String(m.replyToOwnerId) === String(myId) && String(m.senderId) !== String(myId);
           }
-
-          // стандартный путь: проверяем исходное сообщение по replyTo
           if (!m.replyTo) return false;
 
           const meta = await fetch(`/api/chat/message/${encodeURIComponent(m.replyTo)}`, {
@@ -233,9 +283,7 @@ function initMenu() {
           const isReplyToMe = String(repliedSenderId) === String(myId);
           const fromOther   = m?.senderId && String(m.senderId) !== String(myId);
           return isReplyToMe && fromOther;
-        } catch {
-          return false;
-        }
+        } catch { return false; }
       }
 
       // ⬇️ ГАРАНТИРУЕМ наличие window.io и только потом подключаем сокет
@@ -248,15 +296,12 @@ function initMenu() {
       s.on('connect_error', () => { /* молчим */ });
 
       s.on('message:new', async (m) => {
-        // если мы уже на странице чата — не копим бэйдж
         const file = (location.pathname.split('/').pop() || '').toLowerCase();
         if (file === 'chat.html') {
           sessionStorage.setItem('chatBadgeCount', '0');
           updateChatBadge(0);
           return;
         }
-
-        // считаем только ответы на мои сообщения и только от других
         if (await isReplyToMeHeader(m, myId)) {
           const curr = Number(sessionStorage.getItem('chatBadgeCount') || '0');
           const next = curr + 1;
@@ -311,7 +356,6 @@ function initMenu() {
           </div>
         `;
         el.addEventListener('click', () => {
-          // сброс бэйджа и переход с якорем на сообщение
           sessionStorage.setItem('chatBadgeCount','0');
           updateChatBadge(0);
           closePanel();
@@ -330,7 +374,6 @@ function initMenu() {
       const items = await fetchNotifs();
       render(items);
 
-      // помечаем как прочитанные (бэйдж гасим)
       try {
         const token = localStorage.getItem('userToken');
         if (token) {
@@ -343,7 +386,6 @@ function initMenu() {
       sessionStorage.setItem('chatBadgeCount','0');
       updateChatBadge(0);
 
-      // клик вне — закрыть
       setTimeout(()=> {
         const onDoc = (e) => {
           if (panel.contains(e.target) || btn.contains(e.target)) return;
