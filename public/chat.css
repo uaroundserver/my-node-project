@@ -248,3 +248,40 @@ html.show-chat .chat-main{display:flex}
   padding: 4px 6px;
   line-height: 1;
 }
+
+/* --- Swipe-to-reply (телеграм-стиль) --- */
+.msg {
+  transition: transform 180ms ease, opacity 180ms ease;
+  will-change: transform;
+  position: relative;
+}
+
+/* Иконка-реплая, появляется при свайпе */
+.msg::before {
+  content: "↩";
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  font-size: 16px;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  color: var(--accent);
+}
+
+/* Пока тянем — показываем иконку */
+.msg.is-swiping::before {
+  opacity: 0.8;
+}
+
+/* Когда превысили порог — подсветить чуть сильнее */
+.msg.swipe-ready {
+  box-shadow: 0 6px 18px rgba(90, 169, 255, .25);
+}
+.msg.swipe-ready::before {
+  opacity: 1;
+}
+
+/* На iOS не мешаем горизонтальному жесту внутри сообщений */
+.messages{ touch-action: pan-y; }
