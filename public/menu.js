@@ -226,11 +226,13 @@ function initMenu() {
     }
   };
 
+  // --- Восстановить счётчик при загрузке страницы
   (function restoreChatBadge(){
     const n = Number(sessionStorage.getItem('chatBadgeCount') || '0');
     updateChatBadge(n);
   })();
 
+  // Если мы в чате — сбросить бэйдж
   (function(){
     const file = (location.pathname.split('/').pop() || '').toLowerCase();
     if (file === 'chat.html') {
@@ -239,12 +241,12 @@ function initMenu() {
     }
   })();
 
-  // --- Реалтайм-уведомления (ТЕСТ: считаем любое входящее, не моё) ---
+  // ===== Реалтайм-уведомления: инкремент ТОЛЬКО если это ответ на МЕНЯ =====
   (async function initChatNotifications(){
     try {
       const token = localStorage.getItem('userToken');
       if (!token) return;
-      if (window.__notifSocket) return;
+      if (window.__notifSocket) return; // не плодим соединения
 
       // мой id
       let myId = null;
@@ -256,23 +258,76 @@ function initMenu() {
       } catch {}
       if (!myId) return;
 
-      await ensureSocketIO();
+      // КЕШ для replyTo → senderId исходного сообщения (LRU-подобный, с пределом)
+      const replyMetaCache = new Map(); // key: messageId, value: { ownerId, ts }
+      const CACHE_LIMIT = 200;
+      function cacheSet(id, ownerId){
+        replyMetaCache.set(String(id), { ownerId, ts: Date.now() });
+        if (replyMetaCache.size > CACHE_LIMIT) {
+          // удалить самый старый
+          let oldestK=null, oldestV=Infinity;
+          replyMetaCache.forEach((v,k)=>{ if(v.ts<oldestV){oldestV=v.ts; oldestK=k;} });
+          if (oldestK) replyMetaCache.delete(oldestK);
+        }
+      }
+      function cacheGet(id){
+        const x = replyMetaCache.get(String(id));
+        return x ? x.ownerId : null;
+      }
 
+      async function getOwnerOfMessage(msgId) {
+        const cached = cacheGet(msgId);
+        if (cached) return cached;
+        try {
+          const meta = await fetch(`/api/chat/message/${encodeURIComponent(msgId)}`, {
+            headers: { Authorization: 'Bearer ' + token }
+          }).then(r => r.ok ? r.json() : null);
+          const owner = meta?.senderId || meta?.userId || meta?.fromId || null;
+          if (owner) cacheSet(msgId, owner);
+          return owner;
+        } catch { return null; }
+      }
+
+      // Быстрая проверка "ответ на меня"
+      async function isReplyToMeSmart(m) {
+        // свои сообщения не считаем
+        if (m?.senderId && String(m.senderId) === String(myId)) return false;
+
+        // 1) Сервер дал явный owner id
+        if (m?.replyToOwnerId) {
+          return String(m.replyToOwnerId) === String(myId);
+        }
+
+        // 2) Есть replyTo — узнаём владельца исходного
+        if (m?.replyTo) {
+          const ownerId = await getOwnerOfMessage(m.replyTo);
+          if (ownerId) return String(ownerId) === String(myId);
+        }
+
+        // 3) (необязательно) если есть mentions и там есть я — можно засчитать как «ответ»
+        if (Array.isArray(m?.mentions) && m.mentions.some(x => String(x) === String(myId))) {
+          return true;
+        }
+
+        return false;
+      }
+
+      await ensureSocketIO();
       const s = io('/', { auth: { token } });
       window.__notifSocket = s;
 
       s.on('connect_error', () => { /* молчим */ });
 
-      s.on('message:new', (m) => {
+      s.on('message:new', async (m) => {
         const file = (location.pathname.split('/').pop() || '').toLowerCase();
         if (file === 'chat.html') {
           sessionStorage.setItem('chatBadgeCount','0');
           updateChatBadge(0);
           return;
         }
-        // ТЕСТОВО: любое входящее сообщение (не моё) → +1
-        const fromOther = m && m.senderId && String(m.senderId) !== String(myId);
-        if (fromOther) {
+
+        // считаем ТОЛЬКО ответы на мои сообщения
+        if (await isReplyToMeSmart(m)) {
           const curr = Number(sessionStorage.getItem('chatBadgeCount') || '0');
           const next = curr + 1;
           sessionStorage.setItem('chatBadgeCount', String(next));
