@@ -50,7 +50,7 @@ html,body{
   max-width:100vw;
 }
 
-/* ===== HEADER (grid with search on 2nd row) ===== */
+/* ===== HEADER (grid + поиск во 2-й строке) ===== */
 .chat-header{
   position:sticky; top:0; z-index:5;
   display:grid;
@@ -65,48 +65,54 @@ html,body{
   background:var(--panel);
   border-bottom:1px solid #1f2a3a;
 }
-/* учитывать вырезы экрана */
 @supports(padding:max(0px)){
   .chat-header{ padding-top:max(0px, env(safe-area-inset-top)); }
 }
-/* позволяем детям .chat-meta встать в сетку */
+
+/* .chat-meta лишь контейнер — разваливаем детей по grid-областям */
 .chat-meta{ display:contents; }
 
-/* back button (у тебя уже есть #chatBack) */
-.back-btn{ grid-area:back; display:inline-flex; align-items:center; gap:8px;
-  height:36px; padding:0 12px; background:#0e1522; border:1px solid #23324a; border-radius:12px; color:var(--text); cursor:pointer;
+/* back */
+.back-btn{
+  grid-area:back;
+  display:inline-flex; align-items:center; gap:8px;
+  height:36px; padding:0 12px;
+  background:#0e1522; border:1px solid #23324a; border-radius:12px;
+  color:var(--text); cursor:pointer;
 }
 
-/* заголовок по центру */
-.chat-title{ grid-area:title;
-  font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;
+/* центрированный заголовок */
+.chat-title{
+  grid-area:title;
+  font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  text-align:center;
 }
 
-/* печатает — прячем в шапке (если надо — включишь) */
+/* печатает — по желанию можно включить */
 .chat-typing{ display:none; }
 
-/* аватар справа; alt-текст не показываем (font-size:0) */
-.chat-avatar{ grid-area:avatar; justify-self:end;
-  width:36px; height:36px; border-radius:50%; object-fit:cover; background:#223043; display:block; font-size:0;
+/* аватар справа; скрываем alt у <img> через font-size:0 */
+.chat-avatar{
+  grid-area:avatar; justify-self:end;
+  width:36px; height:36px; border-radius:50%;
+  object-fit:cover; background:#223043; display:block; font-size:0;
 }
-/* когда src пустой — просто круг без текста */
 .chat-avatar[src=""], .chat-avatar:not([src]){ background:#223043; }
 
-/* поиск занимает всю вторую строку */
-.search{ grid-area:search; width:100%; min-width:0;
-  background:#0c1520; border:1px solid #223147; border-radius:10px; padding:10px 12px; color:var(--text); font-size:16px;
+/* поиск на вторую строку */
+.search{
+  grid-area:search; width:100%; min-width:0;
+  background:#0c1520; border:1px solid #223147; border-radius:10px;
+  padding:10px 12px; color:var(--text); font-size:16px;
 }
 
 /* ===== MESSAGES ===== */
 .messages{
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
+  flex:1 1 auto; min-height:0;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
   padding:12px 12px 96px;
   display:flex; flex-direction:column; gap:10px;
-  max-width:100vw;
-  -webkit-touch-callout:none;
+  max-width:100vw; -webkit-touch-callout:none;
 }
 @supports(padding:max(0px)){
   .messages{
@@ -121,11 +127,9 @@ html,body{
   max-width:82vw;
   padding:10px 12px 22px;
   border-radius:18px;
-  word-break:break-word;
-  overflow-wrap:anywhere;
+  word-break:break-word; overflow-wrap:anywhere;
   box-shadow:0 4px 14px rgba(0,0,0,.18);
 }
-
 .msg.mine{
   align-self:flex-end;
   background:linear-gradient(180deg,#3b57ff,#1a2b64);
@@ -137,8 +141,7 @@ html,body{
 }
 .msg.their{
   align-self:flex-start;
-  background:#223043;
-  color:#e6eef7;
+  background:#223043; color:#e6eef7;
   border-top-right-radius:18px;
   border-bottom-right-radius:18px;
   border-bottom-left-radius:8px;
@@ -152,8 +155,7 @@ html,body{
 .mtext{white-space:pre-wrap; line-height:1.32}
 
 .mmeta{
-  position:absolute;
-  right:10px; bottom:6px;
+  position:absolute; right:10px; bottom:6px;
   display:flex; align-items:center; gap:6px;
   font-size:11px; opacity:.8;
 }
@@ -162,20 +164,15 @@ html,body{
 
 .reply{
   margin:-2px 0 6px;
-  padding-left:10px;
-  border-left:3px solid var(--accent);
-  color:var(--muted);
-  font-size:12px;
+  padding-left:10px; border-left:3px solid var(--accent);
+  color:var(--muted); font-size:12px;
 }
 
 .attach img,.attach video{
   display:block;
-  max-width:min(70vw, 360px);
-  max-height:50vh;
-  width:auto; height:auto;
-  border-radius:12px;
-  background:#0b1220;
-  object-fit:contain;
+  max-width:min(70vw, 360px); max-height:50vh;
+  width:auto; height:auto; border-radius:12px;
+  background:#0b1220; object-fit:contain;
   outline:1px solid rgba(255,255,255,.08);
 }
 
@@ -183,7 +180,8 @@ html,body{
 .composer{
   flex:0 0 auto;
   position:sticky; bottom:0; z-index:10;
-  display:flex; gap:8px; padding:12px; border-top:1px solid #1f2a3a; background:var(--panel); max-width:100vw;
+  display:flex; gap:8px; padding:12px;
+  border-top:1px solid #1f2a3a; background:var(--panel); max-width:100vw;
   padding-bottom:calc(12px + env(safe-area-inset-bottom));
 }
 #msgInput{
@@ -191,7 +189,10 @@ html,body{
   border-radius:14px; padding:10px 12px; color:var(--text);
   max-height:160px; overflow:auto; font-size:16px;
 }
-.composer button{background:#0e1522;border:1px solid #23324a;border-radius:12px;padding:8px 10px;color:var(--text);cursor:pointer}
+.composer button{
+  background:#0e1522;border:1px solid #23324a;border-radius:12px;
+  padding:8px 10px;color:var(--text);cursor:pointer
+}
 .composer button:hover{background:#152037}
 
 /* переключение список/чат */
