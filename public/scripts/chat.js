@@ -4,8 +4,7 @@
     fetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, {
       ...opts,
       headers: {
-        'Content-Type':
-          opts.body instanceof FormData ? undefined : 'application/json',
+        'Content-Type': opts.body instanceof FormData ? undefined : 'application/json',
         ...(opts.headers || {}),
         Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
       },
@@ -15,8 +14,7 @@
     fetch(path, {
       ...opts,
       headers: {
-        'Content-Type':
-          opts.body instanceof FormData ? undefined : 'application/json',
+        'Content-Type': opts.body instanceof FormData ? undefined : 'application/json',
         ...(opts.headers || {}),
         Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
       },
@@ -224,7 +222,6 @@
       const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
 
       div.innerHTML = `
-        <button class="reply-btn" title="Ответить" aria-label="Ответить">↩</button>
         <div class="mrow">
           <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/><span class="online" style="display:none"></span></div>
           <div class="mname">${escapeHtml(m.senderName || 'user')}</div>
@@ -239,64 +236,24 @@
         </div>
       `;
 
-      // явная кнопка «Ответить»
-      const replyBtn = div.querySelector('.reply-btn');
-      replyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        replyTo = m;
-        els.msgInput.focus();
-      });
-
       // ПК: правый клик — меню
       div.oncontextmenu = (e) => {
         e.preventDefault();
-        showContextMenu(e.pageX, e.pageY, m);
+        showContextMenu(e.clientX, e.clientY, m);
       };
 
-      // МОБИЛКА: длинное нажатие — меню
-      bindLongPress(div, (pt) => {
-        // pt = {x, y} — координаты, где показывать меню
-        showContextMenu(pt.x, pt.y, m);
+      // Мобилка/десктоп: обычный тап/клик по сообщению — меню
+      div.addEventListener('click', (e) => {
+        // игнорим клики по интерактивным элементам внутри
+        if (e.target.closest('a, img, video, button, input, textarea')) return;
+        const x = e.clientX || 20;
+        const y = e.clientY || 20;
+        showContextMenu(x, y, m);
       });
 
       els.messages.appendChild(div);
     });
     if (prevIsNearBottom) scrollToBottom();
-  }
-
-  // Long-press helper (мобилки)
-  function bindLongPress(el, onLong) {
-    let timer = null;
-    let startX = 0, startY = 0;
-
-    el.addEventListener('touchstart', (e) => {
-      if (!e.touches || e.touches.length !== 1) return;
-      const t = e.touches[0];
-      startX = t.clientX; startY = t.clientY;
-      // запускаем таймер долгого нажатия (350–500мс комфортно)
-      timer = setTimeout(() => {
-        timer = null;
-        onLong({ x: startX, y: startY });
-      }, 400);
-    }, { passive: true });
-
-    el.addEventListener('touchmove', (e) => {
-      if (!timer) return;
-      const t = e.touches[0];
-      const dx = t.clientX - startX;
-      const dy = t.clientY - startY;
-      if (dx*dx + dy*dy > 100) { // ~10px
-        clearTimeout(timer); timer = null;
-      }
-    }, { passive: true });
-
-    el.addEventListener('touchend', () => {
-      if (timer) { clearTimeout(timer); timer = null; }
-    });
-
-    el.addEventListener('touchcancel', () => {
-      if (timer) { clearTimeout(timer); timer = null; }
-    });
   }
 
   // Мини-меню действий
@@ -306,13 +263,14 @@
     ctx = document.createElement('div');
     ctx.style.position = 'fixed';
     ctx.style.left = Math.min(x, window.innerWidth - 180) + 'px';
-    ctx.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
+    ctx.style.top  = Math.min(y, window.innerHeight - 160) + 'px';
     ctx.style.background = '#0e1522';
     ctx.style.border = '1px solid #223147';
     ctx.style.borderRadius = '10px';
     ctx.style.padding = '6px';
     ctx.style.zIndex = 10000;
-    ctx.style.minWidth = '140px';
+    ctx.style.minWidth = '160px';
+    ctx.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
 
     const mine = String(m.senderId) === String(myId);
     const mk = (label, fn) => {
@@ -323,9 +281,11 @@
       b.style.background = 'transparent';
       b.style.border = '0';
       b.style.color = 'white';
-      b.style.padding = '8px 10px';
+      b.style.padding = '10px 12px';
       b.style.textAlign = 'left';
-      b.style.fontSize = '16px'; // >=16px чтобы не вызывался зум
+      b.style.fontSize = '16px'; // чтобы не дергать зум на iOS
+      b.style.cursor = 'pointer';
+      b.onmousedown = (ev) => ev.preventDefault();
       b.onclick = () => { fn(); hideContextMenu(); };
       ctx.appendChild(b);
     };
@@ -343,7 +303,7 @@
     }
 
     document.body.appendChild(ctx);
-    // Закрывать по тапу где угодно
+    // Закрыть по тапу снаружи
     setTimeout(() => {
       window.addEventListener('click', hideContextMenu, { once:true });
       window.addEventListener('touchstart', hideContextMenu, { once:true, passive:true });
