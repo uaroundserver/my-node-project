@@ -204,3 +204,24 @@ html.show-chat .chat-main{display:flex}
   font-weight:700;
   font-size:16px;
 }
+
+
+.back-btn {
+  grid-area: back;
+  display: none; /* по умолчанию скрыта */
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
+  background: #0e1522;
+  border: 1px solid #23324a;
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+}
+@media (max-width: 900px) {
+  .back-btn {
+    display: inline-flex; /* показывать на мобилке */
+  }
+}
