@@ -154,7 +154,6 @@ function initMenu() {
     });
   })();
 
-
   // === Бэйдж уведомлений чата ===
   window.updateChatBadge = function(n){
     const headerBadge = document.getElementById('chatBadgeHeader');
@@ -199,13 +198,41 @@ function initMenu() {
 
       if (!myId) return;
 
+      // helper: понять, что это ответ мне (как в chat.js)
+      async function isReplyToMeHeader(m, myId) {
+        try {
+          if (!m) return false;
+
+          // быстрый путь, если сервер прислал replyToOwnerId
+          if (m.replyToOwnerId) {
+            return String(m.replyToOwnerId) === String(myId) && String(m.senderId) !== String(myId);
+          }
+
+          // стандартный путь: проверяем исходное сообщение по replyTo
+          if (!m.replyTo) return false;
+
+          const meta = await fetch(`/api/chat/message/${encodeURIComponent(m.replyTo)}`, {
+            headers: { Authorization: 'Bearer ' + token }
+          }).then(r => r.ok ? r.json() : null);
+
+          const repliedSenderId = meta?.senderId || meta?.userId || meta?.fromId;
+          if (!repliedSenderId) return false;
+
+          const isReplyToMe = String(repliedSenderId) === String(myId);
+          const fromOther   = m?.senderId && String(m.senderId) !== String(myId);
+          return isReplyToMe && fromOther;
+        } catch {
+          return false;
+        }
+      }
+
       // подключаемся к сокету
       const s = io('/', { auth: { token } });
       window.__notifSocket = s;
 
       s.on('connect_error', () => { /* молчим */ });
 
-      s.on('message:new', (m) => {
+      s.on('message:new', async (m) => {
         // если мы уже на странице чата — не копим бэйдж
         const file = (location.pathname.split('/').pop() || '').toLowerCase();
         if (file === 'chat.html') {
@@ -215,10 +242,7 @@ function initMenu() {
         }
 
         // считаем только ответы на мои сообщения и только от других
-        const isReplyToMe = m?.replyToOwnerId && String(m.replyToOwnerId) === String(myId);
-        const fromOther   = m?.senderId && String(m.senderId) !== String(myId);
-
-        if (isReplyToMe && fromOther) {
+        if (await isReplyToMeHeader(m, myId)) {
           const curr = Number(sessionStorage.getItem('chatBadgeCount') || '0');
           const next = curr + 1;
           sessionStorage.setItem('chatBadgeCount', String(next));
@@ -327,8 +351,6 @@ function initMenu() {
       opened ? closePanel() : openPanel();
     });
   })();
-
-
 }
 
 if (document.readyState !== 'loading') {
