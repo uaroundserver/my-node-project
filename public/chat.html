@@ -18,24 +18,33 @@
     </aside>
 
     <main class="chat-main">
-      <header class="chat-header">
-        <div class="chat-meta">
-          <button id="chatBack" class="back-btn"
-                  style="border:0; background:#0e1522; border:1px solid #23324a; border-radius:10px;
-                         padding:6px 10px; display:none; align-items:center; gap:6px; cursor:pointer;">
-            ← Назад
-          </button>
-          <img id="chatAvatar" class="chat-avatar" src="" alt="A"/>
-          <div>
-            <div id="chatTitle" class="chat-title">General chat</div>
-            <div id="chatTyping" class="chat-typing"></div>
-          </div>
+
+      <!-- Шапка в стиле Telegram -->
+      <header class="tg-header">
+        <button id="chatBack" class="tg-back" type="button" aria-label="Назад" style="display:none">
+          <span class="tg-back-arrow">←</span>
+        </button>
+
+        <div class="tg-title">
+          <div id="chatTitle" class="tg-name">General chat</div>
+          <div id="chatTyping" class="tg-sub"></div>
         </div>
-        <input id="searchInput" class="search" placeholder="Поиск по чату"/>
+
+        <div class="tg-avatar" id="chatAvatarWrap">
+          <img id="chatAvatar" alt="" />
+          <span id="chatAvatarLetter">G</span>
+        </div>
       </header>
 
+      <!-- Поиск под шапкой -->
+      <div class="tg-search">
+        <input id="searchInput" class="search" placeholder="Поиск по чату"/>
+      </div>
+
+      <!-- Сообщения -->
       <section id="messageList" class="messages"></section>
 
+      <!-- Composer -->
       <footer class="composer">
         <div class="composer-left">
           <button id="attachBtn" title="Вложения">📎</button>
