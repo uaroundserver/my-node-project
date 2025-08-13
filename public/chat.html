@@ -19,27 +19,24 @@
 
     <main class="chat-main">
 
-      <!-- Шапка в стиле Telegram -->
-      <header class="tg-header">
-        <button id="chatBack" class="tg-back" type="button" aria-label="Назад" style="display:none">
-          <span class="tg-back-arrow">←</span>
-        </button>
+      <!-- Шапка + поиск (внутри шапки) -->
+      <header class="chat-header">
+        <button id="tgBack" class="back-btn" type="button" aria-label="Назад" style="display:none">←</button>
 
-        <div class="tg-title">
-          <div id="chatTitle" class="tg-name">General chat</div>
-          <div id="chatTyping" class="tg-sub"></div>
-        </div>
+        <div id="tgTitle" class="chat-title">General chat</div>
+        <div id="tgSub" class="chat-typing"></div>
 
-        <div class="tg-avatar" id="chatAvatarWrap">
-          <img id="chatAvatar" alt="" />
-          <span id="chatAvatarLetter">G</span>
-        </div>
+        <!-- аватар справа: либо картинка, либо буква -->
+        <img id="tgAvatarImg" class="chat-avatar" alt="" />
+        <span id="tgAvatarLetter"
+              style="display:none; justify-self:end; width:36px; height:36px; border-radius:50%;
+                     background:#223043; display:none; place-items:center; font-weight:700; font-size:16px;">
+          G
+        </span>
+
+        <!-- Поиск -->
+        <input id="tgSearch" class="search" placeholder="Поиск по чату"/>
       </header>
-
-      <!-- Поиск под шапкой -->
-      <div class="tg-search">
-        <input id="searchInput" class="search" placeholder="Поиск по чату"/>
-      </div>
 
       <!-- Сообщения -->
       <section id="messageList" class="messages"></section>
