@@ -37,20 +37,24 @@
       </header>
 
       <!-- Сообщения -->
-      <section id="messageList" class="messages"></section>
+      <section id="messageList" class="messages"></<!-- Composer -->
+<footer class="composer">
+  <!-- Панель ответа -->
+  <div id="replyBar" class="reply-bar" hidden>
+    <div id="replyText" class="reply-snippet"></div>
+    <button id="replyCancel" class="reply-cancel" title="Отменить">✕</button>
+  </div>
 
-      <!-- Composer -->
-      <footer class="composer">
-        <div class="composer-left">
-          <button id="attachBtn" title="Вложения">📎</button>
-          <input id="fileInput" type="file" multiple hidden />
-        </div>
-        <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
-        <div class="composer-right">
-          <button id="emojiBtn" title="Смайлы">😊</button>
-          <button id="sendBtn" title="Отправить">➤</button>
-        </div>
-      </footer>
+  <div class="composer-left">
+    <button id="attachBtn" title="Вложения">📎</button>
+    <input id="fileInput" type="file" multiple hidden />
+  </div>
+  <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
+  <div class="composer-right">
+    <button id="emojiBtn" title="Смайлы">😊</button>
+    <button id="sendBtn" title="Отправить">➤</button>
+  </div>
+</footer>
     </main>
   </div>
 
