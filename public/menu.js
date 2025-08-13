@@ -2,6 +2,18 @@ function initMenu() {
   if (window.__menu_inited) return;
   window.__menu_inited = true;
 
+  // ⬇️ Подтягиваем socket.io, если меню вставлено через innerHTML и тег <script> из menu.html не выполнился
+  async function ensureSocketIO(){
+    if (window.io) return;
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
   function sidebar() { return document.getElementById('sidebar'); }
   function backdrop() { return document.getElementById('menu-backdrop'); }
   function menuBtn()  { return document.getElementById('menuButton'); }
@@ -226,6 +238,9 @@ function initMenu() {
         }
       }
 
+      // ⬇️ ГАРАНТИРУЕМ наличие window.io и только потом подключаем сокет
+      await ensureSocketIO();
+
       // подключаемся к сокету
       const s = io('/', { auth: { token } });
       window.__notifSocket = s;
@@ -357,7 +372,4 @@ if (document.readyState !== 'loading') {
   initMenu();
 } else {
   document.addEventListener('DOMContentLoaded', initMenu);
-
 }
-
-
