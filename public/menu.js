@@ -20,10 +20,7 @@ function initMenu() {
       });
       try { window.eruda && window.eruda.init(); window.eruda && window.eruda.show(); } catch {}
     }
-    // авто-включение
     if (needEruda()) { try { await loadEruda(); } catch {} }
-
-    // долгий тап по иконке чата — toggle Eruda
     const setupLongPress = () => {
       const icon = document.getElementById('chatHeaderIcon');
       if (!icon) return;
@@ -229,13 +226,11 @@ function initMenu() {
     }
   };
 
-  // --- Восстановить счётчик при загрузке страницы
   (function restoreChatBadge(){
     const n = Number(sessionStorage.getItem('chatBadgeCount') || '0');
     updateChatBadge(n);
   })();
 
-  // Если мы в чате — сбросить бэйдж
   (function(){
     const file = (location.pathname.split('/').pop() || '').toLowerCase();
     if (file === 'chat.html') {
@@ -244,15 +239,14 @@ function initMenu() {
     }
   })();
 
-  // --- Реалтайм-уведомления о ответах на тебя ---
+  // --- Реалтайм-уведомления (ТЕСТ: считаем любое входящее, не моё) ---
   (async function initChatNotifications(){
     try {
       const token = localStorage.getItem('userToken');
       if (!token) return;
+      if (window.__notifSocket) return;
 
-      if (window.__notifSocket) return; // не плодим соединения
-
-      // получаем мой id
+      // мой id
       let myId = null;
       try {
         const me = await fetch('/api/user/profile', {
@@ -260,49 +254,25 @@ function initMenu() {
         }).then(r => r.ok ? r.json() : null);
         myId = me?._id || me?.id || null;
       } catch {}
-
       if (!myId) return;
 
-      // helper: понять, что это ответ мне (как в chat.js)
-      async function isReplyToMeHeader(m, myId) {
-        try {
-          if (!m) return false;
-
-          if (m.replyToOwnerId) {
-            return String(m.replyToOwnerId) === String(myId) && String(m.senderId) !== String(myId);
-          }
-          if (!m.replyTo) return false;
-
-          const meta = await fetch(`/api/chat/message/${encodeURIComponent(m.replyTo)}`, {
-            headers: { Authorization: 'Bearer ' + token }
-          }).then(r => r.ok ? r.json() : null);
-
-          const repliedSenderId = meta?.senderId || meta?.userId || meta?.fromId;
-          if (!repliedSenderId) return false;
-
-          const isReplyToMe = String(repliedSenderId) === String(myId);
-          const fromOther   = m?.senderId && String(m.senderId) !== String(myId);
-          return isReplyToMe && fromOther;
-        } catch { return false; }
-      }
-
-      // ⬇️ ГАРАНТИРУЕМ наличие window.io и только потом подключаем сокет
       await ensureSocketIO();
 
-      // подключаемся к сокету
       const s = io('/', { auth: { token } });
       window.__notifSocket = s;
 
       s.on('connect_error', () => { /* молчим */ });
 
-      s.on('message:new', async (m) => {
+      s.on('message:new', (m) => {
         const file = (location.pathname.split('/').pop() || '').toLowerCase();
         if (file === 'chat.html') {
-          sessionStorage.setItem('chatBadgeCount', '0');
+          sessionStorage.setItem('chatBadgeCount','0');
           updateChatBadge(0);
           return;
         }
-        if (await isReplyToMeHeader(m, myId)) {
+        // ТЕСТОВО: любое входящее сообщение (не моё) → +1
+        const fromOther = m && m.senderId && String(m.senderId) !== String(myId);
+        if (fromOther) {
           const curr = Number(sessionStorage.getItem('chatBadgeCount') || '0');
           const next = curr + 1;
           sessionStorage.setItem('chatBadgeCount', String(next));
