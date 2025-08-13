@@ -298,8 +298,8 @@ function initMenu() {
             id: m._id || m.id || String(Date.now()),
             createdAt: m.createdAt || new Date().toISOString(),
             chatTitle: m.chatTitle || m.chat?.title || 'Чат',
-            senderName: m.senderName || 'user',
-            text: m.text || (Array.isArray(m.attachments) && m.attachments.length ? 'Вложение' : ''),
+            senderName: m.senderName || m.sender?.name || 'user',
+            text: m.text || (Array.isArray(m.attachments) && m.attachments.length ? 'Вложение' : 'Сообщение'),
           });
         }
       });
@@ -365,8 +365,18 @@ function initMenu() {
       btn.setAttribute('aria-expanded','true');
       panel.style.display = 'block';
 
-      // 1) сразу показываем локальные (мгновенно)
-      const localItems = notifLoad();
+      // 1) сразу показываем локальные (мгновенно). Если пусто, но бэйдж > 0 — делаем заглушки
+      let localItems = notifLoad();
+      const badgeCount = Number(sessionStorage.getItem('chatBadgeCount') || '0');
+      if ((!localItems || !localItems.length) && badgeCount > 0) {
+        localItems = Array.from({ length: Math.min(badgeCount, 10) }).map((_, i) => ({
+          id: 'local-placeholder-' + Date.now() + '-' + i,
+          createdAt: new Date().toISOString(),
+          chatTitle: 'Чат',
+          senderName: 'Новый ответ',
+          text: 'Сообщение',
+        }));
+      }
       render(localItems);
 
       // 2) подмешиваем серверные
@@ -383,7 +393,7 @@ function initMenu() {
 
       const map = new Map();
       serverItems.forEach(x => map.set(String(x.id || x._id), x));
-      localItems.forEach(x => { const k = String(x.id); if (!map.has(k)) map.set(k, x); });
+      (localItems || []).forEach(x => { const k = String(x.id); if (!map.has(k)) map.set(k, x); });
       const merged = Array.from(map.values());
       render(merged);
 
@@ -398,7 +408,7 @@ function initMenu() {
         }
       } catch {}
 
-      // 4) локально очистить и сбросить бэйдж
+      // 4) локально очистить и сбросить бэйдж — после финального рендера
       notifClear();
       sessionStorage.setItem('chatBadgeCount','0');
       updateChatBadge(0);
