@@ -48,13 +48,13 @@
     // поиск
     search: document.getElementById('tgSearch'),
 
-    // reply bar
+    // панель ответа
     replyBar: document.getElementById('replyBar'),
     replyText: document.getElementById('replyText'),
     replyCancel: document.getElementById('replyCancel'),
   };
 
-  // поддержка старых id
+  // поддержка старых id (если не всё успел заменить в HTML)
   if (!els.search) els.search = document.getElementById('searchInput');
 
   const urlParams = new URLSearchParams(location.search);
@@ -225,10 +225,11 @@
     if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
   });
 
-  // --- render messages ---
+  // --- render messages (with swipe-to-reply + vibration) ---
   function renderMessages() {
     const prevIsNearBottom = isNearBottom();
     els.messages.innerHTML = '';
+
     messages.forEach((m) => {
       const div = document.createElement('div');
       div.className = 'msg ' + (String(m.senderId) === String(myId) ? 'mine' : 'their');
@@ -268,13 +269,13 @@
         </div>
       `;
 
-      // ПК: правый клик — меню
+      // --- ПК: правый клик — меню ---
       div.oncontextmenu = (e) => {
         e.preventDefault();
         showContextMenu(e.clientX, e.clientY, m);
       };
 
-      // Мобилка/десктоп: тап/клик по пузырю — меню
+      // --- Клик (мобилка/десктоп) — меню ---
       div.addEventListener('click', (e) => {
         if (e.target.closest('a, img, video, button, input, textarea')) return;
         const x = e.clientX || 20;
@@ -282,8 +283,86 @@
         showContextMenu(x, y, m);
       });
 
+      // --- Свайп вправо (только на мобилке) с анимацией и вибрацией ---
+      if (mqMobile.matches) {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let swipedDX = 0;
+        let vibed = false;
+        const SWIPE_READY = 56;  // порог срабатывания "Ответить"
+        const SWIPE_MAX   = 84;  // максимальное смещение пузыря
+        const V_TOL       = 24;  // вертикальная толерантность
+
+        div.addEventListener('touchstart', (e) => {
+          if (e.touches.length !== 1) return;
+          const t = e.touches[0];
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
+          swipedDX = 0;
+          vibed = false;
+          div.classList.add('is-swiping');
+        }, { passive: true });
+
+        div.addEventListener('touchmove', (e) => {
+          if (!touchStartX) return;
+          const t = e.touches[0];
+          const dx = t.clientX - touchStartX;
+          const dy = Math.abs(t.clientY - touchStartY);
+
+          // если вертикаль стала доминировать — отменяем свайп (отдаём скроллу)
+          if (dy > V_TOL) {
+            touchStartX = 0;
+            touchStartY = 0;
+            div.style.transform = '';
+            div.classList.remove('is-swiping', 'swipe-ready');
+            return;
+          }
+
+          if (dx > 0) {
+            swipedDX = Math.min(dx, SWIPE_MAX);
+            div.style.transform = `translateX(${swipedDX}px)`;
+
+            if (swipedDX >= SWIPE_READY) {
+              div.classList.add('swipe-ready');
+              if (!vibed) {
+                navigator.vibrate?.(30); // лёгкая вибрация один раз при достижении порога
+                vibed = true;
+              }
+            } else {
+              div.classList.remove('swipe-ready');
+            }
+
+            // предотвращаем горизонтальные коллизии при свайпе
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        const resetSwipe = () => {
+          div.style.transition = 'transform 160ms ease';
+          div.style.transform = 'translateX(0)';
+          setTimeout(() => { div.style.transition = ''; }, 180);
+          touchStartX = 0;
+          touchStartY = 0;
+          swipedDX = 0;
+          vibed = false;
+          div.classList.remove('is-swiping', 'swipe-ready');
+        };
+
+        div.addEventListener('touchend', () => {
+          if (!touchStartX) return;
+          const shouldReply = swipedDX >= SWIPE_READY;
+          resetSwipe();
+          if (shouldReply) setReply(m);
+        }, { passive: true });
+
+        div.addEventListener('touchcancel', () => {
+          resetSwipe();
+        }, { passive: true });
+      }
+
       els.messages.appendChild(div);
     });
+
     if (prevIsNearBottom) scrollToBottom();
   }
 
@@ -459,7 +538,7 @@
         els.msgInput.value = '';
         els.msgInput.style.height = 'auto';
         pendingAttachments = [];
-        clearReply(); // важный сброс
+        clearReply();
       } else {
         alert(ack?.error || 'Не отправлено');
       }
