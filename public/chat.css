@@ -17,7 +17,12 @@ html,body{
 
 .chat-app{
   display:grid; grid-template-columns:1fr;
-  height:100vh; max-width:100vw;
+  height:100dvh; /* фикс для мобильных адресных строк */
+  max-width:100vw;
+}
+/* fallback для старых браузеров без dvh */
+@supports not (height: 100dvh){
+  .chat-app{ height:100vh; }
 }
 
 /* ===== SIDEBAR ===== */
@@ -133,7 +138,15 @@ html,body{
   /* чтобы свайп-назад/вправо не конфликтовал с жестами браузера */
   touch-action: pan-y;
   overscroll-behavior-x: contain;
+
+  /* плавный скролл к новым/целевым сообщениям */
+  scroll-behavior:smooth;
 }
+/* уважаем настройки «уменьшить анимацию» */
+@media (prefers-reduced-motion: reduce){
+  .messages{ scroll-behavior:auto; }
+}
+
 @supports(padding:max(0px)){
   .messages{
     padding-left:max(12px, env(safe-area-inset-left));
@@ -197,6 +210,9 @@ html,body{
   background:#0b1220; object-fit:contain;
   outline:1px solid rgba(255,255,255,.08);
 }
+/* фокус для ссылок-вложений */
+.attach a{ outline:none; }
+.attach a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 
 /* ===== COMPOSER ===== */
 .composer{
@@ -216,6 +232,12 @@ html,body{
   padding:8px 10px;color:var(--text);cursor:pointer
 }
 .composer button:hover{background:#152037}
+/* доступность: фокус на кнопках */
+.composer button:focus-visible,
+.back-btn:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
 
 /* переключение список/чат */
 html.show-chat .chat-list{display:none}
@@ -259,9 +281,6 @@ html.show-chat .chat-main{display:flex}
   box-shadow:0 6px 18px rgba(90,169,255,.25);
 }
 .msg.swipe-ready::before{ opacity:1; }
-
-/* На iOS/Android не мешаем горизонтальному жесту внутри сообщений */
-.messages{ touch-action:pan-y; }
 
 /* мини-аватар в цитате */
 .reply > .reply-ava{
