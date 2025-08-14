@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <script src="/pwa.js"></script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json?v=4">
+  <meta name="theme-color" content="#0f1b2d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UAround">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+
+  <!-- Стили -->
+  <link rel="stylesheet" href="/styles.css?v=4" />
+
+  <!-- Скрипт автоподкраски статус-бара -->
+  <script src="/pwa.js?v=4" defer></script>
+
   <title>Добро пожаловать | UAround</title>
-  <link rel="stylesheet" href="styles.css" />
-
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#000000">
-
-<!-- iOS-специфичные штуки: -->
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Моё приложение">
 </head>
 <body>
   <main id="main-content">
