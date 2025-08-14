@@ -262,3 +262,20 @@ html.show-chat .chat-main{display:flex}
 
 /* На iOS/Android не мешаем горизонтальному жесту внутри сообщений */
 .messages{ touch-action:pan-y; }
+
+/* мини-аватар в цитате */
+.reply > .reply-ava{
+  width:16px; height:16px; border-radius:50%; object-fit:cover;
+  vertical-align:-3px; margin-right:6px; outline:1px solid rgba(255,255,255,.1);
+}
+
+/* вложенная цитата и иконка типа файла */
+.reply{ display:block; position:relative; }
+.reply .reply-ico{ opacity:.9; margin-right:4px; }
+.reply .reply-nested{
+  display:block; margin-top:4px; padding-left:10px; border-left:2px solid rgba(132,255,219,.4);
+  opacity:.9; font-size:12px;
+}
+
+/* подсветка при прыжке */
+.msg.highlight{ outline:2px solid var(--accent); }
