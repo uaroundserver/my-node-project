@@ -562,4 +562,4 @@
       openChatByMessageId(jumpId);
     }
   })();
-})();  тут у меня нет этого?
+})(); 
