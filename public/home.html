@@ -35,6 +35,18 @@
         menuJs.onload = () => {
           if (typeof initMenu === "function") {
             initMenu(); // Запускаем инициализацию меню
+function adjustBodyPadding() {
+  const headerH = document.querySelector('#app-header .bar-inner')?.offsetHeight || 0;
+  const bottomH = document.querySelector('#bottom-nav .bar-inner')?.offsetHeight || 0;
+  document.body.style.paddingTop = headerH + 'px';
+  document.body.style.paddingBottom = `calc(${bottomH}px + env(safe-area-inset-bottom))`;
+}
+
+// вызывать один раз после вставки меню
+adjustBodyPadding();
+window.addEventListener('resize', adjustBodyPadding);
+
+
           }
         };
         document.body.appendChild(menuJs);
