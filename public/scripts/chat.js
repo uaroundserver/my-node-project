@@ -6,7 +6,6 @@
       ...(opts.headers || {}),
       Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
     };
-    // если отправляем FormData — не ставим Content-Type (пусть браузер сам)
     if (!(opts.body instanceof FormData)) h['Content-Type'] = 'application/json';
     return h;
   }
@@ -25,10 +24,7 @@
 
   // --- auth guard ---
   const token = localStorage.getItem('userToken');
-  if (!token) {
-    location.href = 'login.html';
-    return;
-  }
+  if (!token) { location.href = 'login.html'; return; }
 
   // --- elements ---
   const els = {
@@ -66,11 +62,8 @@
   let replyTo = null;
   let pendingAttachments = [];
 
-  // если панель ответа есть — подготовим её к анимации
-  if (els.replyBar) {
-    els.replyBar.classList.add('anim'); // см. CSS .reply-bar.anim / .reply-bar.anim.visible
-    // оставляем hidden как исходное состояние, чтобы не занимала место
-  }
+  // подготовка панели ответа (для плавной анимации через .visible)
+  if (els.replyBar) els.replyBar.classList.add('anim');
 
   // --- responsive: список -> чат ---
   function enterChatView() { document.documentElement.classList.add('show-chat'); }
@@ -89,14 +82,11 @@
 
   // --- scroll helpers ---
   function isNearBottom() {
-    const el = els.messages;
-    if (!el) return true;
+    const el = els.messages; if (!el) return true;
     const threshold = 120;
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }
-  function scrollToBottom() {
-    if (els.messages) els.messages.scrollTop = els.messages.scrollHeight + 999;
-  }
+  function scrollToBottom() { if (els.messages) els.messages.scrollTop = els.messages.scrollHeight + 999; }
 
   // --- my profile ---
   fetch('/api/user/profile', { headers: { Authorization: 'Bearer ' + token } })
@@ -192,7 +182,7 @@
       el.style.transform = '';
       el.classList.remove('is-swiping');
       if (ready) {
-        el.dataset.swipedAt = String(Date.now()); // защитимся от клика после свайпа
+        el.dataset.swipedAt = String(Date.now());
         el.classList.remove('swipe-ready');
         onTrigger && onTrigger();
       }
@@ -220,7 +210,6 @@
     await loadHistory();
     scrollToBottom();
 
-    // настойчивый прыжок по messageId
     if (jumpId) {
       try {
         const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
@@ -243,47 +232,38 @@
     }
   }
 
-  // --- Открыть чат, зная только messageId (для ?jump=...) ---
+  // --- Открыть чат, зная только messageId ---
   async function openChatByMessageId(messageId) {
     try {
       const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(messageId)}`);
-
-      // максимально надёжно вытаскиваем chatId
       const chatId =
-        meta?.chatId || meta?.chat_id ||
-        meta?.chat?.id || meta?.chat?.ID ||
-        meta?.chat?._id || meta?.chat?._ID ||
-        meta?.chat || meta?.roomId || meta?.room_id || null;
-
+        meta?.chatId || meta?.chat_id || meta?.chat?.id || meta?.chat?.ID ||
+        meta?.chat?._id || meta?.chat?._ID || meta?.chat || meta?.roomId || meta?.room_id || null;
       if (!chatId) return;
 
       if (!allChats || !allChats.length) await loadChats();
-
       let chat = allChats.find(c => String(c._id) === String(chatId));
-      if (!chat) {
-        chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Чат', avatar: meta?.chatAvatar || '' };
-      }
+      if (!chat) chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Чат', avatar: meta?.chatAvatar || '' };
 
       enterChatView();
       await openChat(chat);
-    } catch { /* no-op */ }
+    } catch {}
   }
 
   // --- history / infinite up ---
   async function loadHistory(before) {
     if (!currentChat || loadingHistory) return;
     loadingHistory = true;
-    if (before) showTopLoader(true); // показать спиннер при догрузке
+    if (before) showTopLoader(true);
     const q = new URLSearchParams({ chatId: currentChat._id, limit: 30 });
     if (before) q.set('before', before);
     const history = await API('/messages?' + q.toString());
     messages = before ? history.concat(messages) : history;
     renderMessages();
     loadingHistory = false;
-    if (before) showTopLoader(false); // скрыть спиннер
+    if (before) showTopLoader(false);
   }
 
-  // верхний прелоадер истории
   function showTopLoader(show){
     if (!els.messages) return;
     let t = els.messages.querySelector('.top-loader');
@@ -316,7 +296,7 @@
       div.className = 'msg ' + (isMine ? 'mine' : 'their') + newClass;
       div.dataset.id = m._id;
 
-      // reply preview (Telegram-like) with 1 nested level
+      // reply preview
       let replyHtml = '';
       function renderReplyPreview(src) {
         if (!src) return '';
@@ -343,7 +323,7 @@
         if (src) replyHtml = `<div class="reply" data-reply-id="${src._id}">${renderReplyPreview(src)}</div>`;
       }
 
-      // attachments (normalize keys)
+      // attachments
       const attachHtml = (m.attachments || [])
         .map((a) => {
           const mime = (a.mime || a.mimetype || '').toLowerCase();
@@ -376,34 +356,42 @@
         </div>
       `;
 
-      // ПК: контекстное меню (правый клик)
-      div.oncontextmenu = (e) => {
-        e.preventDefault();
-        showContextMenu(e.clientX, e.clientY, m);
+      // ПК: контекстное меню
+      div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
+
+      // Открытие меню по тапу/клику (надёжно и на мобиле)
+      const openMenuFromEvent = (e) => {
+        // не перехватываем клики по ссылкам/формам
+        if (e.target.closest('a, button, input, textarea')) return;
+        // игнор сразу после свайпа
+        const sw = Number(div.dataset.swipedAt || 0);
+        if (sw && Date.now() - sw < 250) return;
+
+        // координаты + фолбэк к центру сообщения
+        let x = e.clientX, y = e.clientY;
+        if ((x == null || y == null || (x === 0 && y === 0)) && e.changedTouches && e.changedTouches[0]) {
+          x = e.changedTouches[0].clientX; y = e.changedTouches[0].clientY;
+        }
+        if (x == null || y == null || (x === 0 && y === 0)) {
+          const r = div.getBoundingClientRect();
+          x = r.left + r.width / 2;
+          y = r.top + r.height / 2;
+        }
+        showContextMenu(x, y, m);
       };
 
-      // Тап/клик — сразу меню (если не было свайпа прямо сейчас)
-      div.addEventListener('click', (e) => {
-        if (e.target.closest('a, img, video, button, input, textarea')) return;
-        const sw = Number(div.dataset.swipedAt || 0);
-        if (sw && Date.now() - sw < 250) return; // недавно был свайп — игнор клика
-        const x = e.clientX || 20;
-        const y = e.clientY || 20;
-        showContextMenu(x, y, m);
-      });
+      div.addEventListener('click', openMenuFromEvent);
+      div.addEventListener('touchend', openMenuFromEvent, { passive: true });
 
-      // свайп-вправо → быстрый ответ
+      // свайп-вправо → ответ
       attachSwipeToReply(div, () => setReply(m));
 
-      // клик по цитате → прыжок
+      // переход по цитате
       const rEl = div.querySelector('.reply');
-      if (rEl && rEl.dataset.replyId) {
-        rEl.addEventListener('click', () => jumpToMessage(rEl.dataset.replyId));
-      }
+      if (rEl && rEl.dataset.replyId) rEl.addEventListener('click', () => jumpToMessage(rEl.dataset.replyId));
 
       els.messages.appendChild(div);
-
-      if (m._justAdded) m._justAdded = false; // чтобы не анимировалось повторно
+      if (m._justAdded) m._justAdded = false;
     });
 
     if (prevIsNearBottom) scrollToBottom();
@@ -414,7 +402,7 @@
   function showContextMenu(x, y, m) {
     hideContextMenu();
     ctx = document.createElement('div');
-    ctx.id = 'msgContextMenu'; // для CSS-анимации всплытия
+    ctx.id = 'msgContextMenu';
     ctx.style.position = 'fixed';
     ctx.style.left = Math.min(x, window.innerWidth - 200) + 'px';
     ctx.style.top  = Math.min(y, window.innerHeight - 180) + 'px';
@@ -442,7 +430,7 @@
       b.style.fontSize = '16px';
       b.style.cursor = 'pointer';
       b.onmousedown = (ev) => ev.preventDefault();
-      b.onclick = (ev) => { fn(ev); hideContextMenu(); }; // пробрасываем ev для эффектов
+      b.onclick = (ev) => { fn(ev); hideContextMenu(); };
       ctx.appendChild(b);
     };
     mk('Ответить', () => setReply(m));
@@ -491,14 +479,14 @@
     });
   }
 
-  // --- jump helper (умная догрузка вверх) ---
+  // --- jump helper ---
   async function jumpToMessage(id) {
     if (!currentChat) { window.location.href = `chat.html?jump=${encodeURIComponent(id)}`; return; }
     try {
       const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(id)}`);
       const targetTime = new Date(meta.createdAt).getTime();
       let guard = 0;
-      while (guard < 40) { // до ~1200 сообщений ступенями по 30
+      while (guard < 40) {
         const el = els.messages && els.messages.querySelector(`[data-id="${CSS.escape(id)}"]`);
         if (el) {
           el.classList.add('highlight');
@@ -525,14 +513,12 @@
     }
   }
 
-  // --- reply helpers (через .visible с анимацией) ---
+  // --- reply helpers (через .visible) ---
   function setReply(m) {
     replyTo = m;
     if (els.replyBar) {
-      // снимем hidden, чтобы элемент появился в потоке
       if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
       els.replyBar.classList.add('anim');
-      // следующей «рамкой» включаем видимость — сработает transition
       requestAnimationFrame(() => els.replyBar.classList.add('visible'));
       els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
@@ -542,12 +528,11 @@
     replyTo = null;
     if (!els.replyBar) return;
     els.replyBar.classList.remove('visible');
-    // после окончания анимации снова прячем элемент, чтобы он не занимал место
     setTimeout(() => {
       if (!els.replyBar.classList.contains('visible')) {
         els.replyBar.setAttribute('hidden', 'hidden');
       }
-    }, 220); // должно совпадать с CSS-транзишном
+    }, 220);
   }
   els.replyCancel && (els.replyCancel.onclick = clearReply);
 
@@ -566,7 +551,7 @@
     };
   }
 
-  // --- уведомления: helper'ы ---
+  // --- уведомления ---
   async function isReplyToMe(m) {
     try {
       if (!m?.replyTo) return false;
@@ -603,7 +588,6 @@
                     <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>`;
     el.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; };
     wrap.appendChild(el);
-    // мягкое исчезновение (если в CSS есть .toast-hide)
     setTimeout(() => { el.classList?.add('toast-hide'); setTimeout(() => el.remove(), 220); }, 4800);
   }
 
@@ -612,7 +596,7 @@
 
   socket.on('message:new', async (m) => {
     if (currentChat && String(m.chatId) === String(currentChat._id)) {
-      m._justAdded = true; // пометить для анимации
+      m._justAdded = true;
       messages.push(m);
       renderMessages();
       if (isNearBottom()) scrollToBottom();
@@ -636,11 +620,7 @@
   });
   socket.on('typing', ({ userId, isTyping }) => {
     if (!els.tgSub) return;
-    if (isTyping) {
-      els.tgSub.innerHTML = 'печатает<span class="typing-dots"><i></i><i></i><i></i></span>';
-    } else {
-      els.tgSub.textContent = '';
-    }
+    els.tgSub.innerHTML = isTyping ? 'печатает<span class="typing-dots"><i></i><i></i><i></i></span>' : '';
   });
 
   // --- composer ---
