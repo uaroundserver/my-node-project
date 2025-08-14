@@ -1,7 +1,7 @@
 {
   "name": "UAround",
   "short_name": "UAround",
-  "start_url": "https://uaround.onrender.com/index.html",
+  "start_url": "https://uaround.onrender.com/public/index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
