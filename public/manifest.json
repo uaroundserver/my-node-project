@@ -1,7 +1,7 @@
 {
   "name": "Моё приложение",
   "short_name": "МоёПрилож",
-  "start_url": "https://uaround.onrender.com/index.html",
+  "start_url": "./https://uaround.onrender.com/index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
