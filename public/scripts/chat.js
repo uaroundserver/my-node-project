@@ -97,23 +97,20 @@
     setHeader({ title: '', avatar: '' });
     if (els.search) els.search.value = '';
     clearReply();
-    updateComposerPadding(); // на всякий случай вернуть правильный отступ
+    updateComposerPadding();
   }
   if (els.tgBack) els.tgBack.addEventListener('click', (e) => { e.preventDefault(); leaveChatView(); });
 
-  // ===== dynamic bottom padding (фикс «висящего» нижнего сообщения) =====
+  // ===== dynamic bottom padding =====
   function updateComposerPadding() {
     if (!els.messages || !els.composer) return;
     const h = Math.ceil(els.composer.getBoundingClientRect().height || 0);
-    // +8px небольшой «воздух»
     els.messages.style.paddingBottom = (h + 8) + 'px';
   }
-  // реагируем на любые изменения высоты композера (клавиатура, reply-bar, рост textarea)
   if (window.ResizeObserver && els.composer) {
     const ro = new ResizeObserver(() => updateComposerPadding());
     ro.observe(els.composer);
   }
-  // iOS/Android клавиатура
   if (window.visualViewport) {
     visualViewport.addEventListener('resize', updateComposerPadding);
     visualViewport.addEventListener('scroll', updateComposerPadding);
@@ -131,7 +128,7 @@
     els.messages.scrollTop = els.messages.scrollHeight - els.messages.clientHeight + 999;
   }
 
-  // ===== profile (to get myId) =====
+  // ===== profile =====
   apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(() => {});
 
   // ===== chat list =====
@@ -266,7 +263,7 @@
     window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
   }
 
-  // ===== tap guard (не открывать меню при скролле) =====
+  // ===== tap guard (не открывать меню при скролле / по цитате) =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8;
     const MAX_TAP_MS = 400;
@@ -278,7 +275,8 @@
       return { x: ev.clientX, y: ev.clientY };
     }
     function start(ev){
-      if (ev.target.closest('a, button, input, textarea')) return;
+      // не открываем меню, если кликнули по ссылкам/инпутам/ЦИТАТЕ
+      if (ev.target.closest('a, button, input, textarea, .reply')) return;
       const p = getXY(ev);
       startX = p.x; startY = p.y; startT = Date.now();
       startScroll = els.messages ? els.messages.scrollTop : 0;
@@ -294,6 +292,9 @@
     }
     function end(ev){
       if (multiTouch) return;
+      // если палец отпустили над цитатой — это не «тап по пузырю»
+      if (ev.target && ev.target.closest('.reply')) return;
+
       move(ev);
       const dur = Date.now() - startT;
       if (moved || dur > MAX_TAP_MS) return;
@@ -481,15 +482,23 @@
       // ПК: контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
 
-      // Тап/клик
+      // Тап/клик — только по самому пузырю (цитату игнорим)
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
 
       // свайп-вправо → ответ
       attachSwipeToReply(div, () => setReply(m));
 
-      // переход по цитате
+      // переход по цитате — с отменой всплытия
       const rEl = div.querySelector('.reply');
-      if (rEl && rEl.dataset.replyId) rEl.addEventListener('click', () => jumpToMessage(rEl.dataset.replyId));
+      if (rEl && rEl.dataset.replyId) {
+        const go = (e) => {
+          e.stopPropagation();
+          if (e.cancelable) e.preventDefault();
+          jumpToMessage(rEl.dataset.replyId);
+        };
+        rEl.addEventListener('click', go);
+        rEl.addEventListener('touchend', go, { passive: false });
+      }
 
       els.messages.appendChild(div);
       if (m._justAdded) m._justAdded = false;
@@ -536,7 +545,6 @@
       ctx.appendChild(b);
     };
     mk('Ответить', () => setReply(m));
-    // ВСЕГДА 👍
     mk('👍 Реакция', (ev) => {
       const rect = ctx.getBoundingClientRect();
       const ex = (ev && ev.clientX) || (rect.left + 20);
@@ -564,7 +572,7 @@
     if (onWinTouch) { window.removeEventListener('touchstart', onWinTouch); onWinTouch = null; }
   }
 
-  // «салют» из эмодзи (по дефолту 👍)
+  // «салют» из эмодзи
   function emojiBurst(x, y, emoji='👍'){
     const b = document.createElement('div');
     b.className = 'emoji-burst';
