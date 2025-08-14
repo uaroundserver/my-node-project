@@ -256,4 +256,194 @@ function initChat(httpServer, db, app) {
       if (userId) mquery.senderId = asId(userId);
       const items = await db.collection('messages')
         .find(mquery).sort({ createdAt: 1 }).limit(Number(limit)).toArray();
-     
+      res.json(items);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Search failed' });
+    }
+  });
+
+  app.use('/api/chat', router);
+
+  // --- Socket.IO real-time ---
+  const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
+  const onlineMap = new Map(); // userId -> Set(socketId)
+
+  io.use((socket, next) => {
+    try {
+      const raw = socket.handshake.auth?.token || socket.handshake.query?.token;
+      if (!raw) return next(new Error('no token'));
+      const token = String(raw).replace(/^Bearer\s+/i, '');
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      socket.user = { id: String(payload.userId) };
+      next();
+    } catch {
+      next(new Error('auth failed'));
+    }
+  });
+
+  io.on('connection', async (socket) => {
+    const userId = socket.user.id;
+
+    // ensure global chat
+    const chatsCol = db.collection('chats');
+    let chat = await chatsCol.findOne({ key: 'global' });
+    if (!chat) {
+      chat = { _id: new ObjectId(), key: 'global', title: 'General chat', createdAt: new Date() };
+      await chatsCol.insertOne(chat);
+    }
+    const room = String(chat._id);
+    socket.join(room);
+
+    // mark online
+    if (!onlineMap.has(userId)) onlineMap.set(userId, new Set());
+    onlineMap.get(userId).add(socket.id);
+    io.to(room).emit('presence:update', { userId, online: true });
+
+    // SEND MESSAGE (supports: text, attachments[], replyTo)
+    socket.on('message:send', async (payload, cb) => {
+      try {
+        const usersCol = db.collection('users');
+        const messagesCol = db.collection('messages');
+
+        const sender = await usersCol.findOne({ _id: asId(userId) }, { projection: { name: 1, email: 1, avatar: 1 } });
+
+        // reply origin
+        let replyDoc = null;
+        const replyTo = payload?.replyTo ? asId(payload.replyTo) : null;
+        if (replyTo) replyDoc = await messagesCol.findOne({ _id: replyTo });
+
+        const msg = {
+          _id: new ObjectId(),
+          chatId: chat._id,
+          senderId: asId(userId),
+          senderName: displayName(sender),
+          senderAvatar: sender?.avatar || null,
+          text: String(payload?.text || '').slice(0, 5000),
+          attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
+          replyTo: replyDoc ? replyDoc._id : null,
+          replyToOwnerId: replyDoc ? replyDoc.senderId : null, // может пригодиться фронту
+          reactions: [],
+          createdAt: new Date(),
+          editedAt: null,
+          deleted: false,
+          deliveries: [],
+          reads: [],
+        };
+
+        await messagesCol.insertOne(msg);
+        await chatsCol.updateOne(
+          { _id: chat._id },
+          { $set: { lastMessage: { _id: msg._id, text: msg.text, senderName: msg.senderName, createdAt: msg.createdAt } } }
+        );
+
+        // enrich for emit
+        const senderMap = {};
+        senderMap[msg.senderId.toString()] = { name: msg.senderName, avatar: msg.senderAvatar };
+        let emitPayload = normalizeMessage(msg, senderMap, replyDoc);
+        // if reply exists and we can enrich with its sender meta
+        if (replyDoc && replyDoc.senderId) {
+          const ruser = await usersCol.findOne({ _id: replyDoc.senderId }, { projection: { name: 1, email: 1, avatar: 1 } });
+          emitPayload.reply = {
+            ...emitPayload.reply,
+            senderName: displayName(ruser),
+            senderAvatar: ruser?.avatar || null,
+          };
+        }
+
+        io.to(room).emit('message:new', emitPayload);
+        cb && cb({ ok: true, id: msg._id, delivered: true });
+      } catch (e) {
+        cb && cb({ ok: false, error: e.message || 'send failed' });
+      }
+    });
+
+    // EDIT
+    socket.on('message:edit', async ({ id, text }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
+        await db.collection('messages').updateOne(
+          { _id, senderId: asId(userId) },
+          { $set: { text: String(text).slice(0, 5000), editedAt: new Date() } }
+        );
+        const updated = await db.collection('messages').findOne({ _id });
+        io.to(room).emit('message:edited', { id, text: updated.text, editedAt: updated.editedAt });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
+    });
+
+    // DELETE
+    socket.on('message:delete', async ({ id }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
+        await db.collection('messages').updateOne(
+          { _id, senderId: asId(userId) },
+          { $set: { deleted: true, text: '' } }
+        );
+        io.to(room).emit('message:deleted', { id });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
+    });
+
+    // REACT
+    socket.on('message:react', async ({ id, emoji }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
+        const msg = await db.collection('messages').findOne({ _id });
+        const exists = (msg?.reactions || []).find((r) => String(r.userId) === String(userId) && r.emoji === emoji);
+        if (exists) {
+          await db.collection('messages').updateOne({ _id }, { $pull: { reactions: { userId: asId(userId), emoji } } });
+        } else {
+          await db.collection('messages').updateOne({ _id }, { $addToSet: { reactions: { userId: asId(userId), emoji } } });
+        }
+        const updated = await db.collection('messages').findOne({ _id });
+        io.to(room).emit('message:reactions', { id, reactions: updated.reactions || [] });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
+    });
+
+    // READ
+    socket.on('message:read', async ({ ids }, cb) => {
+      try {
+        const idList = (ids || []).map(asId).filter(Boolean);
+        if (!idList.length) return cb && cb({ ok: true });
+        await db.collection('messages').updateMany(
+          { _id: { $in: idList }, 'reads.userId': { $ne: asId(userId) } },
+          { $push: { reads: { userId: asId(userId), at: new Date() } } }
+        );
+        io.to(room).emit('message:reads', { ids, userId });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
+    });
+
+    // TYPING
+    socket.on('typing', ({ isTyping }) => {
+      socket.to(room).emit('typing', { userId, isTyping: !!isTyping });
+    });
+
+    // DISCONNECT
+    socket.on('disconnect', async () => {
+      const set = onlineMap.get(userId);
+      if (set) {
+        set.delete(socket.id);
+        if (set.size === 0) {
+          onlineMap.delete(userId);
+          io.to(room).emit('presence:update', { userId, online: false });
+          try {
+            await db.collection('users').updateOne(
+              { _id: asId(userId) },
+              { $set: { lastSeen: new Date() } }
+            );
+          } catch {}
+        }
+      }
+    });
+  });
+
+  return { io };
+}
+
+module.exports = { initChat };
