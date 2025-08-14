@@ -1,17 +1,99 @@
 // chat/index.js
 // Socket.IO + REST setup for a single global chat room for all registered users
-
+const express = require('express');
 const { Server } = require('socket.io');
 const { ObjectId } = require('mongodb');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const auth = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 
-// Simple disk storage for attachments. Swap to GridFS if needed.
+// ---------- uploads ----------
 const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const upload = multer({ dest: uploadDir });
+
+// ---------- helpers ----------
+const asId = (v) => { try { return new ObjectId(v); } catch { return null; } };
+
+function pickReplyView(m) {
+  if (!m) return null;
+  const at = m.attachments || [];
+  const first = at.length
+    ? {
+        url: at[0].url,
+        mime: at[0].mimetype || at[0].mime || '',
+        originalName: at[0].originalname || at[0].originalName || null,
+        size: at[0].size || null,
+      }
+    : null;
+  return {
+    _id: m._id,
+    userId: m.senderId || m.userId, // совместимость с разными версиями
+    text: m.text || (first ? '(вложение)' : ''),
+    attachments: first ? [first] : [],
+    createdAt: m.createdAt,
+  };
+}
+
+function displayName(u) {
+  if (!u) return 'user';
+  if (u.name && String(u.name).trim()) return u.name;
+  if (u.email && String(u.email).includes('@')) return String(u.email).split('@')[0];
+  return 'user';
+}
+
+async function buildUserMap(db, usersIdsArr) {
+  const ids = Array.from(new Set(usersIdsArr.map(String)))
+    .map((s) => asId(s))
+    .filter(Boolean);
+  if (!ids.length) return {};
+  const users = await db.collection('users')
+    .find({ _id: { $in: ids } }, { projection: { name: 1, email: 1, avatar: 1 } })
+    .toArray();
+  const map = {};
+  users.forEach((u) => {
+    map[u._id.toString()] = {
+      name: displayName(u),
+      avatar: u.avatar || null,
+    };
+  });
+  return map;
+}
+
+function normalizeMessage(m, userMap, replyDoc) {
+  const senderKey = (m.senderId || m.userId || '').toString();
+  const base = {
+    _id: m._id,
+    chatId: m.chatId,
+    senderId: m.senderId || m.userId,
+    senderName: userMap[senderKey]?.name || m.senderName || 'user',
+    senderAvatar: userMap[senderKey]?.avatar || m.senderAvatar || null,
+    text: m.text || '',
+    attachments: m.attachments || [],
+    replyTo: m.replyTo || null,
+    createdAt: m.createdAt,
+    editedAt: m.editedAt || null,
+    deleted: !!m.deleted,
+    reactions: m.reactions || [],
+    reads: m.reads || [],
+    deliveries: m.deliveries || [],
+  };
+
+  if (m.replyTo && replyDoc) {
+    const r = pickReplyView(replyDoc);
+    if (r) {
+      const rKey = (r.userId || '').toString();
+      base.reply = {
+        ...r,
+        senderName: userMap[rKey]?.name || 'user',
+        senderAvatar: userMap[rKey]?.avatar || null,
+      };
+    }
+  }
+  return base;
+}
 
 /**
  * Initialize chat (routes + socket.io)
@@ -20,16 +102,16 @@ const upload = multer({ dest: uploadDir });
  * @param {import('express').Express} app
  */
 function initChat(httpServer, db, app) {
-  // Serve uploaded files
-  app.use('/uploads', require('express').static(uploadDir));
+  // serve uploads
+  app.use('/uploads', express.static(uploadDir));
 
-  // --- REST endpoints ---
-  const router = require('express').Router();
+  // --- REST ---
+  const router = express.Router();
 
-  // fetch chat list (currently one global chat)
+  // fetch chat list (one global chat)
   router.get('/chats', auth, async (req, res) => {
     try {
-      const userId = req?.user?.userId; // 🔧 токен содержит userId
+      const userId = req?.user?.userId;
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
       const chatsCol = db.collection('chats');
@@ -46,13 +128,12 @@ function initChat(httpServer, db, app) {
         await chatsCol.insertOne(chat);
       }
 
-      // unread count for this user
       const messagesCol = db.collection('messages');
       const unreadCount = await messagesCol.countDocuments({
         chatId: chat._id,
-        'reads.userId': { $ne: new ObjectId(userId) },
-        senderId: { $ne: new ObjectId(userId) },
         deleted: { $ne: true },
+        'reads.userId': { $ne: asId(userId) },
+        senderId: { $ne: asId(userId) },
       });
 
       res.json([{
@@ -68,31 +149,92 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // fetch messages with pagination
+  // fetch messages with pagination + enriched replies/senders
   router.get('/messages', auth, async (req, res) => {
     try {
       const { chatId, before, limit = 30 } = req.query;
       if (!chatId) return res.status(400).json({ error: 'chatId required' });
-      const messagesCol = db.collection('messages');
-      const q = { chatId: new ObjectId(chatId), deleted: { $ne: true } };
-      if (before) q.createdAt = { $lt: new Date(before) };
 
-      const cursor = messagesCol.find(q).sort({ createdAt: -1 }).limit(Number(limit));
-      const items = await cursor.toArray();
-      res.json(items.reverse());
+      const q = { chatId: asId(chatId), deleted: { $ne: true } };
+      if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
+      if (before) {
+        const dt = new Date(before);
+        if (!isNaN(+dt)) q.createdAt = { $lt: dt };
+      }
+
+      const items = await db.collection('messages')
+        .find(q)
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(Number(limit))
+        .toArray();
+
+      // gather reply targets & user ids
+      const replyIds = items.filter((x) => x.replyTo).map((x) => x.replyTo);
+      const replyDocs = replyIds.length
+        ? await db.collection('messages')
+            .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, createdAt: 1 } })
+            .toArray()
+        : [];
+
+      const senders = [
+        ...items.map((x) => (x.senderId || x.userId)?.toString?.()).filter(Boolean),
+        ...replyDocs.map((x) => x.senderId?.toString?.()).filter(Boolean),
+      ];
+      const userMap = await buildUserMap(db, senders);
+
+      // map reply id -> doc
+      const replyMap = {};
+      replyDocs.forEach((d) => { replyMap[d._id.toString()] = d; });
+
+      const ordered = items.reverse().map((m) =>
+        normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
+      );
+      res.json(ordered);
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: 'Failed to load messages' });
     }
   });
 
+  // get minimal message meta by id (for jump/reply toast)
+  router.get('/message/:id', async (req, res) => {
+    try {
+      const _id = asId(req.params.id);
+      if (!_id) return res.status(404).json({ error: 'Not found' });
+      const doc = await db.collection('messages').findOne({ _id });
+      if (!doc) return res.status(404).json({ error: 'Not found' });
+
+      let senderName = null, senderAvatar = null;
+      try {
+        const u = await db.collection('users').findOne({ _id: doc.senderId || doc.userId }, { projection: { name: 1, email: 1, avatar: 1 } });
+        if (u) { senderName = displayName(u); senderAvatar = u.avatar || null; }
+      } catch {}
+
+      res.json({
+        _id: doc._id,
+        chatId: doc.chatId,
+        userId: doc.senderId || doc.userId,
+        senderId: doc.senderId || doc.userId,
+        senderName, senderAvatar,
+        text: doc.text || '',
+        attachments: doc.attachments || [],
+        replyTo: doc.replyTo || null,
+        createdAt: doc.createdAt,
+      });
+    } catch (e) {
+      res.status(404).json({ error: 'Not found' });
+    }
+  });
+
   // upload attachment(s)
   router.post('/attachments', auth, upload.array('files', 10), async (req, res) => {
     try {
-      const files = (req.files || []).map(f => ({
+      const files = (req.files || []).map((f) => ({
         fieldname: f.fieldname,
         originalname: f.originalname,
+        originalName: f.originalname, // фронту удобно и так, и так
         mimetype: f.mimetype,
+        mime: f.mimetype,
         size: f.size,
         url: `/uploads/${f.filename}`,
       }));
@@ -108,215 +250,10 @@ function initChat(httpServer, db, app) {
     try {
       const { chatId, q, userId, limit = 50 } = req.query;
       if (!chatId) return res.status(400).json({ error: 'chatId required' });
-      const messagesCol = db.collection('messages');
-      const mquery = { chatId: new ObjectId(chatId), deleted: { $ne: true } };
+      const mquery = { chatId: asId(chatId), deleted: { $ne: true } };
+      if (!mquery.chatId) return res.status(400).json({ error: 'bad chatId' });
       if (q) mquery.text = { $regex: q, $options: 'i' };
-      if (userId) mquery.senderId = new ObjectId(userId);
-      const items = await messagesCol.find(mquery).sort({ createdAt: 1 }).limit(Number(limit)).toArray();
-      res.json(items);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Search failed' });
-    }
-  });
-
-  app.use('/api/chat', router);
-
-  // --- Socket.IO real-time ---
-  const io = new Server(httpServer, {
-    cors: { origin: true, credentials: true },
-  });
-
-  // userId(string) -> Set(socketId)
-  const onlineMap = new Map();
-
-  io.use((socket, next) => {
-    try {
-      // token can be in handshake.auth.token or query.token
-      const raw = socket.handshake.auth?.token || socket.handshake.query?.token;
-      if (!raw) return next(new Error('no token'));
-      const jwt = require('jsonwebtoken');
-      const token = String(raw).replace(/^Bearer\s+/i, '');
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      // 🔧 наш сервер создаёт токен с полем userId
-      socket.user = { id: String(payload.userId) };
-      next();
-    } catch (e) {
-      next(new Error('auth failed'));
-    }
-  });
-
-  io.on('connection', async (socket) => {
-    const userId = socket.user.id;
-
-    // Join global room (create if missing)
-    const chatsCol = db.collection('chats');
-    let chat = await chatsCol.findOne({ key: 'global' });
-    if (!chat) {
-      chat = {
-        _id: new ObjectId(),
-        key: 'global',
-        title: 'General chat',
-        createdAt: new Date(),
-      };
-      await chatsCol.insertOne(chat);
-    }
-    const room = String(chat._id);
-    socket.join(room);
-
-    // mark online
-    if (!onlineMap.has(userId)) onlineMap.set(userId, new Set());
-    onlineMap.get(userId).add(socket.id);
-    io.to(room).emit('presence:update', { userId, online: true });
-
-    // SEND MESSAGE (with replyToOwnerId for notifications)
-    socket.on('message:send', async (payload, cb) => {
-      try {
-        const messagesCol = db.collection('messages');
-        const usersCol = db.collection('users');
-
-        const sender = await usersCol.findOne({ _id: new ObjectId(userId) });
-
-        // If it's a reply, find original to capture owner id
-        let replyToMsg = null;
-        if (payload?.replyTo) {
-          try {
-            replyToMsg = await messagesCol.findOne({ _id: new ObjectId(payload.replyTo) });
-          } catch {}
-        }
-
-        const msg = {
-          _id: new ObjectId(),
-          chatId: chat._id,
-          senderId: new ObjectId(userId),
-          senderName: sender?.email?.split('@')[0] || 'user',
-          senderAvatar: sender?.avatar || null,
-          text: (payload?.text || '').slice(0, 5000),
-          attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
-          replyTo: replyToMsg ? replyToMsg._id : null,
-
-          // 🔔 NEW: who owns the original message (for header badge)
-          replyToOwnerId: replyToMsg ? replyToMsg.senderId : null,
-
-          reactions: [],
-          createdAt: new Date(),
-          editedAt: null,
-          deleted: false,
-          deliveries: [],
-          reads: [],
-        };
-
-        await messagesCol.insertOne(msg);
-        await chatsCol.updateOne(
-            { _id: chat._id },
-            {
-              $set: {
-                lastMessage: {
-                  _id: msg._id,
-                  text: msg.text,
-                  senderName: msg.senderName,
-                  createdAt: msg.createdAt,
-                },
-              },
-            }
-        );
-
-        // emit to room
-        io.to(room).emit('message:new', msg);
-
-        // delivery ack back
-        cb && cb({ ok: true, id: msg._id, delivered: true });
-      } catch (e) {
-        cb && cb({ ok: false, error: e.message });
-      }
-    });
-
-    // EDIT
-    socket.on('message:edit', async ({ id, text }, cb) => {
-      try {
-        const messagesCol = db.collection('messages');
-        const _id = new ObjectId(id);
-        await messagesCol.updateOne(
-            { _id, senderId: new ObjectId(userId) },
-            { $set: { text: String(text).slice(0, 5000), editedAt: new Date() } }
-        );
-        const updated = await messagesCol.findOne({ _id });
-        io.to(room).emit('message:edited', { id, text: updated.text, editedAt: updated.editedAt });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // DELETE
-    socket.on('message:delete', async ({ id }, cb) => {
-      try {
-        const _id = new ObjectId(id);
-        const messagesCol = db.collection('messages');
-        await messagesCol.updateOne(
-            { _id, senderId: new ObjectId(userId) },
-            { $set: { deleted: true, text: '' } }
-        );
-        io.to(room).emit('message:deleted', { id });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // REACT
-    socket.on('message:react', async ({ id, emoji }, cb) => {
-      try {
-        const messagesCol = db.collection('messages');
-        const _id = new ObjectId(id);
-        const msg = await messagesCol.findOne({ _id });
-        const exists = (msg.reactions || []).find(r => String(r.userId) === String(userId) && r.emoji === emoji);
-        if (exists) {
-          await messagesCol.updateOne({ _id }, { $pull: { reactions: { userId: new ObjectId(userId), emoji } } });
-        } else {
-          await messagesCol.updateOne({ _id }, { $addToSet: { reactions: { userId: new ObjectId(userId), emoji } } });
-        }
-        const updated = await messagesCol.findOne({ _id });
-        io.to(room).emit('message:reactions', { id, reactions: updated.reactions || [] });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // READ
-    socket.on('message:read', async ({ ids }, cb) => {
-      try {
-        const messagesCol = db.collection('messages');
-        const uid = new ObjectId(userId);
-        await messagesCol.updateMany(
-            { _id: { $in: (ids || []).map(id => new ObjectId(id)) }, 'reads.userId': { $ne: uid } },
-            { $push: { reads: { userId: uid, at: new Date() } } }
-        );
-        io.to(room).emit('message:reads', { ids, userId });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // TYPING
-    socket.on('typing', ({ isTyping }) => {
-      socket.to(room).emit('typing', { userId, isTyping: !!isTyping });
-    });
-
-    // DISCONNECT
-    socket.on('disconnect', async () => {
-      const set = onlineMap.get(userId);
-      if (set) {
-        set.delete(socket.id);
-        if (set.size === 0) {
-          onlineMap.delete(userId);
-          io.to(room).emit('presence:update', { userId, online: false });
-          try {
-            await db.collection('users').updateOne(
-                { _id: new ObjectId(userId) },
-                { $set: { lastSeen: new Date() } }
-            );
-          } catch {}
-        }
-      }
-    });
-  });
-
-  return { io };
-}
-
-module.exports = { initChat };
+      if (userId) mquery.senderId = asId(userId);
+      const items = await db.collection('messages')
+        .find(mquery).sort({ createdAt: 1 }).limit(Number(limit)).toArray();
+     
