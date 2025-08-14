@@ -314,9 +314,18 @@ html.show-chat .chat-main{display:flex}
 
 /* плавное появление панели ответа (если вместо hidden используешь класс .visible) */
 .reply-bar{ opacity:1; transform:none; }
-.reply-bar.anim { opacity:0; transform: translateY(4px) scale(.985); }
-.reply-bar.anim.visible{ opacity:1; transform:none; transition: transform 180ms ease, opacity 180ms ease; }
-
+/* Reply bar animation + safe pointer events */
+.reply-bar.anim{
+  opacity:0;
+  transform: translateY(4px) scale(.985);
+  transition: transform 180ms ease, opacity 180ms ease;
+  pointer-events: none;          /* <-- не ловим клики пока скрыта */
+}
+.reply-bar.anim.visible{
+  opacity:1;
+  transform: none;
+  pointer-events: auto;          /* <-- включаем клики когда показана */
+}
 /* всплытие контекстного меню */
 @keyframes menuPop { from { transform: scale(.96); opacity:0 } to { transform: scale(1); opacity:1 } }
 #msgContextMenu { animation: menuPop 140ms cubic-bezier(.2,.8,.2,1); }
