@@ -1,6 +1,6 @@
 {
-  "name": "Моё приложение",
-  "short_name": "МоёПрилож",
+  "name": "UAround",
+  "short_name": "UAround",
   "start_url": "./https://uaround.onrender.com/index.html",
   "scope": "./",
   "display": "standalone",
