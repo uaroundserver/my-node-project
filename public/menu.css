@@ -37,7 +37,7 @@ body {
   color: #fff;
   box-shadow: var(--header-shadow);
   border-radius: 0 0 var(--radius) var(--radius);
-}
+} 
 #app-header .logo{
   position: absolute;
   left: 50%;
