@@ -399,3 +399,5 @@ html.show-chat .chat-main{display:flex}
   .msg.their .mname{ opacity:.85 }
   .msg:hover .mname{ opacity:1 }
 }
+/* фикс базового отступа: дальше им управляет JS */
+.messages{ padding-bottom:12px !important; }
