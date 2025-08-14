@@ -1,24 +1,26 @@
 // public/scripts/chat.js
 (function () {
   // --- helpers to call API ---
+  function buildHeaders(opts) {
+    const h = {
+      ...(opts.headers || {}),
+      Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
+    };
+    // если отправляем FormData — не ставим Content-Type (пусть браузер сам)
+    if (!(opts.body instanceof FormData)) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
   const API = (path, opts = {}) =>
     fetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, {
       ...opts,
-      headers: {
-        'Content-Type': opts.body instanceof FormData ? undefined : 'application/json',
-        ...(opts.headers || {}),
-        Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
-      },
+      headers: buildHeaders(opts),
     }).then((r) => r.json());
 
   const API_ABS = (path, opts = {}) =>
     fetch(path, {
       ...opts,
-      headers: {
-        'Content-Type': opts.body instanceof FormData ? undefined : 'application/json',
-        ...(opts.headers || {}),
-        Authorization: 'Bearer ' + (localStorage.getItem('userToken') || ''),
-      },
+      headers: buildHeaders(opts),
     }).then((r) => r.json());
 
   // --- auth guard ---
@@ -65,10 +67,7 @@
   let pendingAttachments = [];
 
   // --- responsive: список -> чат ---
-  const mqMobile = window.matchMedia('(max-width: 900px)');
-  function enterChatView() {
-    document.documentElement.classList.add('show-chat'); // всегда показываем чат при переходе по jump
-  }
+  function enterChatView() { document.documentElement.classList.add('show-chat'); }
   function leaveChatView() {
     document.documentElement.classList.remove('show-chat');
     currentChat = null;
@@ -79,10 +78,7 @@
     clearReply();
   }
   if (els.tgBack) {
-    els.tgBack.addEventListener('click', (e) => {
-      e.preventDefault();
-      leaveChatView();
-    });
+    els.tgBack.addEventListener('click', (e) => { e.preventDefault(); leaveChatView(); });
   }
 
   // --- scroll helpers ---
@@ -123,7 +119,7 @@
           <div class="cpreview">
             ${
               c.lastMessage
-                ? escapeHtml((c.lastMessage.senderName || 'user') + ': ' + truncate(c.lastMessage.text || '', 60))
+                ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`)
                 : 'Нет сообщений'
             }
             ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
@@ -158,6 +154,51 @@
   function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
   function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
+  // --- swipe-to-reply (mobile + desktop drag) ---
+  function attachSwipeToReply(el, onTrigger) {
+    let startX = 0, startY = 0, dx = 0, dy = 0, active = false, ready = false, vibrated = false;
+    const THRESHOLD = 38, CANCEL_V = 28, MAX_PULL = 64;
+
+    function onStart(e) {
+      const t = e.touches ? e.touches[0] : e;
+      startX = t.clientX; startY = t.clientY; dx = 0; dy = 0;
+      active = true; ready = false; vibrated = false;
+      el.classList.add('is-swiping');
+    }
+    function onMove(e) {
+      if (!active) return;
+      const t = e.touches ? e.touches[0] : e;
+      dx = t.clientX - startX; dy = Math.abs(t.clientY - startY);
+      if (dy > CANCEL_V) { onEnd(); return; }
+      if (dx > 0) {
+        const pull = Math.min(dx, MAX_PULL);
+        el.style.transform = `translateX(${pull}px)`;
+        if (pull > THRESHOLD && !ready) {
+          el.classList.add('swipe-ready'); ready = true;
+          if (!vibrated && 'vibrate' in navigator) { navigator.vibrate(8); vibrated = true; }
+        }
+        if (pull <= THRESHOLD && ready) { el.classList.remove('swipe-ready'); ready = false; }
+      }
+    }
+    function onEnd() {
+      if (!active) return;
+      active = false;
+      el.style.transform = '';
+      el.classList.remove('is-swiping');
+      if (ready) { el.classList.remove('swipe-ready'); onTrigger && onTrigger(); }
+    }
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: true });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+
+    // desktop drag
+    let md = false;
+    el.addEventListener('mousedown', (e) => { md = true; onStart(e); });
+    window.addEventListener('mousemove', (e) => { if (md) onMove(e); });
+    window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
+  }
+
   // --- open chat ---
   async function openChat(c) {
     currentChat = c;
@@ -182,8 +223,8 @@
           const target = els.messages.querySelector(`[data-id="${CSS.escape(jumpId)}"]`);
           if (target) {
             target.scrollIntoView({ block: 'center' });
-            target.style.outline = '2px solid #5aa9ff';
-            setTimeout(() => (target.style.outline = ''), 1500);
+            target.classList.add('highlight');
+            setTimeout(() => target.classList.remove('highlight'), 1500);
           } else {
             scrollToBottom();
           }
@@ -199,45 +240,23 @@
 
       // максимально надёжно вытаскиваем chatId
       const chatId =
-        meta?.chatId ||
-        meta?.chat_id ||
-        meta?.chat?.id ||
-        meta?.chat?.ID ||
-        meta?.chat?._id ||
-        meta?.chat?._ID ||
-        meta?.chat ||
-        meta?.roomId ||
-        meta?.room_id ||
-        null;
+        meta?.chatId || meta?.chat_id ||
+        meta?.chat?.id || meta?.chat?.ID ||
+        meta?.chat?._id || meta?.chat?._ID ||
+        meta?.chat || meta?.roomId || meta?.room_id || null;
 
-      if (!chatId) {
-        // ничего не нашли — просто показываем список (чтоб не зависло)
-        return;
-      }
+      if (!chatId) return;
 
-      // убедимся, что список чатов загружен
-      if (!allChats || !allChats.length) {
-        await loadChats();
-      }
+      if (!allChats || !allChats.length) await loadChats();
 
-      // попытаемся найти чат в списке
       let chat = allChats.find(c => String(c._id) === String(chatId));
-
-      // если нет — создаём минимальный объект (заголовок попробуем взять из меты)
       if (!chat) {
-        chat = {
-          _id: chatId,
-          title: meta?.chatTitle || meta?.title || 'Чат',
-          avatar: meta?.chatAvatar || '',
-        };
+        chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Чат', avatar: meta?.chatAvatar || '' };
       }
 
-      // сразу переключаемся в режим чата (не показывать список)
       enterChatView();
       await openChat(chat);
-    } catch {
-      // молча
-    }
+    } catch { /* no-op */ }
   }
 
   // --- history / infinite up ---
@@ -266,22 +285,49 @@
 
     messages.forEach((m) => {
       const div = document.createElement('div');
-      div.className = 'msg ' + (String(m.senderId) === String(myId) ? 'mine' : 'their');
+      // mine/their: учитываем senderId||userId
+      div.className = 'msg ' + ((String(m.senderId || m.userId) === String(myId)) ? 'mine' : 'their');
       div.dataset.id = m._id;
 
-      const replyHtml =
-        m.replyTo && messages.find((x) => String(x._id) === String(m.replyTo))
-          ? `<div class="reply">${escapeHtml(messages.find((x) => String(x._id) === String(m.replyTo)).text)}</div>`
-          : '';
+      // reply preview (Telegram-like) with 1 nested level
+      let replyHtml = '';
+      function renderReplyPreview(src) {
+        if (!src) return '';
+        const who = String(src.senderId || src.userId) === String(myId) ? 'Вы' : (src.senderName || 'user');
+        const hasAtt = src.attachments && src.attachments.length;
+        const file = hasAtt ? src.attachments[0] : null;
+        let icon = '';
+        if (file) {
+          const m = (file.mime || file.mimetype || '').toLowerCase();
+          if (m.startsWith('image/')) icon = '🖼️';
+          else if (m.startsWith('video/')) icon = '🎞️';
+          else if (m.startsWith('audio/')) icon = '🎵';
+          else icon = '📎';
+        }
+        const snipText = (src.text && src.text.trim())
+          ? escapeHtml(src.text.trim())
+          : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(вложение)') : '');
+        const nested = src.reply ? `<span class="reply-nested">${renderReplyPreview(src.reply)}</span>` : '';
+        const ava = src.senderAvatar ? `<img src="${src.senderAvatar}" class="reply-ava" />` : '';
+        return `${ava}<b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}${nested}`;
+      }
+      {
+        const src = m.reply || messages.find((x) => String(x._id) === String(m.replyTo));
+        if (src) replyHtml = `<div class="reply" data-reply-id="${src._id}">${renderReplyPreview(src)}</div>`;
+      }
 
+      // attachments (normalize keys)
       const attachHtml = (m.attachments || [])
         .map((a) => {
-          if ((a.mimetype || '').startsWith('image/')) {
-            return `<div class="attach"><img src="${a.url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
-          } else if ((a.mimetype || '').startsWith('video/')) {
-            return `<div class="attach"><video src="${a.url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
+          const mime = (a.mime || a.mimetype || '').toLowerCase();
+          const url = a.url || a.href || '';
+          const oname = a.originalName || a.originalname || 'Файл';
+          if (mime.startsWith('image/')) {
+            return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
+          } else if (mime.startsWith('video/')) {
+            return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
           } else {
-            return `<a class="attach" href="${a.url}" target="_blank">${escapeHtml(a.originalname || 'Файл')}</a>`;
+            return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
           }
         })
         .join('');
@@ -298,7 +344,7 @@
         ${attachHtml}
         <div class="mmeta">
           <span>${timeShort(m.createdAt)}</span>
-          ${String(m.senderId) === String(myId) ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
+          ${String(m.senderId || m.userId) === String(myId) ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
           ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
         </div>
       `;
@@ -309,7 +355,7 @@
         showContextMenu(e.clientX, e.clientY, m);
       };
 
-      // Клик — меню
+      // Тап — мини-меню
       div.addEventListener('click', (e) => {
         if (e.target.closest('a, img, video, button, input, textarea')) return;
         const x = e.clientX || 20;
@@ -317,12 +363,14 @@
         showContextMenu(x, y, m);
       });
 
-      // свайп-вправо для ответа (мобилка)… (как было)
-      // — опущено для краткости: оставь свой блок свайпа без изменений —
-      // (он у тебя уже выше в проекте; если его тут нет — можно скопировать прежний)
-      // ↓↓↓
-      // ... (оставь прежнюю реализацию свайпа)
-      // ↑↑↑
+      // свайп-вправо → ответ
+      attachSwipeToReply(div, () => setReply(m));
+
+      // клик по цитате → прыжок
+      const rEl = div.querySelector('.reply');
+      if (rEl && rEl.dataset.replyId) {
+        rEl.addEventListener('click', () => jumpToMessage(rEl.dataset.replyId));
+      }
 
       els.messages.appendChild(div);
     });
@@ -348,7 +396,7 @@
     ctx.addEventListener('click', (e) => e.stopPropagation());
     ctx.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
-    const mine = String(m.senderId) === String(myId);
+    const mine = String(m.senderId || m.userId) === String(myId);
     const mk = (label, fn) => {
       const b = document.createElement('button');
       b.textContent = label;
@@ -392,6 +440,40 @@
     socket.emit('message:react', { id: m._id, emoji }, ackHandler);
   }
 
+  // --- jump helper (умная догрузка вверх) ---
+  async function jumpToMessage(id) {
+    if (!currentChat) { window.location.href = `chat.html?jump=${encodeURIComponent(id)}`; return; }
+    try {
+      const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(id)}`);
+      const targetTime = new Date(meta.createdAt).getTime();
+      let guard = 0;
+      while (guard < 40) { // до ~1200 сообщений ступенями по 30
+        const el = els.messages && els.messages.querySelector(`[data-id="${CSS.escape(id)}"]`);
+        if (el) {
+          el.classList.add('highlight');
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => el.classList.remove('highlight'), 1600);
+          return;
+        }
+        if (!messages.length) break;
+        const firstTime = new Date(messages[0].createdAt).getTime();
+        if (firstTime <= targetTime) break;
+        await loadHistory(messages[0].createdAt);
+        guard++;
+      }
+      const el2 = els.messages && els.messages.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      if (el2) {
+        el2.classList.add('highlight');
+        el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el2.classList.remove('highlight'), 1600);
+        return;
+      }
+      window.location.href = `chat.html?jump=${encodeURIComponent(id)}`;
+    } catch {
+      window.location.href = `chat.html?jump=${encodeURIComponent(id)}`;
+    }
+  }
+
   // --- reply helpers ---
   function setReply(m) {
     replyTo = m;
@@ -425,10 +507,8 @@
       if (!m?.replyTo) return false;
       const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(m.replyTo)}`);
       const repliedSenderId = meta?.senderId || meta?.userId || meta?.fromId;
-      return String(repliedSenderId) === String(myId) && String(m.senderId) !== String(myId);
-    } catch {
-      return false;
-    }
+      return String(repliedSenderId) === String(myId) && String(m.senderId || m.userId) !== String(myId);
+    } catch { return false; }
   }
 
   function showReplyToast(m) {
@@ -529,7 +609,7 @@
   // --- mark read ---
   function maybeMarkRead(newMsgs) {
     const ids = (newMsgs || messages)
-      .filter((m) => String(m.senderId) !== String(myId))
+      .filter((m) => String(m.senderId || m.userId) !== String(myId))
       .map((m) => m._id);
     if (ids.length) socket.emit('message:read', { ids }, () => {});
   }
@@ -557,9 +637,6 @@
   // --- init ---
   (async () => {
     await loadChats();
-    if (jumpId) {
-      // Автооткрытие нужного чата и прыжок к сообщению
-      openChatByMessageId(jumpId);
-    }
+    if (jumpId) openChatByMessageId(jumpId);
   })();
 })();
