@@ -131,3 +131,20 @@ a:hover{ text-decoration:underline; }
   cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.25);
 }
 .close-btn:active{ transform:scale(.98); }
+/* Цвет верха задавай тут — скрипт подхватит его */
+.top-bar {
+  position: sticky;
+  top: 0;
+  background: #0f1b2d;  /* твой цвет шапки */
+  color: #fff;
+  padding: 12px 16px;
+  z-index: 1000;
+  /* безопасная зона под вырез */
+  padding-top: env(safe-area-inset-top);
+}
+
+/* На всякий случай — фон страницы */
+html, body { background: #e9eef6; }
+@supports(padding-top: env(safe-area-inset-top)) {
+  body { padding-top: 0; } /* если .top-bar сама добавляет inset */
+}
