@@ -66,6 +66,12 @@
   let replyTo = null;
   let pendingAttachments = [];
 
+  // если панель ответа есть — подготовим её к анимации
+  if (els.replyBar) {
+    els.replyBar.classList.add('anim'); // см. CSS .reply-bar.anim / .reply-bar.anim.visible
+    // оставляем hidden как исходное состояние, чтобы не занимала место
+  }
+
   // --- responsive: список -> чат ---
   function enterChatView() { document.documentElement.classList.add('show-chat'); }
   function leaveChatView() {
@@ -186,8 +192,7 @@
       el.style.transform = '';
       el.classList.remove('is-swiping');
       if (ready) {
-        // пометим, что только что был свайп — чтобы клик не открыл меню
-        el.dataset.swipedAt = String(Date.now());
+        el.dataset.swipedAt = String(Date.now()); // защитимся от клика после свайпа
         el.classList.remove('swipe-ready');
         onTrigger && onTrigger();
       }
@@ -307,7 +312,6 @@
     messages.forEach((m) => {
       const div = document.createElement('div');
       const isMine = String(m.senderId || m.userId) === String(myId);
-      // помечаем новые сообщения для анимации (если пришли по сокету)
       const newClass = m._justAdded ? ' msg--new' : '';
       div.className = 'msg ' + (isMine ? 'mine' : 'their') + newClass;
       div.dataset.id = m._id;
@@ -399,8 +403,7 @@
 
       els.messages.appendChild(div);
 
-      // снять флаг «новое», чтобы не анимировалось повторно при ре-рендере
-      if (m._justAdded) m._justAdded = false;
+      if (m._justAdded) m._justAdded = false; // чтобы не анимировалось повторно
     });
 
     if (prevIsNearBottom) scrollToBottom();
@@ -522,22 +525,29 @@
     }
   }
 
-  // --- reply helpers ---
+  // --- reply helpers (через .visible с анимацией) ---
   function setReply(m) {
     replyTo = m;
     if (els.replyBar) {
-      // если используете анимируемый класс — можно сделать els.replyBar.classList.add('anim','visible')
-      els.replyBar.hidden = false;
+      // снимем hidden, чтобы элемент появился в потоке
+      if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
+      els.replyBar.classList.add('anim');
+      // следующей «рамкой» включаем видимость — сработает transition
+      requestAnimationFrame(() => els.replyBar.classList.add('visible'));
       els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
     els.msgInput && els.msgInput.focus();
   }
   function clearReply() {
     replyTo = null;
-    if (els.replyBar) {
-      // если используете класс .visible: els.replyBar.classList.remove('visible')
-      els.replyBar.hidden = true;
-    }
+    if (!els.replyBar) return;
+    els.replyBar.classList.remove('visible');
+    // после окончания анимации снова прячем элемент, чтобы он не занимал место
+    setTimeout(() => {
+      if (!els.replyBar.classList.contains('visible')) {
+        els.replyBar.setAttribute('hidden', 'hidden');
+      }
+    }, 220); // должно совпадать с CSS-транзишном
   }
   els.replyCancel && (els.replyCancel.onclick = clearReply);
 
@@ -627,7 +637,6 @@
   socket.on('typing', ({ userId, isTyping }) => {
     if (!els.tgSub) return;
     if (isTyping) {
-      // с бегущими точками
       els.tgSub.innerHTML = 'печатает<span class="typing-dots"><i></i><i></i><i></i></span>';
     } else {
       els.tgSub.textContent = '';
@@ -702,23 +711,5 @@
     await loadChats();
     if (jumpId) openChatByMessageId(jumpId);
   })();
-
-  // ---- utils for header (moved here to avoid hoist confusion) ----
-  function setHeader(chat) {
-    const title = (chat?.title || '').trim() || 'Чат';
-    if (els.tgTitle) els.tgTitle.textContent = title;
-    if (els.tgSub) els.tgSub.textContent = '';
-    const img = els.tgAvatarImg;
-    const letter = els.tgAvatarLetter;
-    const firstChar = (title[0] || 'A').toUpperCase();
-    if (img && letter) {
-      if (chat?.avatar) {
-        img.src = chat.avatar; img.style.display = 'block'; letter.style.display = 'none';
-      } else {
-        img.src = ''; img.style.display = 'none';
-        letter.style.display = 'grid'; letter.textContent = firstChar;
-      }
-    }
-  }
 
 })();
