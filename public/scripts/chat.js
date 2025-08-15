@@ -1,3 +1,4 @@
+// public/scripts/chat.js
 (function () {
   // ===== helpers =====
   function buildHeaders(opts = {}) {
@@ -44,6 +45,7 @@
     tgSub: document.getElementById('tgSub'),
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
+    tgHeader: document.getElementById('tgHeader'),
 
     replyBar: document.getElementById('replyBar'),
     replyText: document.getElementById('replyText'),
@@ -78,37 +80,77 @@
     const firstChar = (title[0] || 'Ч').toUpperCase();
     if (els.tgAvatarImg && els.tgAvatarLetter) {
       if (chat?.avatar) {
-        els.tgAvatarImg.src = chat.avatar; els.tgAvatarImg.style.display = 'block'; els.tgAvatarLetter.style.display = 'none';
+        els.tgAvatarImg.src = chat.avatar;
+        els.tgAvatarImg.style.display = 'block';
+        els.tgAvatarLetter.style.display = 'none';
       } else {
-        els.tgAvatarImg.src = ''; els.tgAvatarImg.style.display = 'none';
-        els.tgAvatarLetter.textContent = firstChar; els.tgAvatarLetter.style.display = 'grid';
+        els.tgAvatarImg.src = '';
+        els.tgAvatarImg.style.display = 'none';
+        els.tgAvatarLetter.textContent = firstChar;
+        els.tgAvatarLetter.style.display = 'grid';
       }
     }
   }
 
-  // ===== place replyBar INSIDE composer if needed (фикс «теряется при скролле») =====
-  if (els.replyBar && els.composer && !els.composer.contains(els.replyBar)) {
-    els.composer.insertBefore(els.replyBar, els.composer.firstChild);
+  // ===== sticky header (как раньше) — добавим минимальные стили, если вдруг нет в css =====
+  (function ensureStickyHeader(){
+    if (!els.tgHeader) return;
+    if (!document.getElementById('chat-sticky-css')) {
+      const st = document.createElement('style');
+      st.id = 'chat-sticky-css';
+      st.textContent = `
+        #tgHeader{ position:sticky; top:0; z-index:50; }
+      `;
+      document.head.appendChild(st);
+    }
+  })();
+
+  // ===== composer layout — replyBar сверху, строка ввода снизу (как раньше) =====
+  setupComposerLayout();
+  function setupComposerLayout() {
+    if (!els.composer) return;
+
+    if (!document.getElementById('chat-composer-fix-css')) {
+      const st = document.createElement('style');
+      st.id = 'chat-composer-fix-css';
+      st.textContent = `
+        .composer{ display:flex; flex-direction:column; gap:8px; }
+        .composer .composer-row{ display:flex; align-items:center; gap:10px; }
+        #replyBar{ width:100%; }
+        #replyBar .reply-text, #replyText{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+        .composer.with-reply #replyBar{ display:block; }
+      `;
+      document.head.appendChild(st);
+    }
+
+    // Поместим replyBar первым ребёнком композера
+    if (els.replyBar) {
+      if (!els.composer.contains(els.replyBar)) {
+        els.composer.insertBefore(els.replyBar, els.composer.firstChild);
+      } else if (els.composer.firstChild !== els.replyBar) {
+        els.composer.insertBefore(els.replyBar, els.composer.firstChild);
+      }
+    }
+
+    // Остальные элементы — в один горизонтальный ряд
+    let row = els.composer.querySelector('.composer-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'composer-row';
+      const toMove = Array.from(els.composer.children).filter(n => n !== els.replyBar);
+      toMove.forEach(n => row.appendChild(n));
+      els.composer.appendChild(row);
+    }
   }
 
-  // ===== padding / safe bottom =====
-  function safeBottomInset() {
-    // сколько «съела» клавиатура/системная панель
-    if (window.visualViewport) {
-      const diff = window.innerHeight - visualViewport.height;
-      return Math.max(0, diff);
-    }
-    return 0;
-  }
+  // ===== padding fix =====
   function updateComposerPadding() {
     if (!els.messages || !els.composer) return;
     const h = Math.ceil(els.composer.getBoundingClientRect().height || 0);
-    const sb = Math.min(48, safeBottomInset()); // чуть-чуть запас, но не перебарщиваем
-    els.messages.style.paddingBottom = (h + 8 + sb) + 'px';
+    els.messages.style.paddingBottom = (h + 8) + 'px';
   }
   if (window.ResizeObserver && els.composer) {
-    const ro = new ResizeObserver(updateComposerPadding);
-    ro.observe(els.composer);
+    new ResizeObserver(updateComposerPadding).observe(els.composer);
   }
   if (window.visualViewport) {
     visualViewport.addEventListener('resize', updateComposerPadding);
@@ -129,16 +171,14 @@
   // ===== profile =====
   apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(()=>{});
 
-  // ===== load chat meta =====
+  // ===== load chat meta (title/avatar) =====
   (async () => {
     if (!currentChat) return;
     try {
       const meta = await API(`/chat/${encodeURIComponent(currentChat._id)}`);
       currentChat = { ...currentChat, ...meta };
       setHeader(currentChat);
-    } catch {
-      setHeader(currentChat);
-    }
+    } catch { setHeader(currentChat); }
   })();
 
   // ===== history =====
@@ -172,7 +212,7 @@
       div.className = 'msg ' + (isMine ? 'mine' : 'their') + (m._justAdded ? ' msg--new' : '');
       div.dataset.id = m._id;
 
-      // reply preview (внутри сообщения)
+      // reply preview
       let replyHtml = '';
       function renderReplyPreview(src) {
         if (!src) return '';
@@ -199,14 +239,16 @@
         if (src) replyHtml = `<div class="reply" data-reply-id="${src._id}">${renderReplyPreview(src)}</div>`;
       }
 
-      const attachHtml = (m.attachments || []).map((a) => {
-        const mime = (a.mime || a.mimetype || '').toLowerCase();
-        const url = a.url || a.href || '';
-        const oname = a.originalName || a.originalname || 'Файл';
-        if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
-        if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
-        return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
-      }).join('');
+      // attachments
+      const attachHtml = (m.attachments || [])
+        .map((a) => {
+          const mime = (a.mime || a.mimetype || '').toLowerCase();
+          const url = a.url || a.href || '';
+          const oname = a.originalName || a.originalname || 'Файл';
+          if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
+          if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
+          return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
+        }).join('');
 
       const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
 
@@ -226,10 +268,9 @@
 
       // контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
-      // короткий тап
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
-      // свайп-вправо → ответ
       attachSwipeToReply(div, () => setReply(m));
+
       // переход по цитате
       const rEl = div.querySelector('.reply');
       if (rEl && rEl.dataset.replyId) {
@@ -248,7 +289,7 @@
   // ===== tap guard =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8, MAX_TAP_MS = 400;
-    let startX=0, startY=0, startT=0, startScroll=0, moved=false, multi=false;
+    let startX=0, startY=0, startT=0, startScroll=0, moved=false, multi=false, lastSwipeAt=0;
     function xy(ev){
       if (ev.changedTouches && ev.changedTouches[0]) return {x:ev.changedTouches[0].clientX,y:ev.changedTouches[0].clientY};
       if (ev.touches && ev.touches[0]) return {x:ev.touches[0].clientX,y:ev.touches[0].clientY};
@@ -263,8 +304,14 @@
       const sc = els.messages ? Math.abs(els.messages.scrollTop-startScroll):0;
       if (dx>MOVE_GUARD || dy>MOVE_GUARD || sc>2) moved=true;
     }
-    function end(ev){ if (multi) return; if (ev.target && ev.target.closest('.reply')) return;
-      move(ev); const dur = Date.now()-startT; if (moved || dur>MAX_TAP_MS) return;
+    function end(ev){
+      if (multi) return;
+      if (ev.target && ev.target.closest('.reply')) return;
+      move(ev); const dur = Date.now()-startT;
+      const sw = Number(el.dataset.swipedAt || 0);
+      if (sw) lastSwipeAt = sw;
+      if (Date.now()-lastSwipeAt < 250) return; // не открывать меню сразу после свайпа
+      if (moved || dur>MAX_TAP_MS) return;
       let {x,y} = xy(ev); if (!x && !y){ const r = el.getBoundingClientRect(); x=r.left+r.width/2; y=r.top+r.height/2; }
       onTap(x,y,ev);
     }
@@ -353,16 +400,16 @@
     }
   }
 
-  // ===== reply bar (внизу, внутри composer) =====
+  // ===== reply bar =====
   function setReply(m) {
     replyTo = m;
     if (els.replyBar) {
+      els.composer && els.composer.classList.add('with-reply');
       if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
       els.replyBar.classList.add('anim');
       requestAnimationFrame(() => els.replyBar.classList.add('visible'));
       els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
-    // всегда показываем композер и панель
     scrollToBottom();
     els.msgInput && els.msgInput.focus();
     setTimeout(updateComposerPadding, 0);
@@ -372,7 +419,10 @@
     if (!els.replyBar) return;
     els.replyBar.classList.remove('visible');
     setTimeout(() => {
-      if (!els.replyBar.classList.contains('visible')) els.replyBar.setAttribute('hidden', 'hidden');
+      if (!els.replyBar.classList.contains('visible')) {
+        els.replyBar.setAttribute('hidden', 'hidden');
+        els.composer && els.composer.classList.remove('with-reply');
+      }
       updateComposerPadding();
     }, 220);
   }
@@ -431,13 +481,12 @@
   }
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  // кнопка «Отправить» не забирает фокус
+  // кнопка «Отправить» не забирает фокус; клавиатура закрывается только по тачу вне композера
   if (els.sendBtn) {
     els.sendBtn.setAttribute('tabindex', '-1');
     els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
   }
-  // Закрываем клавиатуру только при тапе вне композера
   function maybeBlurOnOutsideTap(ev) {
     if (!els.msgInput) return;
     if (ev.target.closest('.composer')) return;
@@ -509,4 +558,5 @@
       } catch {}
     }
   })();
+
 })();
