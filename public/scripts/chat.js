@@ -1,4 +1,3 @@
-// public/scripts/chat.js
 (function () {
   // ===== helpers =====
   function buildHeaders(opts = {}) {
@@ -8,7 +7,6 @@
     if (!(opts.body instanceof FormData)) h['Content-Type'] = 'application/json';
     return h;
   }
-
   async function apiFetch(url, opts = {}) {
     try {
       const res = await fetch(url, { ...opts, headers: buildHeaders(opts) });
@@ -17,32 +15,24 @@
       const payload = isJSON ? await res.json().catch(() => null) : await res.text().catch(() => '');
       if (!res.ok) {
         const msg = (payload && payload.error) || (typeof payload === 'string' && payload) || res.statusText || 'Request failed';
-        const err = new Error(msg);
-        err.status = res.status;
-        err.payload = payload;
-        throw err;
+        const err = new Error(msg); err.status = res.status; err.payload = payload; throw err;
       }
       return payload;
     } catch (e) {
       if (!(e instanceof Error)) e = new Error('Network error');
-      if (e.status === 401) {
-        localStorage.removeItem('userToken');
-        location.href = 'login.html';
-      }
+      if (e.status === 401) { localStorage.removeItem('userToken'); location.href = 'login.html'; }
       throw e;
     }
   }
-
   const API = (path, opts = {}) => apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
   const API_ABS = (path, opts = {}) => apiFetch(path, opts);
 
-  // ===== auth guard =====
+  // ===== auth =====
   const token = localStorage.getItem('userToken');
   if (!token) { location.href = 'login.html'; return; }
 
-  // ===== elements =====
+  // ===== els =====
   const els = {
-    list: document.getElementById('chatList'),
     messages: document.getElementById('messageList'),
     msgInput: document.getElementById('msgInput'),
     sendBtn: document.getElementById('sendBtn'),
@@ -55,9 +45,6 @@
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
 
-    // ВНУТРИ чата поисковой строки больше нет
-    search: null,
-
     replyBar: document.getElementById('replyBar'),
     replyText: document.getElementById('replyText'),
     replyCancel: document.getElementById('replyCancel'),
@@ -66,51 +53,51 @@
   };
 
   const urlParams = new URLSearchParams(location.search);
+  const chatIdFromUrl = urlParams.get('chatId');
   const jumpId = urlParams.get('jump');
 
   // ===== state =====
-  let currentChat = null;
+  let currentChat = chatIdFromUrl ? { _id: chatIdFromUrl } : null;
   let messages = [];
   let myId = null;
-  let allChats = [];
   let loadingHistory = false;
-  let atBottom = true;
   let typingTimeout = null;
   let replyTo = null;
   let pendingAttachments = [];
-  let chatSearchInput = null; // глобальный поиск по чатам
 
-  // ===== small helpers =====
-  function escapeHtml(s) { return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
-  function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
-  function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-  function firstLetter(title) { return ((title || '').trim()[0] || '•').toUpperCase(); }
+  // ===== utils =====
+  const escapeHtml = (s) => (s || '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const truncate = (s, n) => (s || '').length > n ? s.slice(0, n - 1) + '…' : s;
+  const timeShort = (t) => { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
 
-  // ===== reply bar anim prep =====
-  if (els.replyBar) els.replyBar.classList.add('anim');
-
-  // ===== layout switching =====
-  function enterChatView() { document.documentElement.classList.add('show-chat'); }
-  function leaveChatView() {
-    document.documentElement.classList.remove('show-chat');
-    currentChat = null;
-    messages = [];
-    els.messages && (els.messages.innerHTML = '');
-    setHeader({ title: '', avatar: '' });
-    clearReply();
-    updateComposerPadding();
+  // ===== header =====
+  function setHeader(chat) {
+    const title = (chat?.title || '').trim() || 'Чат';
+    if (els.tgTitle) els.tgTitle.textContent = title;
+    if (els.tgSub) els.tgSub.textContent = '';
+    const firstChar = (title[0] || 'Ч').toUpperCase();
+    if (els.tgAvatarImg && els.tgAvatarLetter) {
+      if (chat?.avatar) {
+        els.tgAvatarImg.src = chat.avatar;
+        els.tgAvatarImg.style.display = 'block';
+        els.tgAvatarLetter.style.display = 'none';
+      } else {
+        els.tgAvatarImg.src = '';
+        els.tgAvatarImg.style.display = 'none';
+        els.tgAvatarLetter.textContent = firstChar;
+        els.tgAvatarLetter.style.display = 'grid';
+      }
+    }
   }
-  if (els.tgBack) els.tgBack.addEventListener('click', (e) => { e.preventDefault(); leaveChatView(); });
 
-  // ===== dynamic bottom padding =====
+  // ===== padding fix =====
   function updateComposerPadding() {
     if (!els.messages || !els.composer) return;
     const h = Math.ceil(els.composer.getBoundingClientRect().height || 0);
     els.messages.style.paddingBottom = (h + 8) + 'px';
   }
   if (window.ResizeObserver && els.composer) {
-    const ro = new ResizeObserver(() => updateComposerPadding());
-    ro.observe(els.composer);
+    new ResizeObserver(updateComposerPadding).observe(els.composer);
   }
   if (window.visualViewport) {
     visualViewport.addEventListener('resize', updateComposerPadding);
@@ -119,388 +106,34 @@
   window.addEventListener('orientationchange', updateComposerPadding);
 
   // ===== scroll helpers =====
-  function isNearBottom() {
+  const isNearBottom = () => {
     const el = els.messages; if (!el) return true;
-    const threshold = 120;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-  }
-  function scrollToBottom() {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+  };
+  const scrollToBottom = () => {
     if (!els.messages) return;
     els.messages.scrollTop = els.messages.scrollHeight - els.messages.clientHeight + 999;
-  }
+  };
 
   // ===== profile =====
-  apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(() => {});
+  apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(()=>{});
 
-  // ===== chat list / GLOBAL SEARCH =====
-  function renderChatsPlaceholder(message, retry) {
-    if (!els.list) return;
-    els.list.innerHTML = '';
-    const li = document.createElement('li');
-    li.style.listStyle = 'none';
-    li.style.padding = '18px';
-    li.style.color = '#90a4b4';
-    li.innerHTML = `<div style="opacity:.9">${escapeHtml(message)}</div>`;
-    if (retry) {
-      const btn = document.createElement('button');
-      btn.textContent = 'Обновить';
-      btn.style.marginTop = '10px';
-      btn.style.padding = '8px 12px';
-      btn.style.background = '#0e1522';
-      btn.style.color = '#e6eef7';
-      btn.style.border = '1px solid #223147';
-      btn.style.borderRadius = '10px';
-      btn.onclick = () => loadChats();
-      li.appendChild(btn);
-    }
-    els.list.appendChild(li);
-  }
-
-  // Вставляем поиск СРАЗУ ПОД заголовком «Чаты»
-  function ensureChatSearch() {
-    if (!els.list || chatSearchInput) return;
-
-    // пытаемся найти контейнер заголовка
-    const titleHost =
-      (els.tgTitle && els.tgTitle.closest('.tg-header')) ||
-      (els.tgTitle && els.tgTitle.parentElement) ||
-      document.querySelector('.page-header') ||
-      document.body;
-
-    const wrap = document.createElement('div');
-    wrap.style.padding = '8px 16px 10px';
-    wrap.style.marginTop = '0'; // ближе к заголовку
-    wrap.style.background = 'transparent';
-    wrap.style.zIndex = '3';
-
-    const input = document.createElement('input');
-    input.type = 'search';
-    input.placeholder = 'Поиск по чатам';
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.id = 'chatSearchGlobal';
-    // стиль поля
-    Object.assign(input.style, {
-      width: '100%',
-      boxSizing: 'border-box',
-      padding: '10px 14px',
-      borderRadius: '12px',
-      border: '1px solid #223147',
-      background: '#0e1522',
-      color: '#e6eef7',
-      fontSize: '16px',
-    });
-
-    // Если рядом с заголовком есть контейнер секции — вставим после него, иначе перед списком
-    if (titleHost && titleHost.parentNode) {
-      titleHost.parentNode.insertBefore(wrap, (titleHost.nextSibling || els.list));
-    } else {
-      els.list.parentNode.insertBefore(wrap, els.list);
-    }
-    wrap.appendChild(input);
-    chatSearchInput = input;
-
-    // уменьшим возможный внешний отступ у списка
-    try { els.list.style.marginTop = '0'; } catch {}
-
-    let timer;
-    input.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => globalSearch(input.value.trim()), 150);
-    });
-  }
-
-  function getAvatarUrlSafe(c) {
-    const av = c && (c.avatar ?? c.avatarUrl ?? c.chatAvatar ?? c.picture ?? c.icon);
-    if (!av) return '';
-    if (typeof av === 'string') return av;
-    if (typeof av === 'object' && av.url) return av.url;
-    return '';
-  }
-
-  function renderChatList(list) {
-    if (!els.list) return;
-    els.list.innerHTML = '';
-    if (!list || !list.length) {
-      renderChatsPlaceholder('Ничего не найдено', false);
-      return;
-    }
-    list.forEach((c) => {
-      const title = c.title || 'Чат';
-      const avatarUrl = getAvatarUrlSafe(c);
-
-      const li = document.createElement('li');
-      li.className = 'chat-item';
-      li.style.display = 'flex';
-      li.style.gap = '12px';
-      li.style.alignItems = 'center';
-      li.style.padding = '12px 16px';
-
-      const ava = document.createElement('div');
-      Object.assign(ava.style, {
-        width: '44px', height: '44px', borderRadius: '50%', flex: '0 0 44px',
-        background: '#0e1522', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden'
-      });
-
-      const img = document.createElement('img');
-      Object.assign(img.style, { width: '100%', height: '100%', objectFit: 'cover', display: 'none' });
-
-      const letter = document.createElement('span');
-      letter.textContent = firstLetter(title);
-      Object.assign(letter.style, { color: '#9fb6cc', fontWeight: '700', fontSize: '18px' });
-
-      if (avatarUrl) {
-        img.src = avatarUrl;
-        img.onload = () => { img.style.display = 'block'; letter.style.display = 'none'; };
-        img.onerror = () => { img.style.display = 'none'; letter.style.display = 'block'; };
-      }
-      ava.appendChild(img);
-      ava.appendChild(letter);
-
-      const meta = document.createElement('div');
-      meta.style.flex = '1 1 auto';
-      meta.innerHTML = `
-        <div class="crow" style="display:flex;align-items:center;gap:8px">
-          <div class="title" style="font-weight:600">${escapeHtml(title)}</div>
-          <div class="time" style="margin-left:auto;opacity:.7">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
-        </div>
-        <div class="cpreview" style="opacity:.85;display:flex;align-items:center;gap:8px">
-          ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
-          ${c.unread ? `<span class="badge" style="background:#2f6df5;color:#fff;padding:0 8px;border-radius:12px;font-size:12px;line-height:20px;height:20px;display:inline-flex;align-items:center">${c.unread}</span>` : ''}
-        </div>
-      `;
-
-      li.appendChild(ava);
-      li.appendChild(meta);
-      li.onclick = () => openChat(c);
-      els.list.appendChild(li);
-    });
-  }
-
-  function localFilter(list, q) {
-    if (!q) return list;
-    const qq = q.toLowerCase();
-    return list.filter((c) => {
-      const title = (c.title || '').toLowerCase();
-      const lmText = (c.lastMessage && c.lastMessage.text) ? String(c.lastMessage.text).toLowerCase() : '';
-      const lmSender = (c.lastMessage && c.lastMessage.senderName) ? String(c.lastMessage.senderName).toLowerCase() : '';
-      return title.includes(qq) || lmText.includes(qq) || lmSender.includes(qq);
-    });
-  }
-
-  async function globalSearch(value) {
-    const q = value || '';
-    // сперва быстрый локальный фильтр
-    const local = localFilter(allChats, q);
-    if (q === '' || local.length) {
-      renderChatList(local);
-      return;
-    }
-    // фолбэк — если API поддерживает ?search=
+  // ===== load chat meta (title/avatar) if нужно =====
+  (async () => {
+    if (!currentChat) return;
     try {
-      const remote = await API(`/chats?search=${encodeURIComponent(q)}`);
-      if (Array.isArray(remote) && remote.length) {
-        renderChatList(remote);
-        return;
-      }
-    } catch { /* игнор */ }
-    renderChatList([]); // ничего не нашлось
-  }
-
-  async function loadChats() {
-    try {
-      renderChatsPlaceholder('Загрузка…');
-      const data = await API('/chats');
-      allChats = Array.isArray(data) ? data : [];
-      ensureChatSearch();
-      // первичный рендер (без фильтра)
-      renderChatList(allChats);
-      return allChats;
-    } catch (e) {
-      renderChatsPlaceholder('Не удалось загрузить список чатов', true);
-      return [];
+      const meta = await API(`/chat/${encodeURIComponent(currentChat._id)}`);
+      currentChat = { ...currentChat, ...meta };
+      setHeader(currentChat);
+    } catch {
+      setHeader(currentChat);
     }
-  }
+  })();
 
-  // ===== header =====
-  function setHeader(chat) {
-    const title = (chat?.title || '').trim() || 'Чат';
-    if (els.tgTitle) els.tgTitle.textContent = title;
-    if (els.tgSub) els.tgSub.textContent = '';
-    const img = els.tgAvatarImg;
-    const letter = els.tgAvatarLetter;
-    const firstChar = (title[0] || 'A').toUpperCase();
-    if (img && letter) {
-      const avatarUrl = getAvatarUrlSafe(chat);
-      if (avatarUrl) {
-        img.src = avatarUrl; img.style.display = 'block'; letter.style.display = 'none';
-      } else {
-        img.src = ''; img.style.display = 'none';
-        letter.style.display = 'grid'; letter.textContent = firstChar;
-      }
-    }
-  }
-
-  // ===== swipe-to-reply =====
-  function attachSwipeToReply(el, onTrigger) {
-    let startX = 0, startY = 0, dx = 0, dy = 0, active = false, ready = false, vibrated = false;
-    const THRESHOLD = 38, CANCEL_V = 28, MAX_PULL = 64;
-
-    function onStart(e) {
-      const t = e.touches ? e.touches[0] : e;
-      startX = t.clientX; startY = t.clientY; dx = 0; dy = 0;
-      active = true; ready = false; vibrated = false;
-      el.classList.add('is-swiping');
-    }
-    function onMove(e) {
-      if (!active) return;
-      const t = e.touches ? e.touches[0] : e;
-      dx = t.clientX - startX; dy = Math.abs(t.clientY - startY);
-      if (dy > CANCEL_V) { onEnd(); return; }
-      if (dx > 0) {
-        const pull = Math.min(dx, MAX_PULL);
-        el.style.transform = `translateX(${pull}px)`;
-        if (pull > THRESHOLD && !ready) {
-          el.classList.add('swipe-ready'); ready = true;
-          if (!vibrated && 'vibrate' in navigator) { navigator.vibrate(8); vibrated = true; }
-        }
-        if (pull <= THRESHOLD && ready) { el.classList.remove('swipe-ready'); ready = false; }
-      }
-    }
-    function onEnd() {
-      if (!active) return;
-      active = false;
-      el.style.transform = '';
-      el.classList.remove('is-swiping');
-      if (ready) {
-        el.dataset.swipedAt = String(Date.now());
-        el.classList.remove('swipe-ready');
-        onTrigger && onTrigger();
-      }
-    }
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: true });
-    el.addEventListener('touchend', onEnd);
-    el.addEventListener('touchcancel', onEnd);
-
-    // desktop drag
-    let md = false;
-    el.addEventListener('mousedown', (e) => { md = true; onStart(e); });
-    window.addEventListener('mousemove', (e) => { if (md) onMove(e); });
-    window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
-  }
-
-  // ===== tap guard =====
-  function attachTapGuard(el, onTap) {
-    const MOVE_GUARD = 8;
-    const MAX_TAP_MS = 400;
-    let startX=0, startY=0, startT=0, startScroll=0, moved=false, multiTouch=false;
-
-    function getXY(ev) {
-      if (ev.changedTouches && ev.changedTouches[0]) return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
-      if (ev.touches && ev.touches[0])       return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
-      return { x: ev.clientX, y: ev.clientY };
-    }
-    function start(ev){
-      if (ev.target.closest('a, button, input, textarea, .reply')) return;
-      const p = getXY(ev);
-      startX = p.x; startY = p.y; startT = Date.now();
-      startScroll = els.messages ? els.messages.scrollTop : 0;
-      moved = false; multiTouch = !!(ev.touches && ev.touches.length > 1);
-    }
-    function move(ev){
-      if (multiTouch) { moved = true; return; }
-      const p = getXY(ev);
-      const dx = Math.abs(p.x - startX);
-      const dy = Math.abs(p.y - startY);
-      const sc = els.messages ? Math.abs((els.messages.scrollTop) - startScroll) : 0;
-      if (dx > MOVE_GUARD || dy > MOVE_GUARD || sc > 2) moved = true;
-    }
-    function end(ev){
-      if (multiTouch) return;
-      if (ev.target && ev.target.closest('.reply')) return;
-
-      move(ev);
-      const dur = Date.now() - startT;
-      if (moved || dur > MAX_TAP_MS) return;
-      const sw = Number(el.dataset.swipedAt || 0);
-      if (sw && Date.now() - sw < 250) return;
-
-      let { x, y } = getXY(ev);
-      if (x == null || y == null || (x === 0 && y === 0)) {
-        const r = el.getBoundingClientRect(); x = r.left + r.width/2; y = r.top + r.height/2;
-      }
-      onTap(x, y, ev);
-    }
-    el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchmove',  move,  { passive: true });
-    el.addEventListener('touchend',   end);
-    el.addEventListener('touchcancel',()=>{ moved=true; });
-    el.addEventListener('mousedown', (e)=>{
-      start(e);
-      const up = (ev)=>{ end(ev); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
-    });
-  }
-
-  // ===== open chat =====
-  async function openChat(c) {
-    currentChat = c;
-    setHeader(c);
-
-    if (els.messages) els.messages.innerHTML = '';
-    messages = [];
-    enterChatView();
-    await loadHistory();
-    updateComposerPadding();
-    scrollToBottom();
-
-    if (jumpId) {
-      try {
-        const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
-        if (meta?.createdAt) {
-          const pivot = new Date(new Date(meta.createdAt).getTime() + 1).toISOString();
-          const q = new URLSearchParams({ chatId: currentChat._id, limit: 200, before: pivot });
-          const pack = await API('/messages?' + q.toString());
-          messages = pack;
-          renderMessages();
-          const target = els.messages.querySelector(`[data-id="${CSS.escape(jumpId)}"]`);
-          if (target) {
-            target.scrollIntoView({ block: 'center' });
-            target.classList.add('highlight');
-            setTimeout(() => target.classList.remove('highlight'), 1500);
-          } else {
-            scrollToBottom();
-          }
-        }
-      } catch {}
-    }
-  }
-
-  // Открыть чат по messageId
-  async function openChatByMessageId(messageId) {
-    try {
-      const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(messageId)}`);
-      const chatId =
-        meta?.chatId || meta?.chat_id || meta?.chat?.id || meta?.chat?.ID ||
-        meta?.chat?._id || meta?.chat?._ID || meta?.chat || meta?.roomId || meta?.room_id || null;
-      if (!chatId) return;
-
-      if (!allChats || !allChats.length) await loadChats();
-      let chat = allChats.find(c => String(c._id) === String(chatId));
-      if (!chat) chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Чат', avatar: meta?.chatAvatar || '' };
-
-      enterChatView();
-      await openChat(chat);
-    } catch {}
-  }
-
-  // ===== history / infinite scroll up =====
+  // ===== history =====
   async function loadHistory(before) {
     if (!currentChat || loadingHistory) return;
     loadingHistory = true;
-    if (before) showTopLoader(true);
     try {
       const q = new URLSearchParams({ chatId: currentChat._id, limit: 30 });
       if (before) q.set('before', before);
@@ -508,44 +141,24 @@
       messages = before ? history.concat(messages) : history;
       renderMessages();
       updateComposerPadding();
-    } catch (e) {
-      // noop
     } finally {
       loadingHistory = false;
-      if (before) showTopLoader(false);
     }
   }
-
-  function showTopLoader(show){
-    if (!els.messages) return;
-    let t = els.messages.querySelector('.top-loader');
-    if (show){
-      if (!t){
-        t = document.createElement('div');
-        t.className = 'top-loader';
-        t.innerHTML = '<div class="spinner"></div>';
-        els.messages.prepend(t);
-      }
-    } else if (t) { t.remove(); }
-  }
-
   els.messages && els.messages.addEventListener('scroll', () => {
     const el = els.messages;
-    atBottom = isNearBottom();
     if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
   });
 
-  // ===== render messages =====
+  // ===== render =====
   function renderMessages() {
     if (!els.messages) return;
-    const prevIsNearBottom = isNearBottom();
+    const prevKeep = isNearBottom();
     els.messages.innerHTML = '';
-
     messages.forEach((m) => {
       const div = document.createElement('div');
       const isMine = String(m.senderId || m.userId) === String(myId);
-      const newClass = m._justAdded ? ' msg--new' : '';
-      div.className = 'msg ' + (isMine ? 'mine' : 'their') + newClass;
+      div.className = 'msg ' + (isMine ? 'mine' : 'their') + (m._justAdded ? ' msg--new' : '');
       div.dataset.id = m._id;
 
       // reply preview
@@ -584,8 +197,7 @@
           if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
           if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
           return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
-        })
-        .join('');
+        }).join('');
 
       const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
 
@@ -601,26 +213,18 @@
           <span>${timeShort(m.createdAt)}</span>
           ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
           ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
-        </div>
-      `;
+        </div>`;
 
-      // ПК: контекстное меню
+      // контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
-
-      // Тап/клик — только по самому пузырю
+      // короткий тап
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
-
-      // свайп-вправо → ответ
+      // свайп-вправо
       attachSwipeToReply(div, () => setReply(m));
-
       // переход по цитате
       const rEl = div.querySelector('.reply');
       if (rEl && rEl.dataset.replyId) {
-        const go = (e) => {
-          e.stopPropagation();
-          if (e.cancelable) e.preventDefault();
-          jumpToMessage(rEl.dataset.replyId);
-        };
+        const go = (e)=>{ e.stopPropagation(); if(e.cancelable) e.preventDefault(); jumpToMessage(rEl.dataset.replyId); };
         rEl.addEventListener('click', go);
         rEl.addEventListener('touchend', go, { passive: false });
       }
@@ -628,108 +232,95 @@
       els.messages.appendChild(div);
       if (m._justAdded) m._justAdded = false;
     });
-
-    if (prevIsNearBottom) scrollToBottom();
+    if (prevKeep) scrollToBottom();
     updateComposerPadding();
   }
 
-  // ===== context menu =====
-  let ctx = null, onWinClick = null, onWinTouch = null;
-  function showContextMenu(x, y, m) {
-    hideContextMenu();
-    ctx = document.createElement('div');
-    ctx.id = 'msgContextMenu';
-    ctx.style.position = 'fixed';
-    ctx.style.left = Math.min(x, window.innerWidth - 200) + 'px';
-    ctx.style.top  = Math.min(y, window.innerHeight - 180) + 'px';
-    ctx.style.background = '#0e1522';
-    ctx.style.border = '1px solid #223147';
-    ctx.style.borderRadius = '10px';
-    ctx.style.padding = '6px';
-    ctx.style.zIndex = 10000;
-    ctx.style.minWidth = '160px';
-    ctx.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
-    ctx.addEventListener('click', (e) => e.stopPropagation());
-    ctx.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-
-    const mine = String(m.senderId || m.userId) === String(myId);
-    const mk = (label, fn) => {
-      const b = document.createElement('button');
-      b.textContent = label;
-      b.style.display = 'block';
-      b.style.width = '100%';
-      b.style.background = 'transparent';
-      b.style.border = '0';
-      b.style.color = 'white';
-      b.style.padding = '10px 12px';
-      b.style.textAlign = 'left';
-      b.style.fontSize = '16px';
-      b.style.cursor = 'pointer';
-      b.onmousedown = (ev) => ev.preventDefault();
-      b.onclick = (ev) => { fn(ev); hideContextMenu(); };
-      ctx.appendChild(b);
-    };
-    mk('Ответить', () => setReply(m));
-    mk('👍 Реакция', (ev) => {
-      const rect = ctx.getBoundingClientRect();
-      const ex = (ev && ev.clientX) || (rect.left + 20);
-      const ey = (ev && ev.clientY) || (rect.top + 20);
-      react(m, '👍', ex, ey);
+  // ===== tap guard =====
+  function attachTapGuard(el, onTap) {
+    const MOVE_GUARD = 8, MAX_TAP_MS = 400;
+    let startX=0, startY=0, startT=0, startScroll=0, moved=false, multi=false;
+    function xy(ev){
+      if (ev.changedTouches && ev.changedTouches[0]) return {x:ev.changedTouches[0].clientX,y:ev.changedTouches[0].clientY};
+      if (ev.touches && ev.touches[0]) return {x:ev.touches[0].clientX,y:ev.touches[0].clientY};
+      return {x:ev.clientX,y:ev.clientY};
+    }
+    function start(ev){ if (ev.target.closest('a,button,input,textarea,.reply')) return;
+      const p = xy(ev); startX=p.x; startY=p.y; startT=Date.now(); startScroll = els.messages?els.messages.scrollTop:0;
+      moved=false; multi=!!(ev.touches && ev.touches.length>1);
+    }
+    function move(ev){ if (multi) { moved=true; return; }
+      const p = xy(ev); const dx=Math.abs(p.x-startX), dy=Math.abs(p.y-startY);
+      const sc = els.messages ? Math.abs(els.messages.scrollTop-startScroll):0;
+      if (dx>MOVE_GUARD || dy>MOVE_GUARD || sc>2) moved=true;
+    }
+    function end(ev){ if (multi) return; if (ev.target && ev.target.closest('.reply')) return;
+      move(ev); const dur = Date.now()-startT; if (moved || dur>MAX_TAP_MS) return;
+      let {x,y} = xy(ev); if (!x && !y){ const r = el.getBoundingClientRect(); x=r.left+r.width/2; y=r.top+r.height/2; }
+      onTap(x,y,ev);
+    }
+    el.addEventListener('touchstart', start, {passive:true});
+    el.addEventListener('touchmove',  move,  {passive:true});
+    el.addEventListener('touchend',   end);
+    el.addEventListener('touchcancel',()=>{ moved=true; });
+    el.addEventListener('mousedown', (e)=>{
+      start(e);
+      const up = (ev)=>{ end(ev); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
     });
-    if (mine) {
-      mk('Редактировать', () => {
-        const nt = prompt('Изменить сообщение', m.text || '');
-        if (nt != null) socket.emit('message:edit', { id: m._id, text: nt }, ackHandler);
-      });
-      mk('Удалить', () => {
-        if (confirm('Удалить?')) socket.emit('message:delete', { id: m._id }, ackHandler);
-      });
+  }
+
+  // ===== swipe-to-reply =====
+  function attachSwipeToReply(el, onTrigger) {
+    let startX=0,startY=0,dx=0,dy=0,active=false,ready=false,vibr=false;
+    const TH=38,CV=28,MAX=64;
+    function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=0; dy=0; active=true; ready=false; vibr=false; el.classList.add('is-swiping'); }
+    function onMove(e){ if(!active) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=Math.abs(t.clientY-startY);
+      if(dy>CV){ onEnd(); return; } if(dx>0){ const pull=Math.min(dx,MAX); el.style.transform=`translateX(${pull}px)`;
+        if(pull>TH && !ready){ el.classList.add('swipe-ready'); ready=true; if(!vibr && 'vibrate' in navigator){ navigator.vibrate(8); vibr=true; } }
+        if(pull<=TH && ready){ el.classList.remove('swipe-ready'); ready=false; } } }
+    function onEnd(){ if(!active) return; active=false; el.style.transform=''; el.classList.remove('is-swiping'); if(ready){ el.dataset.swipedAt=String(Date.now()); el.classList.remove('swipe-ready'); onTrigger&&onTrigger(); } }
+    el.addEventListener('touchstart', onStart, {passive:true});
+    el.addEventListener('touchmove', onMove, {passive:true});
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    let md=false; el.addEventListener('mousedown',(e)=>{ md=true; onStart(e); });
+    window.addEventListener('mousemove',(e)=>{ if(md) onMove(e); });
+    window.addEventListener('mouseup',()=>{ if(md){ md=false; onEnd(); } });
+  }
+
+  // ===== context menu + reactions =====
+  let ctx=null,onWinClick=null,onWinTouch=null;
+  function showContextMenu(x,y,m){
+    hideContextMenu();
+    ctx=document.createElement('div'); ctx.id='msgContextMenu';
+    Object.assign(ctx.style,{position:'fixed',left:Math.min(x,window.innerWidth-200)+'px',top:Math.min(y,window.innerHeight-180)+'px',
+      background:'#0e1522',border:'1px solid #223147',borderRadius:'10px',padding:'6px',zIndex:10000,minWidth:'160px',
+      boxShadow:'0 8px 24px rgba(0,0,0,.35)'});
+    ctx.addEventListener('click',e=>e.stopPropagation());
+    ctx.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+    const my = String(m.senderId||m.userId)===String(myId);
+    const mk=(label,fn)=>{ const b=document.createElement('button'); b.textContent=label; Object.assign(b.style,{
+        display:'block',width:'100%',background:'transparent',border:'0',color:'white',padding:'10px 12px',textAlign:'left',fontSize:'16px',cursor:'pointer'
+      }); b.onmousedown=(ev)=>ev.preventDefault(); b.onclick=(ev)=>{ fn(ev); hideContextMenu(); }; ctx.appendChild(b); };
+    mk('Ответить',()=>setReply(m));
+    mk('👍 Реакция',(ev)=>{ const r=ctx.getBoundingClientRect(); const ex=(ev&&ev.clientX)||(r.left+20); const ey=(ev&&ev.clientY)||(r.top+20); react(m,'👍',ex,ey); });
+    if(my){
+      mk('Редактировать',()=>{ const nt=prompt('Изменить сообщение', m.text||''); if(nt!=null) socket.emit('message:edit',{id:m._id,text:nt},ackHandler); });
+      mk('Удалить',()=>{ if(confirm('Удалить?')) socket.emit('message:delete',{id:m._id},ackHandler); });
     }
     document.body.appendChild(ctx);
-    onWinClick = (ev) => { if (!ctx.contains(ev.target)) hideContextMenu(); };
-    onWinTouch = (ev) => { if (!ctx.contains(ev.target)) hideContextMenu(); };
+    onWinClick=(ev)=>{ if(!ctx.contains(ev.target)) hideContextMenu(); };
+    onWinTouch=(ev)=>{ if(!ctx.contains(ev.target)) hideContextMenu(); };
     window.addEventListener('click', onWinClick);
-    window.addEventListener('touchstart', onWinTouch, { passive: true });
+    window.addEventListener('touchstart', onWinTouch, {passive:true});
   }
-  function hideContextMenu() {
-    if (ctx) { ctx.remove(); ctx = null; }
-    if (onWinClick) { window.removeEventListener('click', onWinClick); onWinClick = null; }
-    if (onWinTouch) { window.removeEventListener('touchstart', onWinTouch); onWinTouch = null; }
-  }
+  function hideContextMenu(){ if(ctx){ ctx.remove(); ctx=null; } if(onWinClick){ window.removeEventListener('click',onWinClick); onWinClick=null; } if(onWinTouch){ window.removeEventListener('touchstart',onWinTouch); onWinTouch=null; } }
+  function emojiBurst(x,y,emoji='👍'){ const b=document.createElement('div'); b.className='emoji-burst'; b.textContent=emoji; b.style.left=x+'px'; b.style.top=y+'px'; document.body.appendChild(b); b.addEventListener('animationend',()=>b.remove()); }
+  function react(m,emoji='👍',x,y){ socket.emit('message:react',{id:m._id,emoji},(ack)=>{ if(ack?.ok && typeof x==='number' && typeof y==='number') emojiBurst(x,y,emoji); if(!ack?.ok) ackHandler(ack); }); }
 
-  // «салют» из эмодзи
-  function emojiBurst(x, y, emoji='👍'){
-    const b = document.createElement('div');
-    b.className = 'emoji-burst';
-    b.textContent = emoji;
-    b.style.left = x + 'px';
-    b.style.top  = y + 'px';
-    document.body.appendChild(b);
-    b.addEventListener('animationend', () => b.remove());
-  }
-
-  function react(m, emoji='👍', x, y) {
-    socket.emit('message:react', { id: m._id, emoji }, (ack) => {
-      if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
-      if (!ack?.ok) ackHandler(ack);
-    });
-  }
-
-  // ===== keep keyboard open & close only on outside tap =====
-  if (els.sendBtn) {
-    els.sendBtn.setAttribute('tabindex', '-1');
-    els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
-  }
-  function maybeBlurOnOutsideTap(ev) {
-    if (!els.msgInput) return;
-    if (ev.target.closest('.composer')) return;
-    if (document.activeElement === els.msgInput) els.msgInput.blur();
-  }
-  document.addEventListener('click', maybeBlurOnOutsideTap);
-  document.addEventListener('touchend', maybeBlurOnOutsideTap, { passive: true });
-
-  // ===== jump helper =====
+  // ===== jump to message =====
   async function jumpToMessage(id) {
     if (!currentChat) { window.location.href = `chat.html?jump=${encodeURIComponent(id)}`; return; }
     try {
@@ -738,12 +329,7 @@
       let guard = 0;
       while (guard < 40) {
         const el = els.messages && els.messages.querySelector(`[data-id="${CSS.escape(id)}"]`);
-        if (el) {
-          el.classList.add('highlight');
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => el.classList.remove('highlight'), 1600);
-          return;
-        }
+        if (el) { el.classList.add('highlight'); el.scrollIntoView({ behavior:'smooth', block:'center' }); setTimeout(()=>el.classList.remove('highlight'),1600); return; }
         if (!messages.length) break;
         const firstTime = new Date(messages[0].createdAt).getTime();
         if (firstTime <= targetTime) break;
@@ -751,19 +337,14 @@
         guard++;
       }
       const el2 = els.messages && els.messages.querySelector(`[data-id="${CSS.escape(id)}"]`);
-      if (el2) {
-        el2.classList.add('highlight');
-        el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => el2.classList.remove('highlight'), 1600);
-        return;
-      }
+      if (el2) { el2.classList.add('highlight'); el2.scrollIntoView({ behavior:'smooth', block:'center' }); setTimeout(()=>el2.classList.remove('highlight'),1600); return; }
       window.location.href = `chat.html?jump=${encodeURIComponent(id)}`;
     } catch {
       window.location.href = `chat.html?jump=${encodeURIComponent(id)}`;
     }
   }
 
-  // ===== reply helpers =====
+  // ===== reply bar =====
   function setReply(m) {
     replyTo = m;
     if (els.replyBar) {
@@ -780,9 +361,7 @@
     if (!els.replyBar) return;
     els.replyBar.classList.remove('visible');
     setTimeout(() => {
-      if (!els.replyBar.classList.contains('visible')) {
-        els.replyBar.setAttribute('hidden', 'hidden');
-      }
+      if (!els.replyBar.classList.contains('visible')) els.replyBar.setAttribute('hidden', 'hidden');
       updateComposerPadding();
     }, 220);
   }
@@ -799,46 +378,6 @@
     };
   }
 
-  // ===== notifications =====
-  async function isReplyToMe(m) {
-    try {
-      if (!m?.replyTo) return false;
-      const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(m.replyTo)}`);
-      const repliedSenderId = meta?.senderId || meta?.userId || meta?.fromId;
-      return String(repliedSenderId) === String(myId) && String(m.senderId || m.userId) !== String(myId);
-    } catch { return false; }
-  }
-
-  function showReplyToast(m) {
-    navigator.vibrate?.(20);
-    if (document.hidden && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        const n = new Notification(`Ответ от ${m.senderName || 'user'}`, { body: (m.text || 'Вложение') });
-        n.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; n.close(); };
-      } else if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
-      }
-    }
-    let wrap = document.getElementById('replyToastWrap');
-    if (!wrap) {
-      wrap = document.createElement('div');
-      wrap.id = 'replyToastWrap';
-      wrap.style.position = 'fixed'; wrap.style.right = '12px'; wrap.style.top = '12px';
-      wrap.style.zIndex = '9999'; wrap.style.display = 'flex'; wrap.style.flexDirection = 'column'; wrap.style.gap = '8px';
-      document.body.appendChild(wrap);
-    }
-    const el = document.createElement('div');
-    el.style.background = '#0e1522'; el.style.color = '#e6eef7';
-    el.style.border = '1px solid #223147'; el.style.borderRadius = '12px';
-    el.style.padding = '10px 12px'; el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
-    el.style.maxWidth = '80vw'; el.style.cursor = 'pointer';
-    el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
-                    <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>`;
-    el.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; };
-    wrap.appendChild(el);
-    setTimeout(() => { el.classList?.add('toast-hide'); setTimeout(() => el.remove(), 220); }, 4800);
-  }
-
   // ===== socket =====
   const socket = io('/', { auth: { token: token } });
 
@@ -851,9 +390,7 @@
       maybeMarkRead([m]);
       return;
     }
-    if (await isReplyToMe(m)) showReplyToast(m);
   });
-
   socket.on('message:edited', ({ id, text, editedAt }) => {
     const m = messages.find((x) => String(x._id) === String(id));
     if (m) { m.text = text; m.editedAt = editedAt; renderMessages(); }
@@ -881,9 +418,24 @@
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => socket.emit('typing', { isTyping: false }), 1500);
   }
-
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
+  // кнопка «Отправить» не забирает фокус
+  if (els.sendBtn) {
+    els.sendBtn.setAttribute('tabindex', '-1');
+    els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+  }
+  // Закрываем клавиатуру только при тапе вне композера
+  function maybeBlurOnOutsideTap(ev) {
+    if (!els.msgInput) return;
+    if (ev.target.closest('.composer')) return;
+    if (document.activeElement === els.msgInput) els.msgInput.blur();
+  }
+  document.addEventListener('click', maybeBlurOnOutsideTap);
+  document.addEventListener('touchend', maybeBlurOnOutsideTap, { passive: true });
+
+  // отправка
   els.sendBtn && (els.sendBtn.onclick = send);
   els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -893,7 +445,7 @@
     if (!currentChat) return;
     const text = (els.msgInput.value || '').trim();
     if (!text && pendingAttachments.length === 0) return;
-    const payload = { text, attachments: pendingAttachments };
+    const payload = { chatId: currentChat._id, text, attachments: pendingAttachments };
     if (replyTo) payload.replyTo = replyTo._id;
     socket.emit('message:send', payload, (ack) => {
       if (ack?.ok) {
@@ -903,8 +455,8 @@
         clearReply();
         updateComposerPadding();
         requestAnimationFrame(() => {
-          els.msgInput && els.msgInput.focus();
-          try { els.msgInput && els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
+          els.msgInput.focus();
+          try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
         });
         setTimeout(scrollToBottom, 0);
       } else {
@@ -913,7 +465,7 @@
     });
   }
 
-  // ===== mark read =====
+  // прочитано
   function maybeMarkRead(newMsgs) {
     const ids = (newMsgs || messages)
       .filter((m) => String(m.senderId || m.userId) !== String(myId))
@@ -923,9 +475,32 @@
 
   // ===== init =====
   (async () => {
-    await loadChats();
+    if (!currentChat) {
+      // если зашли без chatId — на список чатов
+      location.href = 'chats.html';
+      return;
+    }
+    await loadHistory();
     updateComposerPadding();
-    if (jumpId) openChatByMessageId(jumpId);
+    if (jumpId) {
+      // подгрузка вокруг нужного сообщения
+      try {
+        const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
+        if (meta?.createdAt) {
+          const pivot = new Date(new Date(meta.createdAt).getTime() + 1).toISOString();
+          const q = new URLSearchParams({ chatId: currentChat._id, limit: 200, before: pivot });
+          const pack = await API('/messages?' + q.toString());
+          messages = pack; renderMessages();
+          const target = els.messages.querySelector(`[data-id="${CSS.escape(jumpId)}"]`);
+          if (target) {
+            target.scrollIntoView({ block: 'center' });
+            target.classList.add('highlight');
+            setTimeout(() => target.classList.remove('highlight'), 1500);
+          } else {
+            scrollToBottom();
+          }
+        }
+      } catch {}
+    }
   })();
-
 })();
