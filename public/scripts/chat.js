@@ -55,16 +55,9 @@
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
 
-    // ВАЖНО: это поле теперь используется ТОЛЬКО на экране списка чатов
-    search: document.getElementById('tgSearch'),
-
-    replyBar: document.getElementById('replyBar'),
-    replyText: document.getElementById('replyText'),
-    replyCancel: document.getElementById('replyCancel'),
-
+    // РАНЬШЕ: search на экране чата — убрали
     composer: document.querySelector('.composer'),
   };
-  if (!els.search) els.search = document.getElementById('searchInput'); // вдруг поле называется иначе на странице списка
 
   const urlParams = new URLSearchParams(location.search);
   const jumpId = urlParams.get('jump');
@@ -74,6 +67,7 @@
   let messages = [];
   let myId = null;
   let allChats = [];
+  let filteredChats = [];
   let loadingHistory = false;
   let atBottom = true;
   let typingTimeout = null;
@@ -86,7 +80,10 @@
   function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
   // ===== reply bar anim prep =====
-  if (els.replyBar) els.replyBar.classList.add('anim');
+  const replyBar = document.getElementById('replyBar');
+  const replyText = document.getElementById('replyText');
+  const replyCancel = document.getElementById('replyCancel');
+  if (replyBar) replyBar.classList.add('anim');
 
   // ===== layout switching =====
   function enterChatView() { document.documentElement.classList.add('show-chat'); }
@@ -96,7 +93,6 @@
     messages = [];
     els.messages && (els.messages.innerHTML = '');
     setHeader({ title: '', avatar: '' });
-    if (els.search) els.search.value = '';
     clearReply();
     updateComposerPadding();
   }
@@ -132,7 +128,32 @@
   // ===== profile =====
   apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(() => {});
 
-  // ===== chat list =====
+  // ===== chat list (UI & global search) =====
+  // Строка поиска над списком чатов (создаём, если нет)
+  let chatsSearchInput = document.getElementById('chatsSearch');
+  if (!chatsSearchInput && els.list) {
+    const host = document.createElement('div');
+    host.className = 'chats-search-host';
+    host.style.padding = '0 16px 12px';
+    host.style.marginTop = '-6px';
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.id = 'chatsSearch';
+    input.placeholder = 'Поиск по чатам';
+    input.autocomplete = 'off';
+    input.style.width = '100%';
+    input.style.border = '1px solid #223147';
+    input.style.background = '#0e1522';
+    input.style.color = '#e6eef7';
+    input.style.borderRadius = '12px';
+    input.style.padding = '12px 14px';
+    input.style.outline = 'none';
+    input.style.fontSize = '16px';
+    host.appendChild(input);
+    els.list.parentNode.insertBefore(host, els.list);
+    chatsSearchInput = input;
+  }
+
   function renderChatsPlaceholder(message, retry) {
     if (!els.list) return;
     els.list.innerHTML = '';
@@ -156,62 +177,62 @@
     els.list.appendChild(li);
   }
 
-  function avatarBlockHTML(title, avatarUrl) {
-    const letter = (title || 'A').trim()[0]?.toUpperCase() || 'A';
-    const has = !!(avatarUrl && avatarUrl.trim());
-    // img + fallback буква; onerror переключает на букву
-    return `
-      <div class="avatar">
-        <img class="avatar-img" src="${has ? avatarUrl : ''}" style="${has ? '' : 'display:none'}"
-             onerror="this.style.display='none'; if(this.nextElementSibling){ this.nextElementSibling.style.display='grid'; }"/>
-        <span class="avatar-letter"
-              style="display:${has ? 'none' : 'grid'}; place-items:center; width:40px; height:40px;
-                     border-radius:50%; background:#1f2a3d; color:#9ec1ff; font-weight:700; user-select:none;">
-          ${escapeHtml(letter)}
-        </span>
-        <span class="online" style="display:none"></span>
-      </div>`;
+  function normalizeAvatar(c){
+    return c.avatar || c.avatarUrl || c.chatAvatar || '';
   }
 
-  function renderChats(filter = '') {
-    if (!els.list) return allChats;
+  function renderChatList(list) {
+    if (!els.list) return;
     els.list.innerHTML = '';
-
-    const q = (filter || '').trim().toLowerCase();
-    const list = q
-      ? allChats.filter((c) =>
-          (c.title || '').toLowerCase().includes(q) ||
-          (c.lastMessage?.text || '').toLowerCase().includes(q) ||
-          (c.lastMessage?.senderName || '').toLowerCase().includes(q)
-        )
-      : allChats;
-
     if (!list.length) {
-      renderChatsPlaceholder(q ? 'Ничего не найдено' : 'Чатов пока нет', false);
-      return list;
+      renderChatsPlaceholder('Ничего не найдено', false);
+      return;
     }
-
     list.forEach((c) => {
+      const title = (c.title || 'Чат').trim();
       const li = document.createElement('li');
       li.className = 'chat-item';
-      const title = c.title || 'Чат';
+
       li.innerHTML = `
-        ${avatarBlockHTML(title, c.avatar || '')}
+        <div class="avatar">
+          <span class="letter"></span>
+          <img class="img" alt="" />
+          <span class="online" style="display:none"></span>
+        </div>
         <div class="cmeta">
           <div class="crow">
-            <div class="title">${escapeHtml(title)}</div>
-            <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
+            <div class="title"></div>
+            <div class="time"></div>
           </div>
-          <div class="cpreview">
-            ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
-            ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
-          </div>
+          <div class="cpreview"></div>
         </div>`;
+
+      // meta
+      li.querySelector('.title').textContent = title;
+      li.querySelector('.time').textContent = c.lastMessage ? timeShort(c.lastMessage.createdAt) : '';
+      li.querySelector('.cpreview').innerHTML =
+        (c.lastMessage
+          ? `${escapeHtml(c.lastMessage.senderName || 'user')}: ${escapeHtml(truncate(c.lastMessage.text || '', 60))}`
+          : 'Нет сообщений') + (c.unread ? ` <span class="badge">${c.unread}</span>` : '');
+
+      // avatar + fallback letter
+      const letterEl = li.querySelector('.letter');
+      const imgEl = li.querySelector('.img');
+      letterEl.textContent = (title[0] || 'C').toUpperCase();
+      letterEl.style.display = 'grid';
+      const src = normalizeAvatar(c);
+      if (src) {
+        imgEl.src = src;
+        imgEl.onload = () => { letterEl.style.display = 'none'; imgEl.style.display = 'block'; };
+        imgEl.onerror = () => { imgEl.style.display = 'none'; letterEl.style.display = 'grid'; };
+      } else {
+        imgEl.style.display = 'none';
+        letterEl.style.display = 'grid';
+      }
+
       li.onclick = () => openChat(c);
       els.list.appendChild(li);
     });
-
-    return list;
   }
 
   async function loadChats() {
@@ -219,7 +240,8 @@
       renderChatsPlaceholder('Загрузка…');
       const data = await API('/chats');
       allChats = Array.isArray(data) ? data : [];
-      renderChats('');
+      filteredChats = allChats.slice();
+      renderChatList(filteredChats);
       return allChats;
     } catch (e) {
       renderChatsPlaceholder('Не удалось загрузить список чатов', true);
@@ -227,21 +249,39 @@
     }
   }
 
+  // Глобальный поиск по чатам (локальный фильтр)
+  if (chatsSearchInput) {
+    let tmr;
+    chatsSearchInput.addEventListener('input', () => {
+      clearTimeout(tmr);
+      tmr = setTimeout(() => {
+        const q = (chatsSearchInput.value || '').trim().toLowerCase();
+        if (!q) {
+          filteredChats = allChats.slice();
+        } else {
+          filteredChats = allChats.filter((c) => {
+            const title = (c.title || '').toLowerCase();
+            const prev = ((c.lastMessage?.text) || '').toLowerCase();
+            const sender = ((c.lastMessage?.senderName) || '').toLowerCase();
+            return title.includes(q) || prev.includes(q) || sender.includes(q);
+          });
+        }
+        renderChatList(filteredChats);
+      }, 150);
+    });
+  }
+
   // ===== header =====
   function setHeader(chat) {
     const title = (chat?.title || '').trim() || 'Чат';
-    if (els.tgTitle) els.tgTitle.textContent = title;
-    if (els.tgSub) els.tgSub.textContent = '';
     const img = els.tgAvatarImg;
     const letter = els.tgAvatarLetter;
-    const firstChar = (title[0] || 'A').toUpperCase();
+    if (document.getElementById('tgTitle')) document.getElementById('tgTitle').textContent = title;
+    if (els.tgSub) els.tgSub.textContent = '';
     if (img && letter) {
-      if (chat?.avatar) {
-        img.src = chat.avatar; img.style.display = 'block'; letter.style.display = 'none';
-      } else {
-        img.src = ''; img.style.display = 'none';
-        letter.style.display = 'grid'; letter.textContent = firstChar;
-      }
+      const src = normalizeAvatar(chat);
+      if (src) { img.src = src; img.style.display = 'block'; letter.style.display = 'none'; }
+      else { img.src = ''; img.style.display = 'none'; letter.style.display = 'grid'; letter.textContent = (title[0] || 'A').toUpperCase(); }
     }
   }
 
@@ -294,7 +334,7 @@
     window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
   }
 
-  // ===== tap guard (не открывать меню при скролле / по цитате) =====
+  // ===== tap guard (скролл не открывает меню / клик по цитате проходит к jump) =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8;
     const MAX_TAP_MS = 400;
@@ -323,7 +363,6 @@
     function end(ev){
       if (multiTouch) return;
       if (ev.target && ev.target.closest('.reply')) return;
-
       move(ev);
       const dur = Date.now() - startT;
       if (moved || dur > MAX_TAP_MS) return;
@@ -511,13 +550,13 @@
       // ПК: контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
 
-      // Тап/клик — только по самому пузырю (цитату игнорим)
+      // Тап/клик — только по пузырю
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
 
       // свайп-вправо → ответ
       attachSwipeToReply(div, () => setReply(m));
 
-      // переход по цитате — с отменой всплытия
+      // переход по цитате
       const rEl = div.querySelector('.reply');
       if (rEl && rEl.dataset.replyId) {
         const go = (e) => {
@@ -611,7 +650,6 @@
     document.body.appendChild(b);
     b.addEventListener('animationend', () => b.remove());
   }
-
   function react(m, emoji='👍', x, y) {
     socket.emit('message:react', { id: m._id, emoji }, (ack) => {
       if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
@@ -621,15 +659,10 @@
 
   // ===== keep keyboard open & close only on outside tap =====
   if (els.sendBtn) {
-    els.sendBtn.setAttribute('type', 'button');
     els.sendBtn.setAttribute('tabindex', '-1');
     els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
-    const triggerSend = (e) => { e.preventDefault(); send(); };
-    els.sendBtn.addEventListener('click', triggerSend);
-    els.sendBtn.addEventListener('touchend', triggerSend, { passive: false });
   }
-
   function maybeBlurOnOutsideTap(ev) {
     if (!els.msgInput) return;
     if (ev.target.closest('.composer')) return;
@@ -675,30 +708,30 @@
   // ===== reply helpers =====
   function setReply(m) {
     replyTo = m;
-    if (els.replyBar) {
-      if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
-      els.replyBar.classList.add('anim');
-      requestAnimationFrame(() => els.replyBar.classList.add('visible'));
-      els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
+    if (replyBar) {
+      if (replyBar.hasAttribute('hidden')) replyBar.removeAttribute('hidden');
+      replyBar.classList.add('anim');
+      requestAnimationFrame(() => replyBar.classList.add('visible'));
+      if (replyText) replyText.textContent = (m.text || '(вложение)').slice(0, 140);
     }
-    els.msgInput && els.msgInput.focus();
+    if (els.msgInput) els.msgInput.focus();
     setTimeout(updateComposerPadding, 0);
   }
   function clearReply() {
     replyTo = null;
-    if (!els.replyBar) return;
-    els.replyBar.classList.remove('visible');
+    if (!replyBar) return;
+    replyBar.classList.remove('visible');
     setTimeout(() => {
-      if (!els.replyBar.classList.contains('visible')) {
-        els.replyBar.setAttribute('hidden', 'hidden');
+      if (!replyBar.classList.contains('visible')) {
+        replyBar.setAttribute('hidden', 'hidden');
       }
       updateComposerPadding();
     }, 220);
   }
-  els.replyCancel && (els.replyCancel.onclick = clearReply);
+  if (replyCancel) replyCancel.onclick = clearReply;
 
   // ===== attachments =====
-  els.attachBtn && (els.attachBtn.onclick = () => els.fileInput.click());
+  if (els.attachBtn) els.attachBtn.onclick = () => els.fileInput && els.fileInput.click();
   if (els.fileInput) {
     els.fileInput.onchange = async () => {
       const fd = new FormData();
@@ -738,7 +771,7 @@
     }
     const el = document.createElement('div');
     el.style.background = '#0e1522'; el.style.color = '#e6eef7';
-    el.style.border = '1px solid #223147'; el.style.borderRadius = '12px';
+    el.style.border = '1px solid '#223147'; el.style.borderRadius = '12px';
     el.style.padding = '10px 12px'; el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
     el.style.maxWidth = '80vw'; el.style.cursor = 'pointer';
     el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
@@ -793,12 +826,11 @@
 
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  // отправка
-  if (els.msgInput) {
-    els.msgInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-    });
-  }
+  if (els.sendBtn) els.sendBtn.onclick = send;
+  if (els.msgInput) els.msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
   function send() {
     if (!currentChat) return;
     const text = (els.msgInput.value || '').trim();
@@ -812,10 +844,12 @@
         pendingAttachments = [];
         clearReply();
         updateComposerPadding();
+
         requestAnimationFrame(() => {
           els.msgInput.focus();
           try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
         });
+
         setTimeout(scrollToBottom, 0);
       } else {
         alert(ack?.error || 'Не отправлено');
@@ -829,18 +863,6 @@
       .filter((m) => String(m.senderId || m.userId) !== String(myId))
       .map((m) => m._id);
     if (ids.length) socket.emit('message:read', { ids }, () => {});
-  }
-
-  // ===== SEARCH теперь ТОЛЬКО ПО СПИСКУ ЧАТОВ =====
-  let searchTimer;
-  if (els.search) {
-    els.search.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        const q = els.search.value || '';
-        renderChats(q);
-      }, 200);
-    });
   }
 
   // ===== init =====
