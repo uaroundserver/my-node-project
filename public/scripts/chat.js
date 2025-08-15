@@ -1,3 +1,4 @@
+// public/scripts/chat.js
 (function () {
   // ===== helpers =====
   function buildHeaders(opts = {}) {
@@ -24,7 +25,7 @@
       throw e;
     }
   }
-  const API = (path, opts = {}) => apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
+  const API     = (path, opts = {}) => apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
   const API_ABS = (path, opts = {}) => apiFetch(path, opts);
 
   // ===== auth =====
@@ -67,7 +68,6 @@
 
   // ===== utils =====
   const escapeHtml = (s) => (s || '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const truncate = (s, n) => (s || '').length > n ? s.slice(0, n - 1) + '…' : s;
   const timeShort = (t) => { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
 
   // ===== header =====
@@ -88,6 +88,15 @@
         els.tgAvatarLetter.style.display = 'grid';
       }
     }
+  }
+
+  // back button → список чатов (если нет истории назад)
+  if (els.tgBack) {
+    els.tgBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (history.length > 1) history.back();
+      else location.href = 'chats.html';
+    });
   }
 
   // ===== padding fix =====
@@ -141,6 +150,8 @@
       messages = before ? history.concat(messages) : history;
       renderMessages();
       updateComposerPadding();
+      // помечаем входящие как прочитанные после рендера
+      maybeMarkRead(messages);
     } finally {
       loadingHistory = false;
     }
@@ -160,6 +171,8 @@
       const isMine = String(m.senderId || m.userId) === String(myId);
       div.className = 'msg ' + (isMine ? 'mine' : 'their') + (m._justAdded ? ' msg--new' : '');
       div.dataset.id = m._id;
+      // важно для iOS: разрешаем горизонтальный жест внутри сообщения
+      div.style.touchAction = 'pan-y';
 
       // reply preview
       let replyHtml = '';
@@ -271,20 +284,57 @@
     });
   }
 
-  // ===== swipe-to-reply =====
+  // ===== swipe-to-reply (iOS-friendly) =====
   function attachSwipeToReply(el, onTrigger) {
-    let startX=0,startY=0,dx=0,dy=0,active=false,ready=false,vibr=false;
-    const TH=38,CV=28,MAX=64;
-    function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=0; dy=0; active=true; ready=false; vibr=false; el.classList.add('is-swiping'); }
-    function onMove(e){ if(!active) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=Math.abs(t.clientY-startY);
-      if(dy>CV){ onEnd(); return; } if(dx>0){ const pull=Math.min(dx,MAX); el.style.transform=`translateX(${pull}px)`;
-        if(pull>TH && !ready){ el.classList.add('swipe-ready'); ready=true; if(!vibr && 'vibrate' in navigator){ navigator.vibrate(8); vibr=true; } }
-        if(pull<=TH && ready){ el.classList.remove('swipe-ready'); ready=false; } } }
-    function onEnd(){ if(!active) return; active=false; el.style.transform=''; el.classList.remove('is-swiping'); if(ready){ el.dataset.swipedAt=String(Date.now()); el.classList.remove('swipe-ready'); onTrigger&&onTrigger(); } }
+    let startX=0,startY=0,dx=0,dy=0,active=false,ready=false,vibr=false,lockedAxis=null;
+    const TH=38, CV=28, MAX=64;
+
+    function onStart(e){
+      const t=e.touches?e.touches[0]:e;
+      startX=t.clientX; startY=t.clientY; dx=0; dy=0;
+      active=true; ready=false; vibr=false; lockedAxis=null;
+      el.classList.add('is-swiping');
+    }
+    function onMove(e){
+      if(!active) return;
+      const t=e.touches?e.touches[0]:e;
+      dx = t.clientX - startX;
+      dy = t.clientY - startY;
+
+      // Определяем ось жеста
+      if(!lockedAxis){
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) lockedAxis = 'x';
+        else if (Math.abs(dy) > 10) lockedAxis = 'y';
+      }
+      // Если горизонтальная — предотвращаем скролл страницы
+      if (lockedAxis === 'x') e.preventDefault();
+
+      if (Math.abs(dy) > CV && lockedAxis !== 'x'){ onEnd(); return; }
+
+      if (dx > 0){
+        const pull = Math.min(dx, MAX);
+        el.style.transform = `translateX(${pull}px)`;
+        if (pull > TH && !ready){
+          el.classList.add('swipe-ready'); ready = true;
+          if (!vibr && 'vibrate' in navigator){ navigator.vibrate(8); vibr = true; }
+        }
+        if (pull <= TH && ready){ el.classList.remove('swipe-ready'); ready = false; }
+      }
+    }
+    function onEnd(){
+      if(!active) return;
+      active=false; lockedAxis=null;
+      el.style.transform=''; el.classList.remove('is-swiping');
+      if(ready){ el.dataset.swipedAt=String(Date.now()); el.classList.remove('swipe-ready'); onTrigger&&onTrigger(); }
+    }
+
     el.addEventListener('touchstart', onStart, {passive:true});
-    el.addEventListener('touchmove', onMove, {passive:true});
+    // ВАЖНО: passive:false чтобы работал e.preventDefault() на iOS
+    el.addEventListener('touchmove', onMove, {passive:false});
     el.addEventListener('touchend', onEnd);
     el.addEventListener('touchcancel', onEnd);
+
+    // desktop drag
     let md=false; el.addEventListener('mousedown',(e)=>{ md=true; onStart(e); });
     window.addEventListener('mousemove',(e)=>{ if(md) onMove(e); });
     window.addEventListener('mouseup',()=>{ if(md){ md=false; onEnd(); } });
@@ -476,14 +526,12 @@
   // ===== init =====
   (async () => {
     if (!currentChat) {
-      // если зашли без chatId — на список чатов
       location.href = 'chats.html';
       return;
     }
     await loadHistory();
     updateComposerPadding();
     if (jumpId) {
-      // подгрузка вокруг нужного сообщения
       try {
         const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(jumpId)}`);
         if (meta?.createdAt) {
