@@ -591,16 +591,23 @@
   }
 
   // ===== keep keyboard open & close only on outside tap =====
-  // 1) кнопка "Отправить" не забирает фокус (iOS)
   if (els.sendBtn) {
+    // кнопка не забирает фокус и не триггерит скрытие клавиатуры
+    els.sendBtn.setAttribute('type', 'button');
     els.sendBtn.setAttribute('tabindex', '-1');
     els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+
+    // надёжная отправка для desktop и iOS
+    const triggerSend = (e) => { e.preventDefault(); send(); };
+    els.sendBtn.addEventListener('click', triggerSend);
+    els.sendBtn.addEventListener('touchend', triggerSend, { passive: false });
   }
-  // 2) закрывать клавиатуру только при тапе вне композера
+
+  // закрывать клавиатуру только при тапе вне композера
   function maybeBlurOnOutsideTap(ev) {
     if (!els.msgInput) return;
-    if (ev.target.closest('.composer')) return; // внутри композера — не закрываем
+    if (ev.target.closest('.composer')) return;
     if (document.activeElement === els.msgInput) els.msgInput.blur();
   }
   document.addEventListener('click', maybeBlurOnOutsideTap);
@@ -761,7 +768,8 @@
 
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  els.sendBtn && (els.sendBtn.onclick = send);
+  // НЕ навешиваем els.sendBtn.onclick = send; — используем click/touchend выше
+
   els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
