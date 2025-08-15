@@ -590,6 +590,22 @@
     });
   }
 
+  // ===== keep keyboard open & close only on outside tap =====
+  // 1) кнопка "Отправить" не забирает фокус (iOS)
+  if (els.sendBtn) {
+    els.sendBtn.setAttribute('tabindex', '-1');
+    els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+  }
+  // 2) закрывать клавиатуру только при тапе вне композера
+  function maybeBlurOnOutsideTap(ev) {
+    if (!els.msgInput) return;
+    if (ev.target.closest('.composer')) return; // внутри композера — не закрываем
+    if (document.activeElement === els.msgInput) els.msgInput.blur();
+  }
+  document.addEventListener('click', maybeBlurOnOutsideTap);
+  document.addEventListener('touchend', maybeBlurOnOutsideTap, { passive: true });
+
   // ===== jump helper =====
   async function jumpToMessage(id) {
     if (!currentChat) { window.location.href = `chat.html?jump=${encodeURIComponent(id)}`; return; }
@@ -763,6 +779,13 @@
         pendingAttachments = [];
         clearReply();
         updateComposerPadding();
+
+        // держим клавиатуру открытой: сразу вернуть фокус
+        requestAnimationFrame(() => {
+          els.msgInput.focus();
+          try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
+        });
+
         setTimeout(scrollToBottom, 0);
       } else {
         alert(ack?.error || 'Не отправлено');
