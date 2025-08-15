@@ -55,6 +55,7 @@
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
 
+    // ВАЖНО: это поле теперь используется ТОЛЬКО на экране списка чатов
     search: document.getElementById('tgSearch'),
 
     replyBar: document.getElementById('replyBar'),
@@ -63,7 +64,7 @@
 
     composer: document.querySelector('.composer'),
   };
-  if (!els.search) els.search = document.getElementById('searchInput');
+  if (!els.search) els.search = document.getElementById('searchInput'); // вдруг поле называется иначе на странице списка
 
   const urlParams = new URLSearchParams(location.search);
   const jumpId = urlParams.get('jump');
@@ -155,40 +156,70 @@
     els.list.appendChild(li);
   }
 
+  function avatarBlockHTML(title, avatarUrl) {
+    const letter = (title || 'A').trim()[0]?.toUpperCase() || 'A';
+    const has = !!(avatarUrl && avatarUrl.trim());
+    // img + fallback буква; onerror переключает на букву
+    return `
+      <div class="avatar">
+        <img class="avatar-img" src="${has ? avatarUrl : ''}" style="${has ? '' : 'display:none'}"
+             onerror="this.style.display='none'; if(this.nextElementSibling){ this.nextElementSibling.style.display='grid'; }"/>
+        <span class="avatar-letter"
+              style="display:${has ? 'none' : 'grid'}; place-items:center; width:40px; height:40px;
+                     border-radius:50%; background:#1f2a3d; color:#9ec1ff; font-weight:700; user-select:none;">
+          ${escapeHtml(letter)}
+        </span>
+        <span class="online" style="display:none"></span>
+      </div>`;
+  }
+
+  function renderChats(filter = '') {
+    if (!els.list) return allChats;
+    els.list.innerHTML = '';
+
+    const q = (filter || '').trim().toLowerCase();
+    const list = q
+      ? allChats.filter((c) =>
+          (c.title || '').toLowerCase().includes(q) ||
+          (c.lastMessage?.text || '').toLowerCase().includes(q) ||
+          (c.lastMessage?.senderName || '').toLowerCase().includes(q)
+        )
+      : allChats;
+
+    if (!list.length) {
+      renderChatsPlaceholder(q ? 'Ничего не найдено' : 'Чатов пока нет', false);
+      return list;
+    }
+
+    list.forEach((c) => {
+      const li = document.createElement('li');
+      li.className = 'chat-item';
+      const title = c.title || 'Чат';
+      li.innerHTML = `
+        ${avatarBlockHTML(title, c.avatar || '')}
+        <div class="cmeta">
+          <div class="crow">
+            <div class="title">${escapeHtml(title)}</div>
+            <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
+          </div>
+          <div class="cpreview">
+            ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
+            ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
+          </div>
+        </div>`;
+      li.onclick = () => openChat(c);
+      els.list.appendChild(li);
+    });
+
+    return list;
+  }
+
   async function loadChats() {
     try {
       renderChatsPlaceholder('Загрузка…');
       const data = await API('/chats');
       allChats = Array.isArray(data) ? data : [];
-      if (!els.list) return allChats;
-
-      els.list.innerHTML = '';
-      if (!allChats.length) {
-        renderChatsPlaceholder('Чатов пока нет', false);
-        return allChats;
-      }
-
-      allChats.forEach((c) => {
-        const li = document.createElement('li');
-        li.className = 'chat-item';
-        li.innerHTML = `
-          <div class="avatar">
-            <img src="${c.avatar || ''}" onerror="this.style.display='none'"/>
-            <span class="online" style="display:none"></span>
-          </div>
-          <div class="cmeta">
-            <div class="crow">
-              <div class="title">${escapeHtml(c.title || 'Чат')}</div>
-              <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
-            </div>
-            <div class="cpreview">
-              ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
-              ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
-            </div>
-          </div>`;
-        li.onclick = () => openChat(c);
-        els.list.appendChild(li);
-      });
+      renderChats('');
       return allChats;
     } catch (e) {
       renderChatsPlaceholder('Не удалось загрузить список чатов', true);
@@ -275,7 +306,6 @@
       return { x: ev.clientX, y: ev.clientY };
     }
     function start(ev){
-      // не открываем меню, если кликнули по ссылкам/инпутам/ЦИТАТЕ
       if (ev.target.closest('a, button, input, textarea, .reply')) return;
       const p = getXY(ev);
       startX = p.x; startY = p.y; startT = Date.now();
@@ -292,7 +322,6 @@
     }
     function end(ev){
       if (multiTouch) return;
-      // если палец отпустили над цитатой — это не «тап по пузырю»
       if (ev.target && ev.target.closest('.reply')) return;
 
       move(ev);
@@ -592,19 +621,15 @@
 
   // ===== keep keyboard open & close only on outside tap =====
   if (els.sendBtn) {
-    // кнопка не забирает фокус и не триггерит скрытие клавиатуры
     els.sendBtn.setAttribute('type', 'button');
     els.sendBtn.setAttribute('tabindex', '-1');
     els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
-
-    // надёжная отправка для desktop и iOS
     const triggerSend = (e) => { e.preventDefault(); send(); };
     els.sendBtn.addEventListener('click', triggerSend);
     els.sendBtn.addEventListener('touchend', triggerSend, { passive: false });
   }
 
-  // закрывать клавиатуру только при тапе вне композера
   function maybeBlurOnOutsideTap(ev) {
     if (!els.msgInput) return;
     if (ev.target.closest('.composer')) return;
@@ -768,12 +793,12 @@
 
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  // НЕ навешиваем els.sendBtn.onclick = send; — используем click/touchend выше
-
-  els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-  });
-
+  // отправка
+  if (els.msgInput) {
+    els.msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+  }
   function send() {
     if (!currentChat) return;
     const text = (els.msgInput.value || '').trim();
@@ -787,13 +812,10 @@
         pendingAttachments = [];
         clearReply();
         updateComposerPadding();
-
-        // держим клавиатуру открытой: сразу вернуть фокус
         requestAnimationFrame(() => {
           els.msgInput.focus();
           try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
         });
-
         setTimeout(scrollToBottom, 0);
       } else {
         alert(ack?.error || 'Не отправлено');
@@ -809,23 +831,15 @@
     if (ids.length) socket.emit('message:read', { ids }, () => {});
   }
 
-  // ===== search =====
+  // ===== SEARCH теперь ТОЛЬКО ПО СПИСКУ ЧАТОВ =====
   let searchTimer;
   if (els.search) {
     els.search.addEventListener('input', () => {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(async () => {
-        if (!currentChat) return;
-        const q = els.search.value.trim();
-        if (!q) {
-          messages = await API('/messages?' + new URLSearchParams({ chatId: currentChat._id, limit: 30 }));
-          renderMessages();
-          return;
-        }
-        const list = await API(`/search?chatId=${currentChat._id}&q=${encodeURIComponent(q)}`);
-        messages = list;
-        renderMessages();
-      }, 300);
+      searchTimer = setTimeout(() => {
+        const q = els.search.value || '';
+        renderChats(q);
+      }, 200);
     });
   }
 
