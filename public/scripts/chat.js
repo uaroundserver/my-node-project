@@ -55,7 +55,6 @@
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
 
-    // РАНЬШЕ: search на экране чата — убрали
     composer: document.querySelector('.composer'),
   };
 
@@ -79,7 +78,7 @@
   function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
   function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
-  // ===== reply bar anim prep =====
+  // ===== reply bar refs =====
   const replyBar = document.getElementById('replyBar');
   const replyText = document.getElementById('replyText');
   const replyCancel = document.getElementById('replyCancel');
@@ -129,7 +128,7 @@
   apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(() => {});
 
   // ===== chat list (UI & global search) =====
-  // Строка поиска над списком чатов (создаём, если нет)
+  // Вставляем поле поиска над списком чатов, если его нет
   let chatsSearchInput = document.getElementById('chatsSearch');
   if (!chatsSearchInput && els.list) {
     const host = document.createElement('div');
@@ -150,7 +149,7 @@
     input.style.outline = 'none';
     input.style.fontSize = '16px';
     host.appendChild(input);
-    els.list.parentNode.insertBefore(host, els.list);
+    els.list.parentNode && els.list.parentNode.insertBefore(host, els.list);
     chatsSearchInput = input;
   }
 
@@ -196,7 +195,7 @@
       li.innerHTML = `
         <div class="avatar">
           <span class="letter"></span>
-          <img class="img" alt="" />
+          <img class="img" alt="" style="display:none"/>
           <span class="online" style="display:none"></span>
         </div>
         <div class="cmeta">
@@ -249,7 +248,7 @@
     }
   }
 
-  // Глобальный поиск по чатам (локальный фильтр)
+  // Глобальный поиск по чатам (локально по названию и предпросмотру)
   if (chatsSearchInput) {
     let tmr;
     chatsSearchInput.addEventListener('input', () => {
@@ -276,7 +275,7 @@
     const title = (chat?.title || '').trim() || 'Чат';
     const img = els.tgAvatarImg;
     const letter = els.tgAvatarLetter;
-    if (document.getElementById('tgTitle')) document.getElementById('tgTitle').textContent = title;
+    if (els.tgTitle) els.tgTitle.textContent = title;
     if (els.tgSub) els.tgSub.textContent = '';
     if (img && letter) {
       const src = normalizeAvatar(chat);
@@ -334,7 +333,7 @@
     window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
   }
 
-  // ===== tap guard (скролл не открывает меню / клик по цитате проходит к jump) =====
+  // ===== tap guard =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8;
     const MAX_TAP_MS = 400;
@@ -714,7 +713,7 @@
       requestAnimationFrame(() => replyBar.classList.add('visible'));
       if (replyText) replyText.textContent = (m.text || '(вложение)').slice(0, 140);
     }
-    if (els.msgInput) els.msgInput.focus();
+    els.msgInput && els.msgInput.focus();
     setTimeout(updateComposerPadding, 0);
   }
   function clearReply() {
@@ -770,10 +769,14 @@
       document.body.appendChild(wrap);
     }
     const el = document.createElement('div');
-    el.style.background = '#0e1522'; el.style.color = '#e6eef7';
-    el.style.border = '1px solid '#223147'; el.style.borderRadius = '12px';
-    el.style.padding = '10px 12px'; el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
-    el.style.maxWidth = '80vw'; el.style.cursor = 'pointer';
+    el.style.background = '#0e1522';
+    el.style.color = '#e6eef7';
+    el.style.border = '1px solid #223147'; // <-- фикс
+    el.style.borderRadius = '12px';
+    el.style.padding = '10px 12px';
+    el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
+    el.style.maxWidth = '80vw';
+    el.style.cursor = 'pointer';
     el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
                     <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>`;
     el.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; };
@@ -845,6 +848,7 @@
         clearReply();
         updateComposerPadding();
 
+        // держим клавиатуру открытой
         requestAnimationFrame(() => {
           els.msgInput.focus();
           try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
