@@ -69,8 +69,38 @@
 
   // ===== utils =====
   const escapeHtml = (s) => (s || '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const truncate = (s, n) => (s || '').length > n ? s.slice(0, n - 1) + '…' : s;
   const timeShort = (t) => { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+
+  // ===== force minimal layout CSS (фиксация выравнивания и чипа-ответа) =====
+  (function injectCSS() {
+    if (document.getElementById('chat-runtime-css')) return;
+    const st = document.createElement('style');
+    st.id = 'chat-runtime-css';
+    st.textContent = `
+      #messageList{ display:flex; flex-direction:column; gap:12px; }
+      .msg{ max-width:78vw; }
+      .msg.mine{ margin-left:auto; }   /* мои справа */
+      .msg.their{ margin-right:auto; } /* их слева */
+
+      #tgHeader{ position:sticky; top:0; z-index:50; }
+
+      .composer{ display:flex; flex-direction:column; gap:8px; }
+      .composer-row{ display:flex; align-items:center; gap:10px; }
+      textarea#msgInput{ flex:1 1 auto; min-height:40px; resize:none; }
+      #sendBtn{ flex:0 0 auto; }
+      #attachBtn{ flex:0 0 auto; }
+
+      /* чип ответа */
+      #replyBar{ display:none; align-items:center; gap:8px; border-radius:12px; padding:6px 10px; }
+      #replyBar.visible{ display:flex; }
+      #replyText{ flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      #replyCancel{ flex:0 0 auto; }
+
+      /* чтобы чип не перекрывал ввод на маленькой высоте */
+      .composer.with-reply .composer-row{ margin-top:0; }
+    `;
+    document.head.appendChild(st);
+  })();
 
   // ===== header =====
   function setHeader(chat) {
@@ -92,53 +122,20 @@
     }
   }
 
-  // ===== sticky header (как раньше) — добавим минимальные стили, если вдруг нет в css =====
-  (function ensureStickyHeader(){
-    if (!els.tgHeader) return;
-    if (!document.getElementById('chat-sticky-css')) {
-      const st = document.createElement('style');
-      st.id = 'chat-sticky-css';
-      st.textContent = `
-        #tgHeader{ position:sticky; top:0; z-index:50; }
-      `;
-      document.head.appendChild(st);
-    }
-  })();
-
-  // ===== composer layout — replyBar сверху, строка ввода снизу (как раньше) =====
+  // ===== make replyBar the first item in composer =====
   setupComposerLayout();
   function setupComposerLayout() {
     if (!els.composer) return;
-
-    if (!document.getElementById('chat-composer-fix-css')) {
-      const st = document.createElement('style');
-      st.id = 'chat-composer-fix-css';
-      st.textContent = `
-        .composer{ display:flex; flex-direction:column; gap:8px; }
-        .composer .composer-row{ display:flex; align-items:center; gap:10px; }
-        #replyBar{ width:100%; }
-        #replyBar .reply-text, #replyText{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
-        .composer.with-reply #replyBar{ display:block; }
-      `;
-      document.head.appendChild(st);
+    if (els.replyBar && els.composer.firstChild !== els.replyBar) {
+      els.composer.insertBefore(els.replyBar, els.composer.firstChild);
     }
-
-    // Поместим replyBar первым ребёнком композера
-    if (els.replyBar) {
-      if (!els.composer.contains(els.replyBar)) {
-        els.composer.insertBefore(els.replyBar, els.composer.firstChild);
-      } else if (els.composer.firstChild !== els.replyBar) {
-        els.composer.insertBefore(els.replyBar, els.composer.firstChild);
-      }
-    }
-
-    // Остальные элементы — в один горизонтальный ряд
+    // обернём остальные элементы в один ряд (если ещё не)
     let row = els.composer.querySelector('.composer-row');
     if (!row) {
       row = document.createElement('div');
       row.className = 'composer-row';
-      const toMove = Array.from(els.composer.children).filter(n => n !== els.replyBar);
-      toMove.forEach(n => row.appendChild(n));
+      const rest = Array.from(els.composer.children).filter(n => n !== els.replyBar);
+      rest.forEach(n => row.appendChild(n));
       els.composer.appendChild(row);
     }
   }
@@ -214,8 +211,9 @@
 
       // reply preview
       let replyHtml = '';
-      function renderReplyPreview(src) {
-        if (!src) return '';
+      (function buildReply(){
+        const src = m.reply || messages.find((x) => String(x._id) === String(m.replyTo));
+        if (!src) return;
         const who = String(src.senderId || src.userId) === String(myId) ? 'Вы' : (src.senderName || 'user');
         const hasAtt = src.attachments && src.attachments.length;
         const file = hasAtt ? src.attachments[0] : null;
@@ -230,14 +228,10 @@
         const snipText = (src.text && src.text.trim())
           ? escapeHtml(src.text.trim())
           : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(вложение)') : '');
-        const nested = src.reply ? `<span class="reply-nested">${renderReplyPreview(src.reply)}</span>` : '';
-        const ava = src.senderAvatar ? `<img src="${src.senderAvatar}" class="reply-ava" />` : '';
-        return `${ava}<b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}${nested}`;
-      }
-      {
-        const src = m.reply || messages.find((x) => String(x._id) === String(m.replyTo));
-        if (src) replyHtml = `<div class="reply" data-reply-id="${src._id}">${renderReplyPreview(src)}</div>`;
-      }
+        replyHtml = `<div class="reply" data-reply-id="${src._id}">
+                        <b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}
+                     </div>`;
+      })();
 
       // attachments
       const attachHtml = (m.attachments || [])
@@ -406,8 +400,7 @@
     if (els.replyBar) {
       els.composer && els.composer.classList.add('with-reply');
       if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
-      els.replyBar.classList.add('anim');
-      requestAnimationFrame(() => els.replyBar.classList.add('visible'));
+      els.replyBar.classList.add('visible');
       els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
     scrollToBottom();
@@ -418,13 +411,9 @@
     replyTo = null;
     if (!els.replyBar) return;
     els.replyBar.classList.remove('visible');
-    setTimeout(() => {
-      if (!els.replyBar.classList.contains('visible')) {
-        els.replyBar.setAttribute('hidden', 'hidden');
-        els.composer && els.composer.classList.remove('with-reply');
-      }
-      updateComposerPadding();
-    }, 220);
+    els.replyBar.setAttribute('hidden', 'hidden');
+    els.composer && els.composer.classList.remove('with-reply');
+    updateComposerPadding();
   }
   els.replyCancel && (els.replyCancel.onclick = clearReply);
 
