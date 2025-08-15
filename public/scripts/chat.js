@@ -16,7 +16,11 @@
       const isJSON = ct.includes('application/json');
       const payload = isJSON ? await res.json().catch(() => null) : await res.text().catch(() => '');
       if (!res.ok) {
-        const msg = (payload && payload.error) || (typeof payload === 'string' && payload) || res.statusText || 'Request failed';
+        const msg =
+          (payload && payload.error) ||
+          (typeof payload === 'string' && payload) ||
+          res.statusText ||
+          'Request failed';
         const err = new Error(msg);
         err.status = res.status;
         err.payload = payload;
@@ -33,12 +37,16 @@
     }
   }
 
-  const API = (path, opts = {}) => apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
+  const API = (path, opts = {}) =>
+    apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
   const API_ABS = (path, opts = {}) => apiFetch(path, opts);
 
   // ===== auth guard =====
   const token = localStorage.getItem('userToken');
-  if (!token) { location.href = 'login.html'; return; }
+  if (!token) {
+    location.href = 'login.html';
+    return;
+  }
 
   // ===== elements =====
   const els = {
@@ -55,6 +63,13 @@
     tgAvatarImg: document.getElementById('tgAvatarImg'),
     tgAvatarLetter: document.getElementById('tgAvatarLetter'),
 
+    // ВНУТРИ ЧАТА поиск больше не используем — оставляем null
+    search: null,
+
+    replyBar: document.getElementById('replyBar'),
+    replyText: document.getElementById('replyText'),
+    replyCancel: document.getElementById('replyCancel'),
+
     composer: document.querySelector('.composer'),
   };
 
@@ -66,26 +81,36 @@
   let messages = [];
   let myId = null;
   let allChats = [];
-  let filteredChats = [];
   let loadingHistory = false;
   let atBottom = true;
   let typingTimeout = null;
   let replyTo = null;
   let pendingAttachments = [];
+  let chatSearchInput = null; // поле глобального поиска по чатам
 
   // ===== small helpers =====
-  function escapeHtml(s) { return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
-  function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
-  function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  function escapeHtml(s) {
+    return (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  function truncate(s, n) {
+    return (s || '').length > n ? s.slice(0, n - 1) + '…' : s;
+  }
+  function timeShort(t) {
+    const d = new Date(t);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function firstLetter(title) {
+    const ch = (title || '').trim()[0] || '•';
+    return ch.toUpperCase();
+  }
 
-  // ===== reply bar refs =====
-  const replyBar = document.getElementById('replyBar');
-  const replyText = document.getElementById('replyText');
-  const replyCancel = document.getElementById('replyCancel');
-  if (replyBar) replyBar.classList.add('anim');
+  // ===== reply bar anim prep =====
+  if (els.replyBar) els.replyBar.classList.add('anim');
 
   // ===== layout switching =====
-  function enterChatView() { document.documentElement.classList.add('show-chat'); }
+  function enterChatView() {
+    document.documentElement.classList.add('show-chat');
+  }
   function leaveChatView() {
     document.documentElement.classList.remove('show-chat');
     currentChat = null;
@@ -127,32 +152,7 @@
   // ===== profile =====
   apiFetch('/api/user/profile').then((u) => { myId = u._id || u.id; }).catch(() => {});
 
-  // ===== chat list (UI & global search) =====
-  // Вставляем поле поиска над списком чатов, если его нет
-  let chatsSearchInput = document.getElementById('chatsSearch');
-  if (!chatsSearchInput && els.list) {
-    const host = document.createElement('div');
-    host.className = 'chats-search-host';
-    host.style.padding = '0 16px 12px';
-    host.style.marginTop = '-6px';
-    const input = document.createElement('input');
-    input.type = 'search';
-    input.id = 'chatsSearch';
-    input.placeholder = 'Поиск по чатам';
-    input.autocomplete = 'off';
-    input.style.width = '100%';
-    input.style.border = '1px solid #223147';
-    input.style.background = '#0e1522';
-    input.style.color = '#e6eef7';
-    input.style.borderRadius = '12px';
-    input.style.padding = '12px 14px';
-    input.style.outline = 'none';
-    input.style.fontSize = '16px';
-    host.appendChild(input);
-    els.list.parentNode && els.list.parentNode.insertBefore(host, els.list);
-    chatsSearchInput = input;
-  }
-
+  // ===== chat list =====
   function renderChatsPlaceholder(message, retry) {
     if (!els.list) return;
     els.list.innerHTML = '';
@@ -176,59 +176,128 @@
     els.list.appendChild(li);
   }
 
-  function normalizeAvatar(c){
-    return c.avatar || c.avatarUrl || c.chatAvatar || '';
+  // Создаем красивый инпут поиска над списком чатов
+  function ensureChatSearch() {
+    if (!els.list || chatSearchInput) return;
+    const wrap = document.createElement('div');
+    wrap.style.padding = '12px 16px 6px';
+    wrap.style.position = 'sticky';
+    wrap.style.top = '0';
+    wrap.style.background = 'var(--page-bg, #0b1220)'; // чтобы не липнуть к заголовку
+    wrap.style.zIndex = '3';
+
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.placeholder = 'Поиск по чатам';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.padding = '10px 14px';
+    input.style.borderRadius = '12px';
+    input.style.border = '1px solid #223147';
+    input.style.background = '#0e1522';
+    input.style.color = '#e6eef7';
+    input.style.fontSize = '16px';
+    input.id = 'chatSearchGlobal';
+
+    // вставить перед списком
+    els.list.parentNode.insertBefore(wrap, els.list);
+    wrap.appendChild(input);
+    chatSearchInput = input;
+
+    let timer;
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => applyChatFilter(input.value.trim().toLowerCase()), 150);
+    });
+  }
+
+  function getAvatarUrlSafe(c) {
+    const av = c && (c.avatar ?? c.avatarUrl ?? c.chatAvatar ?? c.picture ?? c.icon);
+    if (!av) return '';
+    if (typeof av === 'string') return av;
+    if (typeof av === 'object' && av.url) return av.url;
+    return '';
+  }
+
+  function applyChatFilter(q) {
+    const list = q
+      ? allChats.filter((c) => {
+          const title = (c.title || '').toLowerCase();
+          const lmText = (c.lastMessage && c.lastMessage.text) ? String(c.lastMessage.text).toLowerCase() : '';
+          const lmSender = (c.lastMessage && c.lastMessage.senderName) ? String(c.lastMessage.senderName).toLowerCase() : '';
+          return title.includes(q) || lmText.includes(q) || lmSender.includes(q);
+        })
+      : allChats;
+    renderChatList(list);
   }
 
   function renderChatList(list) {
     if (!els.list) return;
     els.list.innerHTML = '';
-    if (!list.length) {
+    if (!list || !list.length) {
       renderChatsPlaceholder('Ничего не найдено', false);
       return;
     }
     list.forEach((c) => {
-      const title = (c.title || 'Чат').trim();
+      const title = c.title || 'Чат';
+      const avatarUrl = getAvatarUrlSafe(c);
       const li = document.createElement('li');
       li.className = 'chat-item';
+      li.style.display = 'flex';
+      li.style.gap = '12px';
+      li.style.alignItems = 'center';
+      li.style.padding = '12px 16px';
 
-      li.innerHTML = `
-        <div class="avatar">
-          <span class="letter"></span>
-          <img class="img" alt="" style="display:none"/>
-          <span class="online" style="display:none"></span>
-        </div>
-        <div class="cmeta">
-          <div class="crow">
-            <div class="title"></div>
-            <div class="time"></div>
-          </div>
-          <div class="cpreview"></div>
-        </div>`;
+      const ava = document.createElement('div');
+      ava.className = 'avatar';
+      ava.style.width = '44px';
+      ava.style.height = '44px';
+      ava.style.borderRadius = '50%';
+      ava.style.flex = '0 0 44px';
+      ava.style.background = '#0e1522';
+      ava.style.display = 'grid';
+      ava.style.placeItems = 'center';
+      ava.style.position = 'relative';
+      ava.style.overflow = 'hidden';
 
-      // meta
-      li.querySelector('.title').textContent = title;
-      li.querySelector('.time').textContent = c.lastMessage ? timeShort(c.lastMessage.createdAt) : '';
-      li.querySelector('.cpreview').innerHTML =
-        (c.lastMessage
-          ? `${escapeHtml(c.lastMessage.senderName || 'user')}: ${escapeHtml(truncate(c.lastMessage.text || '', 60))}`
-          : 'Нет сообщений') + (c.unread ? ` <span class="badge">${c.unread}</span>` : '');
+      const img = document.createElement('img');
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      img.style.display = 'none';
 
-      // avatar + fallback letter
-      const letterEl = li.querySelector('.letter');
-      const imgEl = li.querySelector('.img');
-      letterEl.textContent = (title[0] || 'C').toUpperCase();
-      letterEl.style.display = 'grid';
-      const src = normalizeAvatar(c);
-      if (src) {
-        imgEl.src = src;
-        imgEl.onload = () => { letterEl.style.display = 'none'; imgEl.style.display = 'block'; };
-        imgEl.onerror = () => { imgEl.style.display = 'none'; letterEl.style.display = 'grid'; };
-      } else {
-        imgEl.style.display = 'none';
-        letterEl.style.display = 'grid';
+      const letter = document.createElement('span');
+      letter.textContent = firstLetter(title);
+      letter.style.color = '#9fb6cc';
+      letter.style.fontWeight = '700';
+      letter.style.fontSize = '18px';
+
+      if (avatarUrl) {
+        img.src = avatarUrl;
+        img.onload = () => { img.style.display = 'block'; letter.style.display = 'none'; };
+        img.onerror = () => { img.style.display = 'none'; letter.style.display = 'block'; };
       }
+      ava.appendChild(img);
+      ava.appendChild(letter);
 
+      const meta = document.createElement('div');
+      meta.className = 'cmeta';
+      meta.style.flex = '1 1 auto';
+      meta.innerHTML = `
+        <div class="crow" style="display:flex;align-items:center;gap:8px">
+          <div class="title" style="font-weight:600">${escapeHtml(title)}</div>
+          <div class="time" style="margin-left:auto;opacity:.7">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
+        </div>
+        <div class="cpreview" style="opacity:.85;display:flex;align-items:center;gap:8px">
+          ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
+          ${c.unread ? `<span class="badge" style="background:#2f6df5;color:#fff;padding:0 8px;border-radius:12px;font-size:12px;line-height:20px;height:20px;display:inline-flex;align-items:center">${c.unread}</span>` : ''}
+        </div>
+      `;
+
+      li.appendChild(ava);
+      li.appendChild(meta);
       li.onclick = () => openChat(c);
       els.list.appendChild(li);
     });
@@ -239,8 +308,8 @@
       renderChatsPlaceholder('Загрузка…');
       const data = await API('/chats');
       allChats = Array.isArray(data) ? data : [];
-      filteredChats = allChats.slice();
-      renderChatList(filteredChats);
+      ensureChatSearch();
+      applyChatFilter(chatSearchInput ? chatSearchInput.value.trim().toLowerCase() : '');
       return allChats;
     } catch (e) {
       renderChatsPlaceholder('Не удалось загрузить список чатов', true);
@@ -248,39 +317,22 @@
     }
   }
 
-  // Глобальный поиск по чатам (локально по названию и предпросмотру)
-  if (chatsSearchInput) {
-    let tmr;
-    chatsSearchInput.addEventListener('input', () => {
-      clearTimeout(tmr);
-      tmr = setTimeout(() => {
-        const q = (chatsSearchInput.value || '').trim().toLowerCase();
-        if (!q) {
-          filteredChats = allChats.slice();
-        } else {
-          filteredChats = allChats.filter((c) => {
-            const title = (c.title || '').toLowerCase();
-            const prev = ((c.lastMessage?.text) || '').toLowerCase();
-            const sender = ((c.lastMessage?.senderName) || '').toLowerCase();
-            return title.includes(q) || prev.includes(q) || sender.includes(q);
-          });
-        }
-        renderChatList(filteredChats);
-      }, 150);
-    });
-  }
-
   // ===== header =====
   function setHeader(chat) {
     const title = (chat?.title || '').trim() || 'Чат';
-    const img = els.tgAvatarImg;
-    const letter = els.tgAvatarLetter;
     if (els.tgTitle) els.tgTitle.textContent = title;
     if (els.tgSub) els.tgSub.textContent = '';
+    const img = els.tgAvatarImg;
+    const letter = els.tgAvatarLetter;
+    const firstChar = (title[0] || 'A').toUpperCase();
     if (img && letter) {
-      const src = normalizeAvatar(chat);
-      if (src) { img.src = src; img.style.display = 'block'; letter.style.display = 'none'; }
-      else { img.src = ''; img.style.display = 'none'; letter.style.display = 'grid'; letter.textContent = (title[0] || 'A').toUpperCase(); }
+      const avatarUrl = getAvatarUrlSafe(chat);
+      if (avatarUrl) {
+        img.src = avatarUrl; img.style.display = 'block'; letter.style.display = 'none';
+      } else {
+        img.src = ''; img.style.display = 'none';
+        letter.style.display = 'grid'; letter.textContent = firstChar;
+      }
     }
   }
 
@@ -333,7 +385,7 @@
     window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
   }
 
-  // ===== tap guard =====
+  // ===== tap guard (не открывать меню при скролле / по цитате) =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8;
     const MAX_TAP_MS = 400;
@@ -362,6 +414,7 @@
     function end(ev){
       if (multiTouch) return;
       if (ev.target && ev.target.closest('.reply')) return;
+
       move(ev);
       const dur = Date.now() - startT;
       if (moved || dur > MAX_TAP_MS) return;
@@ -549,7 +602,7 @@
       // ПК: контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
 
-      // Тап/клик — только по пузырю
+      // Тап/клик — только по самому пузырю
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
 
       // свайп-вправо → ответ
@@ -649,6 +702,7 @@
     document.body.appendChild(b);
     b.addEventListener('animationend', () => b.remove());
   }
+
   function react(m, emoji='👍', x, y) {
     socket.emit('message:react', { id: m._id, emoji }, (ack) => {
       if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
@@ -707,30 +761,30 @@
   // ===== reply helpers =====
   function setReply(m) {
     replyTo = m;
-    if (replyBar) {
-      if (replyBar.hasAttribute('hidden')) replyBar.removeAttribute('hidden');
-      replyBar.classList.add('anim');
-      requestAnimationFrame(() => replyBar.classList.add('visible'));
-      if (replyText) replyText.textContent = (m.text || '(вложение)').slice(0, 140);
+    if (els.replyBar) {
+      if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
+      els.replyBar.classList.add('anim');
+      requestAnimationFrame(() => els.replyBar.classList.add('visible'));
+      els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
     els.msgInput && els.msgInput.focus();
     setTimeout(updateComposerPadding, 0);
   }
   function clearReply() {
     replyTo = null;
-    if (!replyBar) return;
-    replyBar.classList.remove('visible');
+    if (!els.replyBar) return;
+    els.replyBar.classList.remove('visible');
     setTimeout(() => {
-      if (!replyBar.classList.contains('visible')) {
-        replyBar.setAttribute('hidden', 'hidden');
+      if (!els.replyBar.classList.contains('visible')) {
+        els.replyBar.setAttribute('hidden', 'hidden');
       }
       updateComposerPadding();
     }, 220);
   }
-  if (replyCancel) replyCancel.onclick = clearReply;
+  els.replyCancel && (els.replyCancel.onclick = clearReply);
 
   // ===== attachments =====
-  if (els.attachBtn) els.attachBtn.onclick = () => els.fileInput && els.fileInput.click();
+  els.attachBtn && (els.attachBtn.onclick = () => els.fileInput.click());
   if (els.fileInput) {
     els.fileInput.onchange = async () => {
       const fd = new FormData();
@@ -769,14 +823,10 @@
       document.body.appendChild(wrap);
     }
     const el = document.createElement('div');
-    el.style.background = '#0e1522';
-    el.style.color = '#e6eef7';
-    el.style.border = '1px solid #223147'; // <-- фикс
-    el.style.borderRadius = '12px';
-    el.style.padding = '10px 12px';
-    el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
-    el.style.maxWidth = '80vw';
-    el.style.cursor = 'pointer';
+    el.style.background = '#0e1522'; el.style.color = '#e6eef7';
+    el.style.border = '1px solid #223147'; el.style.borderRadius = '12px';
+    el.style.padding = '10px 12px'; el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
+    el.style.maxWidth = '80vw'; el.style.cursor = 'pointer';
     el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
                     <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>`;
     el.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; };
@@ -829,8 +879,8 @@
 
   function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  if (els.sendBtn) els.sendBtn.onclick = send;
-  if (els.msgInput) els.msgInput.addEventListener('keydown', (e) => {
+  els.sendBtn && (els.sendBtn.onclick = send);
+  els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
 
@@ -850,8 +900,8 @@
 
         // держим клавиатуру открытой
         requestAnimationFrame(() => {
-          els.msgInput.focus();
-          try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
+          els.msgInput && els.msgInput.focus();
+          try { els.msgInput && els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
         });
 
         setTimeout(scrollToBottom, 0);
@@ -875,5 +925,4 @@
     updateComposerPadding();
     if (jumpId) openChatByMessageId(jumpId);
   })();
-
 })();
