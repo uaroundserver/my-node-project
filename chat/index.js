@@ -14,43 +14,19 @@ const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const upload = multer({ dest: uploadDir });
 
-// ---------- helpers ----------
-const asId = (v) => { try { return new ObjectId(v); } catch { return null; } };
-
-function pickReplyView(m) {
-  if (!m) return null;
-  const at = m.attachments || [];
-  const first = at.length
-    ? {
-        url: at[0].url,
-        mime: at[0].mimetype || at[0].mime || '',
-        originalName: at[0].originalname || at[0].originalName || null,
-        size: at[0].size || null,
-      }
-    : null;
-  return {
-    _id: m._id,
-    userId: m.senderId || m.userId, // совместимость с разными версиями
-    text: m.text || (first ? '(вложение)' : ''),
-    attachments: first ? [first] : [],
-    createdAt: m.createdAt,
-  };
+function asId(id) {
+  try { return new ObjectId(id); } catch { return null; }
 }
-
 function displayName(u) {
-  if (!u) return 'user';
-  if (u.name && String(u.name).trim()) return u.name;
-  if (u.email && String(u.email).includes('@')) return String(u.email).split('@')[0];
-  return 'user';
+  if (!u) return 'Unknown';
+  return u.name || u.email?.split?.('@')?.[0] || 'User';
 }
 
-async function buildUserMap(db, usersIdsArr) {
-  const ids = Array.from(new Set(usersIdsArr.map(String)))
-    .map((s) => asId(s))
-    .filter(Boolean);
-  if (!ids.length) return {};
+async function buildUserMap(db, ids) {
+  const uniq = [...new Set(ids.filter(Boolean))].map((x) => asId(x)).filter(Boolean);
+  if (!uniq.length) return {};
   const users = await db.collection('users')
-    .find({ _id: { $in: ids } }, { projection: { name: 1, email: 1, avatar: 1 } })
+    .find({ _id: { $in: uniq } }, { projection: { name: 1, email: 1, avatar: 1 } })
     .toArray();
   const map = {};
   users.forEach((u) => {
@@ -63,49 +39,33 @@ async function buildUserMap(db, usersIdsArr) {
 }
 
 function normalizeMessage(m, userMap, replyDoc) {
-  const senderKey = (m.senderId || m.userId || '').toString();
+  const senderKey = (m.senderId || m.userId)?.toString?.();
+  const from = userMap[senderKey] || { name: 'Unknown', avatar: null };
   const base = {
-    _id: m._id,
-    chatId: m.chatId,
-    senderId: m.senderId || m.userId,
-    senderName: userMap[senderKey]?.name || m.senderName || 'user',
-    senderAvatar: userMap[senderKey]?.avatar || m.senderAvatar || null,
+    _id: m._id?.toString?.() || m._id,
+    chatId: m.chatId?.toString?.() || m.chatId,
     text: m.text || '',
+    createdAt: m.createdAt,
+    senderId: m.senderId || m.userId,
     attachments: m.attachments || [],
     replyTo: m.replyTo || null,
-    createdAt: m.createdAt,
-    editedAt: m.editedAt || null,
     deleted: !!m.deleted,
-    reactions: m.reactions || [],
-    reads: m.reads || [],
-    deliveries: m.deliveries || [],
+    from,
   };
-
-  if (m.replyTo && replyDoc) {
-    const r = pickReplyView(replyDoc);
-    if (r) {
-      const rKey = (r.userId || '').toString();
-      base.reply = {
-        ...r,
-        senderName: userMap[rKey]?.name || 'user',
-        senderAvatar: userMap[rKey]?.avatar || null,
-      };
-    }
+  if (replyDoc) {
+    base.reply = {
+      _id: replyDoc._id?.toString?.(),
+      text: replyDoc.text || '',
+      createdAt: replyDoc.createdAt,
+      senderId: replyDoc.senderId,
+      attachments: replyDoc.attachments || [],
+      from: userMap[replyDoc.senderId?.toString?.()] || { name: 'Unknown', avatar: null },
+    };
   }
   return base;
 }
 
-/**
- * Initialize chat (routes + socket.io)
- * @param {import('http').Server} httpServer
- * @param {import('mongodb').Db} db
- * @param {import('express').Express} app
- */
-function initChat(httpServer, db, app) {
-  // serve uploads
-  app.use('/uploads', express.static(uploadDir));
-
-  // --- REST ---
+function initChat({ httpServer, app, db }) {
   const router = express.Router();
 
   // fetch chat list (one global chat)
@@ -117,25 +77,17 @@ function initChat(httpServer, db, app) {
       const chatsCol = db.collection('chats');
       let chat = await chatsCol.findOne({ key: 'global' });
       if (!chat) {
-        chat = {
-          _id: new ObjectId(),
+        const ins = await chatsCol.insertOne({
           key: 'global',
-          title: 'General chat',
+          title: 'Global Chat',
           avatar: null,
-          createdAt: new Date(),
           lastMessage: null,
-        };
-        await chatsCol.insertOne(chat);
+          createdAt: new Date(),
+        });
+        chat = await chatsCol.findOne({ _id: ins.insertedId });
       }
 
-      const messagesCol = db.collection('messages');
-      const unreadCount = await messagesCol.countDocuments({
-        chatId: chat._id,
-        deleted: { $ne: true },
-        'reads.userId': { $ne: asId(userId) },
-        senderId: { $ne: asId(userId) },
-      });
-
+      const unreadCount = 0; // placeholder
       res.json([{
         _id: chat._id,
         title: chat.title,
@@ -149,10 +101,10 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // fetch messages with pagination + enriched replies/senders
+  // ------- GET /messages  (полная история без .limit) -------
   router.get('/messages', auth, async (req, res) => {
     try {
-      const { chatId, before, limit = 30 } = req.query;
+      const { chatId, before } = req.query; // limit удалён
       if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
       const q = { chatId: asId(chatId), deleted: { $ne: true } };
@@ -165,10 +117,8 @@ function initChat(httpServer, db, app) {
       const items = await db.collection('messages')
         .find(q)
         .sort({ createdAt: -1, _id: -1 })
-        .limit(Number(limit))
         .toArray();
 
-      // gather reply targets & user ids
       const replyIds = items.filter((x) => x.replyTo).map((x) => x.replyTo);
       const replyDocs = replyIds.length
         ? await db.collection('messages')
@@ -182,7 +132,6 @@ function initChat(httpServer, db, app) {
       ];
       const userMap = await buildUserMap(db, senders);
 
-      // map reply id -> doc
       const replyMap = {};
       replyDocs.forEach((d) => { replyMap[d._id.toString()] = d; });
 
@@ -203,242 +152,80 @@ function initChat(httpServer, db, app) {
       if (!_id) return res.status(404).json({ error: 'Not found' });
       const doc = await db.collection('messages').findOne({ _id });
       if (!doc) return res.status(404).json({ error: 'Not found' });
+      res.json({ _id: doc._id, createdAt: doc.createdAt });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed' });
+    }
+  });
 
-      let senderName = null, senderAvatar = null;
-      try {
-        const u = await db.collection('users').findOne({ _id: doc.senderId || doc.userId }, { projection: { name: 1, email: 1, avatar: 1 } });
-        if (u) { senderName = displayName(u); senderAvatar = u.avatar || null; }
-      } catch {}
+  // ------- send message -------
+  router.post('/send', auth, upload.array('files'), async (req, res) => {
+    try {
+      const userId = req?.user?.userId;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { chatId, text, replyTo } = req.body;
 
-      res.json({
-        _id: doc._id,
-        chatId: doc.chatId,
-        userId: doc.senderId || doc.userId,
-        senderId: doc.senderId || doc.userId,
-        senderName, senderAvatar,
-        text: doc.text || '',
-        attachments: doc.attachments || [],
-        replyTo: doc.replyTo || null,
-        createdAt: doc.createdAt,
+      const msg = {
+        chatId: asId(chatId),
+        text: text || '',
+        senderId: asId(userId),
+        attachments: [],
+        replyTo: replyTo ? asId(replyTo) : null,
+        createdAt: new Date(),
+        deleted: false,
+      };
+
+      // handle files
+      for (const f of (req.files || [])) {
+        msg.attachments.push({
+          name: f.originalname,
+          mime: f.mimetype,
+          size: f.size,
+          path: f.filename,
+          url: `/uploads/${f.filename}`,
+        });
+      }
+
+      const ins = await db.collection('messages').insertOne(msg);
+      const stored = await db.collection('messages').findOne({ _id: ins.insertedId });
+
+      // broadcast
+      io.emit('message', {
+        type: 'message',
+        data: {
+          ...stored,
+          _id: stored._id.toString(),
+          chatId: stored.chatId.toString(),
+        }
       });
-    } catch (e) {
-      res.status(404).json({ error: 'Not found' });
-    }
-  });
 
-  // upload attachment(s)
-  router.post('/attachments', auth, upload.array('files', 10), async (req, res) => {
-    try {
-      const files = (req.files || []).map((f) => ({
-        fieldname: f.fieldname,
-        originalname: f.originalname,
-        originalName: f.originalname, // фронту удобно и так, и так
-        mimetype: f.mimetype,
-        mime: f.mimetype,
-        size: f.size,
-        url: `/uploads/${f.filename}`,
-      }));
-      res.json({ files });
+      res.json({ ok: true, _id: ins.insertedId });
     } catch (e) {
       console.error(e);
-      res.status(500).json({ error: 'Upload failed' });
-    }
-  });
-
-  // search messages by text or user
-  router.get('/search', auth, async (req, res) => {
-    try {
-      const { chatId, q, userId, limit = 50 } = req.query;
-      if (!chatId) return res.status(400).json({ error: 'chatId required' });
-      const mquery = { chatId: asId(chatId), deleted: { $ne: true } };
-      if (!mquery.chatId) return res.status(400).json({ error: 'bad chatId' });
-      if (q) mquery.text = { $regex: q, $options: 'i' };
-      if (userId) mquery.senderId = asId(userId);
-      const items = await db.collection('messages')
-        .find(mquery).sort({ createdAt: 1 }).limit(Number(limit)).toArray();
-      res.json(items);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Search failed' });
+      res.status(500).json({ error: 'Failed to send' });
     }
   });
 
   app.use('/api/chat', router);
 
-  // --- Socket.IO real-time ---
-  const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
-  const onlineMap = new Map(); // userId -> Set(socketId)
-
-  io.use((socket, next) => {
-    try {
-      const raw = socket.handshake.auth?.token || socket.handshake.query?.token;
-      if (!raw) return next(new Error('no token'));
-      const token = String(raw).replace(/^Bearer\s+/i, '');
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = { id: String(payload.userId) };
-      next();
-    } catch {
-      next(new Error('auth failed'));
-    }
-  });
-
-  io.on('connection', async (socket) => {
-    const userId = socket.user.id;
-
-    // ensure global chat
-    const chatsCol = db.collection('chats');
-    let chat = await chatsCol.findOne({ key: 'global' });
-    if (!chat) {
-      chat = { _id: new ObjectId(), key: 'global', title: 'General chat', createdAt: new Date() };
-      await chatsCol.insertOne(chat);
-    }
-    const room = String(chat._id);
-    socket.join(room);
-
-    // mark online
-    if (!onlineMap.has(userId)) onlineMap.set(userId, new Set());
-    onlineMap.get(userId).add(socket.id);
-    io.to(room).emit('presence:update', { userId, online: true });
-
-    // SEND MESSAGE (supports: text, attachments[], replyTo)
-    socket.on('message:send', async (payload, cb) => {
+  // ---------- socket.io ----------
+  const io = new Server(httpServer, { cors: { origin: '*'} });
+  io.on('connection', (socket) => {
+    socket.on('auth', async (token) => {
       try {
-        const usersCol = db.collection('users');
-        const messagesCol = db.collection('messages');
-
-        const sender = await usersCol.findOne({ _id: asId(userId) }, { projection: { name: 1, email: 1, avatar: 1 } });
-
-        // reply origin
-        let replyDoc = null;
-        const replyTo = payload?.replyTo ? asId(payload.replyTo) : null;
-        if (replyTo) replyDoc = await messagesCol.findOne({ _id: replyTo });
-
-        const msg = {
-          _id: new ObjectId(),
-          chatId: chat._id,
-          senderId: asId(userId),
-          senderName: displayName(sender),
-          senderAvatar: sender?.avatar || null,
-          text: String(payload?.text || '').slice(0, 5000),
-          attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
-          replyTo: replyDoc ? replyDoc._id : null,
-          replyToOwnerId: replyDoc ? replyDoc.senderId : null, // может пригодиться фронту
-          reactions: [],
-          createdAt: new Date(),
-          editedAt: null,
-          deleted: false,
-          deliveries: [],
-          reads: [],
-        };
-
-        await messagesCol.insertOne(msg);
-        await chatsCol.updateOne(
-          { _id: chat._id },
-          { $set: { lastMessage: { _id: msg._id, text: msg.text, senderName: msg.senderName, createdAt: msg.createdAt } } }
-        );
-
-        // enrich for emit
-        const senderMap = {};
-        senderMap[msg.senderId.toString()] = { name: msg.senderName, avatar: msg.senderAvatar };
-        let emitPayload = normalizeMessage(msg, senderMap, replyDoc);
-        // if reply exists and we can enrich with its sender meta
-        if (replyDoc && replyDoc.senderId) {
-          const ruser = await usersCol.findOne({ _id: replyDoc.senderId }, { projection: { name: 1, email: 1, avatar: 1 } });
-          emitPayload.reply = {
-            ...emitPayload.reply,
-            senderName: displayName(ruser),
-            senderAvatar: ruser?.avatar || null,
-          };
-        }
-
-        io.to(room).emit('message:new', emitPayload);
-        cb && cb({ ok: true, id: msg._id, delivered: true });
-      } catch (e) {
-        cb && cb({ ok: false, error: e.message || 'send failed' });
-      }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.userId = decoded?.userId;
+      } catch {}
     });
 
-    // EDIT
-    socket.on('message:edit', async ({ id, text }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        await db.collection('messages').updateOne(
-          { _id, senderId: asId(userId) },
-          { $set: { text: String(text).slice(0, 5000), editedAt: new Date() } }
-        );
-        const updated = await db.collection('messages').findOne({ _id });
-        io.to(room).emit('message:edited', { id, text: updated.text, editedAt: updated.editedAt });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // DELETE
-    socket.on('message:delete', async ({ id }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        await db.collection('messages').updateOne(
-          { _id, senderId: asId(userId) },
-          { $set: { deleted: true, text: '' } }
-        );
-        io.to(room).emit('message:deleted', { id });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // REACT
-    socket.on('message:react', async ({ id, emoji }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        const msg = await db.collection('messages').findOne({ _id });
-        const exists = (msg?.reactions || []).find((r) => String(r.userId) === String(userId) && r.emoji === emoji);
-        if (exists) {
-          await db.collection('messages').updateOne({ _id }, { $pull: { reactions: { userId: asId(userId), emoji } } });
-        } else {
-          await db.collection('messages').updateOne({ _id }, { $addToSet: { reactions: { userId: asId(userId), emoji } } });
-        }
-        const updated = await db.collection('messages').findOne({ _id });
-        io.to(room).emit('message:reactions', { id, reactions: updated.reactions || [] });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // READ
-    socket.on('message:read', async ({ ids }, cb) => {
-      try {
-        const idList = (ids || []).map(asId).filter(Boolean);
-        if (!idList.length) return cb && cb({ ok: true });
-        await db.collection('messages').updateMany(
-          { _id: { $in: idList }, 'reads.userId': { $ne: asId(userId) } },
-          { $push: { reads: { userId: asId(userId), at: new Date() } } }
-        );
-        io.to(room).emit('message:reads', { ids, userId });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // TYPING
-    socket.on('typing', ({ isTyping }) => {
-      socket.to(room).emit('typing', { userId, isTyping: !!isTyping });
-    });
-
-    // DISCONNECT
     socket.on('disconnect', async () => {
-      const set = onlineMap.get(userId);
-      if (set) {
-        set.delete(socket.id);
-        if (set.size === 0) {
-          onlineMap.delete(userId);
-          io.to(room).emit('presence:update', { userId, online: false });
-          try {
-            await db.collection('users').updateOne(
-              { _id: asId(userId) },
-              { $set: { lastSeen: new Date() } }
-            );
-          } catch {}
-        }
+      if (socket.userId) {
+        try {
+          await db.collection('users').updateOne(
+            { _id: asId(socket.userId) },
+            { $set: { lastSeen: new Date() } }
+          );
+        } catch {}
       }
     });
   });
