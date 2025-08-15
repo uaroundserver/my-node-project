@@ -81,7 +81,7 @@
 
   // ===== small helpers =====
   function escapeHtml(s) { return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
-  function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + 'â¦' : s; }
+  function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
   function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
   // ===== reply bar anim prep =====
@@ -142,7 +142,7 @@
     li.innerHTML = `<div style="opacity:.9">${escapeHtml(message)}</div>`;
     if (retry) {
       const btn = document.createElement('button');
-      btn.textContent = 'ÐÐ±Ð½Ð¾Ð²Ð¸ÑÑ';
+      btn.textContent = 'Обновить';
       btn.style.marginTop = '10px';
       btn.style.padding = '8px 12px';
       btn.style.background = '#0e1522';
@@ -157,14 +157,14 @@
 
   async function loadChats() {
     try {
-      renderChatsPlaceholder('ÐÐ°Ð³ÑÑÐ·ÐºÐ°â¦');
+      renderChatsPlaceholder('Загрузка…');
       const data = await API('/chats');
       allChats = Array.isArray(data) ? data : [];
       if (!els.list) return allChats;
 
       els.list.innerHTML = '';
       if (!allChats.length) {
-        renderChatsPlaceholder('Ð§Ð°ÑÐ¾Ð² Ð¿Ð¾ÐºÐ° Ð½ÐµÑ', false);
+        renderChatsPlaceholder('Чатов пока нет', false);
         return allChats;
       }
 
@@ -178,11 +178,11 @@
           </div>
           <div class="cmeta">
             <div class="crow">
-              <div class="title">${escapeHtml(c.title || 'Ð§Ð°Ñ')}</div>
+              <div class="title">${escapeHtml(c.title || 'Чат')}</div>
               <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
             </div>
             <div class="cpreview">
-              ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'ÐÐµÑ ÑÐ¾Ð¾Ð±ÑÐµÐ½Ð¸Ð¹'}
+              ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
               ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
             </div>
           </div>`;
@@ -191,14 +191,14 @@
       });
       return allChats;
     } catch (e) {
-      renderChatsPlaceholder('ÐÐµ ÑÐ´Ð°Ð»Ð¾ÑÑ Ð·Ð°Ð³ÑÑÐ·Ð¸ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº ÑÐ°ÑÐ¾Ð²', true);
+      renderChatsPlaceholder('Не удалось загрузить список чатов', true);
       return [];
     }
   }
 
   // ===== header =====
   function setHeader(chat) {
-    const title = (chat?.title || '').trim() || 'Ð§Ð°Ñ';
+    const title = (chat?.title || '').trim() || 'Чат';
     if (els.tgTitle) els.tgTitle.textContent = title;
     if (els.tgSub) els.tgSub.textContent = '';
     const img = els.tgAvatarImg;
@@ -263,7 +263,7 @@
     window.addEventListener('mouseup', () => { if (md) { md = false; onEnd(); } });
   }
 
-  // ===== tap guard (Ð½Ðµ Ð¾ÑÐºÑÑÐ²Ð°ÑÑ Ð¼ÐµÐ½Ñ Ð¿ÑÐ¸ ÑÐºÑÐ¾Ð»Ð»Ðµ / Ð¿Ð¾ ÑÐ¸ÑÐ°ÑÐµ) =====
+  // ===== tap guard (не открывать меню при скролле / по цитате) =====
   function attachTapGuard(el, onTap) {
     const MOVE_GUARD = 8;
     const MAX_TAP_MS = 400;
@@ -275,7 +275,7 @@
       return { x: ev.clientX, y: ev.clientY };
     }
     function start(ev){
-      // Ð½Ðµ Ð¾ÑÐºÑÑÐ²Ð°ÐµÐ¼ Ð¼ÐµÐ½Ñ, ÐµÑÐ»Ð¸ ÐºÐ»Ð¸ÐºÐ½ÑÐ»Ð¸ Ð¿Ð¾ ÑÑÑÐ»ÐºÐ°Ð¼/Ð¸Ð½Ð¿ÑÑÐ°Ð¼/Ð¦ÐÐ¢ÐÐ¢Ð
+      // не открываем меню, если кликнули по ссылкам/инпутам/ЦИТАТЕ
       if (ev.target.closest('a, button, input, textarea, .reply')) return;
       const p = getXY(ev);
       startX = p.x; startY = p.y; startT = Date.now();
@@ -292,7 +292,7 @@
     }
     function end(ev){
       if (multiTouch) return;
-      // ÐµÑÐ»Ð¸ Ð¿Ð°Ð»ÐµÑ Ð¾ÑÐ¿ÑÑÑÐ¸Ð»Ð¸ Ð½Ð°Ð´ ÑÐ¸ÑÐ°ÑÐ¾Ð¹ â ÑÑÐ¾ Ð½Ðµ Â«ÑÐ°Ð¿ Ð¿Ð¾ Ð¿ÑÐ·ÑÑÑÂ»
+      // если палец отпустили над цитатой — это не «тап по пузырю»
       if (ev.target && ev.target.closest('.reply')) return;
 
       move(ev);
@@ -353,7 +353,7 @@
     }
   }
 
-  // ÐÑÐºÑÑÑÑ ÑÐ°Ñ Ð¿Ð¾ messageId
+  // Открыть чат по messageId
   async function openChatByMessageId(messageId) {
     try {
       const meta = await API_ABS(`/api/chat/message/${encodeURIComponent(messageId)}`);
@@ -364,7 +364,7 @@
 
       if (!allChats || !allChats.length) await loadChats();
       let chat = allChats.find(c => String(c._id) === String(chatId));
-      if (!chat) chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Ð§Ð°Ñ', avatar: meta?.chatAvatar || '' };
+      if (!chat) chat = { _id: chatId, title: meta?.chatTitle || meta?.title || 'Чат', avatar: meta?.chatAvatar || '' };
 
       enterChatView();
       await openChat(chat);
@@ -427,20 +427,20 @@
       let replyHtml = '';
       function renderReplyPreview(src) {
         if (!src) return '';
-        const who = String(src.senderId || src.userId) === String(myId) ? 'ÐÑ' : (src.senderName || 'user');
+        const who = String(src.senderId || src.userId) === String(myId) ? 'Вы' : (src.senderName || 'user');
         const hasAtt = src.attachments && src.attachments.length;
         const file = hasAtt ? src.attachments[0] : null;
         let icon = '';
         if (file) {
           const mtyp = (file.mime || file.mimetype || '').toLowerCase();
-          if (mtyp.startsWith('image/')) icon = 'ð¼ï¸';
-          else if (mtyp.startsWith('video/')) icon = 'ðï¸';
-          else if (mtyp.startsWith('audio/')) icon = 'ðµ';
-          else icon = 'ð';
+          if (mtyp.startsWith('image/')) icon = '🖼️';
+          else if (mtyp.startsWith('video/')) icon = '🎞️';
+          else if (mtyp.startsWith('audio/')) icon = '🎵';
+          else icon = '📎';
         }
         const snipText = (src.text && src.text.trim())
           ? escapeHtml(src.text.trim())
-          : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(Ð²Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ)') : '');
+          : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(вложение)') : '');
         const nested = src.reply ? `<span class="reply-nested">${renderReplyPreview(src.reply)}</span>` : '';
         const ava = src.senderAvatar ? `<img src="${src.senderAvatar}" class="reply-ava" />` : '';
         return `${ava}<b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}${nested}`;
@@ -455,7 +455,7 @@
         .map((a) => {
           const mime = (a.mime || a.mimetype || '').toLowerCase();
           const url = a.url || a.href || '';
-          const oname = a.originalName || a.originalname || 'Ð¤Ð°Ð¹Ð»';
+          const oname = a.originalName || a.originalname || 'Файл';
           if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
           if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
           return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
@@ -474,21 +474,21 @@
         ${attachHtml}
         <div class="mmeta">
           <span>${timeShort(m.createdAt)}</span>
-          ${isMine ? `<span class="ticks" title="ÐÐ¾ÑÑÐ°Ð²Ð»ÐµÐ½Ð¾/ÐÑÐ¾ÑÐ¸ÑÐ°Ð½Ð¾">ââ</span>` : ''}
+          ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
           ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
         </div>
       `;
 
-      // ÐÐ: ÐºÐ¾Ð½ÑÐµÐºÑÑÐ½Ð¾Ðµ Ð¼ÐµÐ½Ñ
+      // ПК: контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
 
-      // Ð¢Ð°Ð¿/ÐºÐ»Ð¸Ðº â ÑÐ¾Ð»ÑÐºÐ¾ Ð¿Ð¾ ÑÐ°Ð¼Ð¾Ð¼Ñ Ð¿ÑÐ·ÑÑÑ (ÑÐ¸ÑÐ°ÑÑ Ð¸Ð³Ð½Ð¾ÑÐ¸Ð¼)
+      // Тап/клик — только по самому пузырю (цитату игнорим)
       attachTapGuard(div, (x, y) => showContextMenu(x, y, m));
 
-      // ÑÐ²Ð°Ð¹Ð¿-Ð²Ð¿ÑÐ°Ð²Ð¾ â Ð¾ÑÐ²ÐµÑ
+      // свайп-вправо → ответ
       attachSwipeToReply(div, () => setReply(m));
 
-      // Ð¿ÐµÑÐµÑÐ¾Ð´ Ð¿Ð¾ ÑÐ¸ÑÐ°ÑÐµ â Ñ Ð¾ÑÐ¼ÐµÐ½Ð¾Ð¹ Ð²ÑÐ¿Ð»ÑÑÐ¸Ñ
+      // переход по цитате — с отменой всплытия
       const rEl = div.querySelector('.reply');
       if (rEl && rEl.dataset.replyId) {
         const go = (e) => {
@@ -544,20 +544,20 @@
       b.onclick = (ev) => { fn(ev); hideContextMenu(); };
       ctx.appendChild(b);
     };
-    mk('ÐÑÐ²ÐµÑÐ¸ÑÑ', () => setReply(m));
-    mk('ð Ð ÐµÐ°ÐºÑÐ¸Ñ', (ev) => {
+    mk('Ответить', () => setReply(m));
+    mk('👍 Реакция', (ev) => {
       const rect = ctx.getBoundingClientRect();
       const ex = (ev && ev.clientX) || (rect.left + 20);
       const ey = (ev && ev.clientY) || (rect.top + 20);
-      react(m, 'ð', ex, ey);
+      react(m, '👍', ex, ey);
     });
     if (mine) {
-      mk('Ð ÐµÐ´Ð°ÐºÑÐ¸ÑÐ¾Ð²Ð°ÑÑ', () => {
-        const nt = prompt('ÐÐ·Ð¼ÐµÐ½Ð¸ÑÑ ÑÐ¾Ð¾Ð±ÑÐµÐ½Ð¸Ðµ', m.text || '');
+      mk('Редактировать', () => {
+        const nt = prompt('Изменить сообщение', m.text || '');
         if (nt != null) socket.emit('message:edit', { id: m._id, text: nt }, ackHandler);
       });
-      mk('Ð£Ð´Ð°Ð»Ð¸ÑÑ', () => {
-        if (confirm('Ð£Ð´Ð°Ð»Ð¸ÑÑ?')) socket.emit('message:delete', { id: m._id }, ackHandler);
+      mk('Удалить', () => {
+        if (confirm('Удалить?')) socket.emit('message:delete', { id: m._id }, ackHandler);
       });
     }
     document.body.appendChild(ctx);
@@ -572,8 +572,8 @@
     if (onWinTouch) { window.removeEventListener('touchstart', onWinTouch); onWinTouch = null; }
   }
 
-  // Â«ÑÐ°Ð»ÑÑÂ» Ð¸Ð· ÑÐ¼Ð¾Ð´Ð·Ð¸
-  function emojiBurst(x, y, emoji='ð'){
+  // «салют» из эмодзи
+  function emojiBurst(x, y, emoji='👍'){
     const b = document.createElement('div');
     b.className = 'emoji-burst';
     b.textContent = emoji;
@@ -583,7 +583,7 @@
     b.addEventListener('animationend', () => b.remove());
   }
 
-  function react(m, emoji='ð', x, y) {
+  function react(m, emoji='👍', x, y) {
     socket.emit('message:react', { id: m._id, emoji }, (ack) => {
       if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
       if (!ack?.ok) ackHandler(ack);
@@ -592,19 +592,19 @@
 
   // ===== keep keyboard open & close only on outside tap =====
   if (els.sendBtn) {
-    // ÐºÐ½Ð¾Ð¿ÐºÐ° Ð½Ðµ Ð·Ð°Ð±Ð¸ÑÐ°ÐµÑ ÑÐ¾ÐºÑÑ Ð¸ Ð½Ðµ ÑÑÐ¸Ð³Ð³ÐµÑÐ¸Ñ ÑÐºÑÑÑÐ¸Ðµ ÐºÐ»Ð°Ð²Ð¸Ð°ÑÑÑÑ
+    // кнопка не забирает фокус и не триггерит скрытие клавиатуры
     els.sendBtn.setAttribute('type', 'button');
     els.sendBtn.setAttribute('tabindex', '-1');
     els.sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     els.sendBtn.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
 
-    // Ð½Ð°Ð´ÑÐ¶Ð½Ð°Ñ Ð¾ÑÐ¿ÑÐ°Ð²ÐºÐ° Ð´Ð»Ñ desktop Ð¸ iOS
+    // надёжная отправка для desktop и iOS
     const triggerSend = (e) => { e.preventDefault(); send(); };
     els.sendBtn.addEventListener('click', triggerSend);
     els.sendBtn.addEventListener('touchend', triggerSend, { passive: false });
   }
 
-  // Ð·Ð°ÐºÑÑÐ²Ð°ÑÑ ÐºÐ»Ð°Ð²Ð¸Ð°ÑÑÑÑ ÑÐ¾Ð»ÑÐºÐ¾ Ð¿ÑÐ¸ ÑÐ°Ð¿Ðµ Ð²Ð½Ðµ ÐºÐ¾Ð¼Ð¿Ð¾Ð·ÐµÑÐ°
+  // закрывать клавиатуру только при тапе вне композера
   function maybeBlurOnOutsideTap(ev) {
     if (!els.msgInput) return;
     if (ev.target.closest('.composer')) return;
@@ -654,7 +654,7 @@
       if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
       els.replyBar.classList.add('anim');
       requestAnimationFrame(() => els.replyBar.classList.add('visible'));
-      els.replyText && (els.replyText.textContent = (m.text || '(Ð²Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ)').slice(0, 140));
+      els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
     }
     els.msgInput && els.msgInput.focus();
     setTimeout(updateComposerPadding, 0);
@@ -697,7 +697,7 @@
     navigator.vibrate?.(20);
     if (document.hidden && 'Notification' in window) {
       if (Notification.permission === 'granted') {
-        const n = new Notification(`ÐÑÐ²ÐµÑ Ð¾Ñ ${m.senderName || 'user'}`, { body: (m.text || 'ÐÐ»Ð¾Ð¶ÐµÐ½Ð¸Ðµ') });
+        const n = new Notification(`Ответ от ${m.senderName || 'user'}`, { body: (m.text || 'Вложение') });
         n.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; n.close(); };
       } else if (Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
@@ -716,8 +716,8 @@
     el.style.border = '1px solid #223147'; el.style.borderRadius = '12px';
     el.style.padding = '10px 12px'; el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
     el.style.maxWidth = '80vw'; el.style.cursor = 'pointer';
-    el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">ÐÐ¾Ð²ÑÐ¹ Ð¾ÑÐ²ÐµÑ</div>
-                    <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'ÐÐ»Ð¾Ð¶ÐµÐ½Ð¸Ðµ')}</div>`;
+    el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">Новый ответ</div>
+                    <div style="opacity:.9">${escapeHtml(m.senderName || 'user')}: ${escapeHtml(m.text || 'Вложение')}</div>`;
     el.onclick = () => { window.location.href = `chat.html?jump=${encodeURIComponent(m._id)}`; };
     wrap.appendChild(el);
     setTimeout(() => { el.classList?.add('toast-hide'); setTimeout(() => el.remove(), 220); }, 4800);
@@ -752,7 +752,7 @@
   });
   socket.on('typing', ({ userId, isTyping }) => {
     if (!els.tgSub) return;
-    els.tgSub.innerHTML = isTyping ? 'Ð¿ÐµÑÐ°ÑÐ°ÐµÑ<span class="typing-dots"><i></i><i></i><i></i></span>' : '';
+    els.tgSub.innerHTML = isTyping ? 'печатает<span class="typing-dots"><i></i><i></i><i></i></span>' : '';
   });
 
   // ===== composer =====
@@ -766,9 +766,9 @@
     typingTimeout = setTimeout(() => socket.emit('typing', { isTyping: false }), 1500);
   }
 
-  function ackHandler(res) { if (!res?.ok) alert(res?.error || 'ÐÑÐ¸Ð±ÐºÐ°'); }
+  function ackHandler(res) { if (!res?.ok) alert(res?.error || 'Ошибка'); }
 
-  // ÐÐ Ð½Ð°Ð²ÐµÑÐ¸Ð²Ð°ÐµÐ¼ els.sendBtn.onclick = send; â Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐµÐ¼ click/touchend Ð²ÑÑÐµ
+  // НЕ навешиваем els.sendBtn.onclick = send; — используем click/touchend выше
 
   els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -788,7 +788,7 @@
         clearReply();
         updateComposerPadding();
 
-        // Ð´ÐµÑÐ¶Ð¸Ð¼ ÐºÐ»Ð°Ð²Ð¸Ð°ÑÑÑÑ Ð¾ÑÐºÑÑÑÐ¾Ð¹: ÑÑÐ°Ð·Ñ Ð²ÐµÑÐ½ÑÑÑ ÑÐ¾ÐºÑÑ
+        // держим клавиатуру открытой: сразу вернуть фокус
         requestAnimationFrame(() => {
           els.msgInput.focus();
           try { els.msgInput.setSelectionRange(els.msgInput.value.length, els.msgInput.value.length); } catch {}
@@ -796,7 +796,7 @@
 
         setTimeout(scrollToBottom, 0);
       } else {
-        alert(ack?.error || 'ÐÐµ Ð¾ÑÐ¿ÑÐ°Ð²Ð»ÐµÐ½Ð¾');
+        alert(ack?.error || 'Не отправлено');
       }
     });
   }
