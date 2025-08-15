@@ -3,7 +3,7 @@
 // ===== virtualization settings =====
 let virtualRowHeight = 80;
 let visibleBuffer = 8;
-
+ 
   function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function renderMessageHtml(m){
     const mine = String(m.senderId || m.userId) === String(myId);
