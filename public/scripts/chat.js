@@ -372,35 +372,17 @@
   }
 
   // ===== history / infinite scroll up =====
-  
   async function loadHistory(before) {
     if (!currentChat || loadingHistory) return;
     loadingHistory = true;
-    // Save current scroll height to preserve viewport when prepending
-    const el = els.messages;
-    const prevHeight = (before && el) ? el.scrollHeight : null;
     if (before) showTopLoader(true);
     try {
       const q = new URLSearchParams({ chatId: currentChat._id, limit: 30 });
       if (before) q.set('before', before);
-      let history = await API('/messages?' + q.toString());
-
-      // Ensure ascending order by createdAt for consistent rendering
-      if (Array.isArray(history)) history = history.slice().reverse();
-
-      // Merge: prepend older chunk or replace all
+      const history = await API('/messages?' + q.toString());
       messages = before ? history.concat(messages) : history;
-
       renderMessages();
       updateComposerPadding();
-
-      // After render, restore scroll so the same message stays pinned
-      if (before && el && prevHeight != null) {
-        const newHeight = el.scrollHeight;
-        const delta = newHeight - prevHeight;
-        // Add a little extra in case of top-loader height
-        el.scrollTop = (el.scrollTop || 0) + delta - 1;
-      }
     } catch (e) {
       // noop
     } finally {
@@ -408,7 +390,6 @@
       if (before) showTopLoader(false);
     }
   }
-
 
   function showTopLoader(show){
     if (!els.messages) return;
@@ -426,7 +407,7 @@
   els.messages && els.messages.addEventListener('scroll', () => {
     const el = els.messages;
     atBottom = isNearBottom();
-    if (el.scrollTop <= 0 && messages.length && !loadingHistory) loadHistory(messages[0].createdAt);
+    if (el.scrollTop === 0 && messages.length) loadHistory(messages[0].createdAt);
   });
 
   // ===== render messages =====
