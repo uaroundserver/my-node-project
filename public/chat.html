@@ -1,63 +1,66 @@
-<!-- public/chat.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Чат</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="chat.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .page{display:flex;flex-direction:column;height:100svh;background:#0b1220;color:#e6eef7}
+    .topbar{position:sticky;top:0;background:#0d1524;border-bottom:1px solid #1d2940;z-index:20}
+    .topbar .row{display:flex;align-items:center;gap:10px;padding:10px 12px}
+    .back{appearance:none;border:0;background:transparent;color:#e6eef7;font-size:20px;padding:6px 10px;border-radius:10px}
+    .back:active{background:#12203a}
+    .h-ava{width:36px;height:36px;border-radius:50%;overflow:hidden;background:#14223a;display:grid;place-items:center}
+    .h-ava img{width:100%;height:100%;object-fit:cover}
+    .h-ava .letter{font-weight:800;color:#9ec3ff}
+    .h-meta .name{font-weight:800}
+    .h-meta .sub{font-size:12px;opacity:.7}
+    /* список сообщений */
+    #messageList{flex:1;overflow:auto;padding:10px 10px 90px}
+    .msg{max-width:84%;margin:6px 0;padding:10px 12px;border-radius:14px;background:linear-gradient(180deg,#1a3dff2b,#1a3dff17)}
+    .mine{margin-left:auto;background:linear-gradient(180deg,#2b5cff44,#2b5cff22)}
+    .mrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;opacity:.85}
+    .mname{font-size:12px}
+    .mtext{white-space:pre-wrap;word-wrap:break-word}
+    .reply{border-left:3px solid #5c8dff33;padding-left:8px;margin-bottom:6px;opacity:.9;cursor:pointer}
+    .mmeta{display:flex;gap:8px;justify-content:flex-end;opacity:.75;font-size:12px;margin-top:6px}
+    .highlight{outline:2px solid #3b82f6;outline-offset:2px}
+    /* композер */
+    .composer{position:sticky;bottom:0;background:#0d1524;border-top:1px solid #1d2940;padding:10px 10px 12px}
+    .composer .wrap{display:flex;gap:8px;align-items:flex-end}
+    #msgInput{flex:1;min-height:40px;max-height:160px;padding:10px 12px;border-radius:12px;border:1px solid #223147;background:#0f1a2c;color:#e6eef7;resize:none;outline:none}
+    #sendBtn{height:40px;padding:0 14px;border-radius:12px;border:0;background:#2d72ff;color:#fff;font-weight:700}
+    #sendBtn:active{filter:brightness(.95)}
+    .replybar{display:none;margin-bottom:6px}
+    .replybar.visible{display:block}
+  </style>
 </head>
-<body>
-  <div id="chat-app" class="chat-app">
-    <aside class="chat-list">
-      <header class="list-header">
-        <h2>Чаты</h2>
-      </header>
-      <ul id="chatList"></ul>
-    </aside>
-
-    <main class="chat-main">
-
-      <!-- Шапка -->
-      <header class="chat-header">
-        <button id="tgBack" class="back-btn" type="button" aria-label="Назад">←</button>
-        <div id="tgTitle" class="chat-title">General chat</div>
-        <div id="tgSub" class="chat-typing"></div>
-
-        <!-- аватар справа -->
-        <img id="tgAvatarImg" class="chat-avatar" alt="" />
-        <span id="tgAvatarLetter" class="chat-avatar chat-avatar-letter" style="display:none">G</span>
-
-        <!-- Поиск -->
-     <!--   <input id="tgSearch" class="search" placeholder="Поиск по чату"/>-->
-      </header>
-
-      <!-- Сообщения -->
-      <section id="messageList" class="messages"></section>
-
-      <!-- Панель ответа -->
-      <div id="replyBar" class="reply-bar" hidden>
-        <span id="replyText"></span>
-        <button id="replyCancel" title="Отменить">✕</button>
+<body class="page">
+  <header class="topbar">
+    <div class="row">
+      <button class="back" id="goBack">←</button>
+      <div class="h-ava"><img id="tgAvatarImg" alt=""><span id="tgAvatarLetter" class="letter"></span></div>
+      <div class="h-meta">
+        <div id="tgTitle" class="name">Чат</div>
+        <div id="tgSub" class="sub"></div>
       </div>
+    </div>
+  </header>
 
-      <!-- Composer -->
-      <footer class="composer">
-        <div class="composer-left">
-          <button id="attachBtn" title="Вложения">📎</button>
-          <input id="fileInput" type="file" multiple hidden />
-        </div>
-        <textarea id="msgInput" placeholder="Напишите сообщение" rows="1"></textarea>
-        <div class="composer-right">
-          <button id="emojiBtn" title="Смайлы">😊</button>
-          <button id="sendBtn" title="Отправить">➤</button>
-        </div>
-      </footer>
-    </main>
+  <div id="messageList"></div>
+
+  <div class="composer">
+    <div id="replyBar" class="replybar"><span id="replyText"></span> · <a href="#" id="replyCancel">отмена</a></div>
+    <div class="wrap">
+      <input type="file" id="fileInput" hidden multiple />
+      <button id="attachBtn" class="back">📎</button>
+      <textarea id="msgInput" rows="1" placeholder="Напишите сообщение"></textarea>
+      <button id="sendBtn">Отправить</button>
+    </div>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="scripts/chat.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/chat.js"></script>
 </body>
 </html>
