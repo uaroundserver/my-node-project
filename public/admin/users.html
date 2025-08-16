@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Admin • Пользователи</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #eee; padding:.6rem; text-align:left; }
+    .row-actions button, .row-actions select { margin-right:.4rem; }
+    .toolbar { display:flex; gap:.6rem; margin-bottom:1rem; }
+    .button { padding:.5rem .8rem; border:1px solid #222; border-radius:8px; background:#fff; cursor:pointer; }
+    input[type="search"] { padding:.5rem .8rem; border:1px solid #ccc; border-radius:8px; width: 320px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Пользователи</h1>
+    <nav>
+      <a class="button" href="/admin/index.html">Дашборд</a>
+      <a class="button" href="/home.html">На сайт</a>
+      <a class="button" href="#" onclick="logout()">Выйти</a>
+    </nav>
+  </header>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Поиск по email…">
+    <button class="button" onclick="load()">Найти</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Страна</th>
+        <th>Роль</th>
+        <th>Статус</th>
+        <th>Создан</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script>
+    function logout(){ localStorage.removeItem('userToken'); location.href='/login.html'; }
+
+    async function ensureAdmin() {
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href='/login.html';
+      const me = await fetch('/api/admin/me', { headers:{Authorization:'Bearer '+token} });
+      if (!me.ok) return location.href='/home.html';
+      return true;
+    }
+
+    function fmtDate(s) {
+      if (!s) return '';
+      const d = new Date(s);
+      return d.toLocaleString();
+    }
+
+    async function load() {
+      await ensureAdmin();
+      const token = localStorage.getItem('userToken');
+      const q = document.getElementById('q').value.trim();
+      const res = await fetch('/api/admin/users' + (q ? ('?q='+encodeURIComponent(q)) : ''), {
+        headers: { Authorization:'Bearer '+token }
+      });
+      const list = await res.json();
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = list.map(u => {
+        const banned = u.isBanned ? 'Бан' : 'Ок';
+        const muted = u.isMuted ? 'Мут' : '';
+        const status = [banned, muted].filter(Boolean).join(', ');
+        return `
+          <tr data-id="${u._id}">
+            <td>${u.email}</td>
+            <td>${u.country || ''}</td>
+            <td>
+              <select onchange="patchUser('${u._id}', { role: this.value })">
+                ${['user','moderator','admin','superadmin'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
+              </select>
+            </td>
+            <td>${status || '—'}</td>
+            <td>${fmtDate(u.createdAt)}</td>
+            <td class="row-actions">
+              <button class="button" onclick="patchUser('${u._id}', { isBanned: ${!u.isBanned} })">${u.isBanned?'Разбан':'Бан'}</button>
+              <button class="button" onclick="patchUser('${u._id}', { isMuted: ${!u.isMuted} })">${u.isMuted?'Анмут':'Мут'}</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function patchUser(id, body) {
+      const token = localStorage.getItem('userToken');
+      const res = await fetch('/api/admin/users/'+id, {
+        method:'PATCH',
+        headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({error:'Error'}));
+        alert(e.error || 'Ошибка');
+      }
+      load();
+    }
+
+    load();
+  </script>
+</body>
+</html>
