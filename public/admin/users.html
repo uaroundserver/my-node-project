@@ -65,10 +65,10 @@
       await ensureAdmin();
       const token = localStorage.getItem('userToken');
       const q = document.getElementById('q').value.trim();
-      const res = await fetch('/api/admin/users' + (q ? ('?q='+encodeURIComponent(q)) : ''), {
-        headers: { Authorization:'Bearer '+token }
-      });
+      const url = '/api/admin/users' + (q ? ('?q='+encodeURIComponent(q)) : '');
+      const res = await fetch(url, { headers: { Authorization:'Bearer '+token } });
       const list = await res.json();
+
       const tbody = document.getElementById('rows');
       tbody.innerHTML = list.map(u => {
         const banned = u.isBanned ? 'Бан' : 'Ок';
@@ -96,16 +96,61 @@
 
     async function patchUser(id, body) {
       const token = localStorage.getItem('userToken');
-      const res = await fetch('/api/admin/users/'+id, {
-        method:'PATCH',
-        headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(()=>({error:'Error'}));
-        alert(e.error || 'Ошибка');
+
+      try {
+        // смена роли
+        if (body && typeof body.role === 'string') {
+          const res = await fetch('/api/admin/users/' + id + '/role', {
+            method: 'PUT',
+            headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + token },
+            body: JSON.stringify({ role: body.role })
+          });
+          if (!res.ok) throw await res.json();
+          await load();
+          return;
+        }
+
+        // бан / разбан
+        if (Object.prototype.hasOwnProperty.call(body, 'isBanned')) {
+          const wantBan = !!body.isBanned;
+          const res = await fetch('/api/admin/users/' + id + '/ban', {
+            method: wantBan ? 'POST' : 'DELETE',
+            headers: { Authorization:'Bearer ' + token }
+          });
+          if (!res.ok) throw await res.json();
+          await load();
+          return;
+        }
+
+        // мут / анмут
+        if (Object.prototype.hasOwnProperty.call(body, 'isMuted')) {
+          const wantMute = !!body.isMuted;
+          const res = await fetch('/api/admin/users/' + id + '/mute', {
+            method: wantMute ? 'POST' : 'DELETE',
+            headers: { Authorization:'Bearer ' + token }
+          });
+          if (!res.ok) throw await res.json();
+          await load();
+          return;
+        }
+
+        // fallback: если решишь юзать action
+        if (body && typeof body.action === 'string') {
+          const res = await fetch('/api/admin/users/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + token },
+            body: JSON.stringify({ action: body.action })
+          });
+          if (!res.ok) throw await res.json();
+          await load();
+          return;
+        }
+
+        alert('Неизвестное действие');
+      } catch (e) {
+        const msg = (e && e.error) ? e.error : (e && e.message) ? e.message : 'Ошибка';
+        alert(msg);
       }
-      load();
     }
 
     load();
