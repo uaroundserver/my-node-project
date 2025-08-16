@@ -354,11 +354,83 @@ function initChat(httpServer, db, app) {
       }
     });
 
-    // --- остальная логика сообщений (send/edit/delete/react/read/typing/disconnect) ---
-    // (она у тебя уже есть, я её не трогаю!)
-  });
+    // --- MESSAGE EVENTS ---
+    socket.on('message:send', async (data, cb) => {
+      try {
+        const me = await db.collection('users').findOne({ _id: asId(userId) }, { projection: { isBanned: 1, isMuted: 1 } });
+        if (me?.isBanned) return cb?.({ ok: false, error: 'Вы забанены' });
+        if (me?.isMuted) return cb?.({ ok: false, error: 'Вы в муте' });
 
-  return { io };
-}
+        const msg = {
+          _id: new ObjectId(),
+          chatId: chat._id,
+          senderId: asId(userId),
+          text: data.text || '',
+          attachments: data.attachments || [],
+          replyTo: asId(data.replyTo) || null,
+          createdAt: new Date(),
+          reactions: [],
+          reads: [],
+          deliveries: [],
+        };
+        await db.collection('messages').insertOne(msg);
 
-module.exports = { initChat };
+        const userMap = await buildUserMap(db, [userId]);
+        const norm = normalizeMessage(msg, userMap);
+        io.to(room).emit('message:new', norm);
+
+        cb?.({ ok: true, message: norm });
+      } catch (e) {
+        cb?.({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('message:edit', async ({ id, text }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return;
+        const msg = await db.collection('messages').findOne({ _id });
+        if (!msg) return;
+        if (String(msg.senderId) !== userId) return cb?.({ ok: false, error: 'Нет прав' });
+
+        await db.collection('messages').updateOne({ _id }, { $set: { text, editedAt: new Date() } });
+        io.to(room).emit('message:edited', { _id, text, editedAt: new Date() });
+        cb?.({ ok: true });
+      } catch (e) {
+        cb?.({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('message:delete', async ({ id }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return;
+        const msg = await db.collection('messages').findOne({ _id });
+        if (!msg) return;
+        if (String(msg.senderId) !== userId) return cb?.({ ok: false, error: 'Нет прав' });
+
+        await db.collection('messages').updateOne({ _id }, { $set: { deleted: true } });
+        io.to(room).emit('message:deleted', { _id });
+        cb?.({ ok: true });
+      } catch (e) {
+        cb?.({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('message:react', async ({ id, reaction }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return;
+        await db.collection('messages').updateOne(
+          { _id },
+          { $addToSet: { reactions: { userId: asId(userId), reaction } } }
+        );
+        io.to(room).emit('message:reacted', { _id, userId, reaction });
+        cb?.({ ok: true });
+      } catch (e) {
+        cb?.({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('message:read', async ({ id }, cb) => {
+      try {
