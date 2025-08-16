@@ -1,4 +1,4 @@
- // server.js
+// server.js
 require('dotenv').config();
 
 const path = require('path');
@@ -115,4 +115,4 @@ let db;
 })().catch((e) => {
   console.error('Bootstrap failed:', e);
   process.exit(1);
-}); 
+});
