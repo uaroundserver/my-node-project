@@ -362,3 +362,110 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
     res.status(500).json({ error: 'Ошибка при получении статистики' });
   }
 });
+
+
+// === Админ: ban / unban / mute / unmute ===
+// (добавочный код; существующее не меняем)
+
+function ensureValidId(id, res) {
+  if (!ObjectId.isValid(id)) {
+    res.status(400).json({ error: 'bad id' });
+    return false;
+  }
+  return true;
+}
+
+// BAN
+app.post('/api/admin/users/:id/ban', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  if (!ensureValidId(id, res)) return;
+  try {
+    const r = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isBanned: true } }
+    );
+    if (!r.matchedCount) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true, userId: id, isBanned: true });
+  } catch (e) {
+    console.error('admin ban error:', e);
+    res.status(500).json({ error: 'ban failed' });
+  }
+});
+
+// UNBAN
+app.delete('/api/admin/users/:id/ban', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  if (!ensureValidId(id, res)) return;
+  try {
+    const r = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isBanned: false } }
+    );
+    if (!r.matchedCount) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true, userId: id, isBanned: false });
+  } catch (e) {
+    console.error('admin unban error:', e);
+    res.status(500).json({ error: 'unban failed' });
+  }
+});
+
+// MUTE
+app.post('/api/admin/users/:id/mute', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  if (!ensureValidId(id, res)) return;
+  try {
+    const r = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isMuted: true } }
+    );
+    if (!r.matchedCount) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true, userId: id, isMuted: true });
+  } catch (e) {
+    console.error('admin mute error:', e);
+    res.status(500).json({ error: 'mute failed' });
+  }
+});
+
+// UNMUTE
+app.delete('/api/admin/users/:id/mute', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  if (!ensureValidId(id, res)) return;
+  try {
+    const r = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isMuted: false } }
+    );
+    if (!r.matchedCount) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true, userId: id, isMuted: false });
+  } catch (e) {
+    console.error('admin unmute error:', e);
+    res.status(500).json({ error: 'unmute failed' });
+  }
+});
+
+// (опционально) универсальная ручка, если фронт шлёт action в одном запросе
+app.patch('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body || {};
+  if (!ensureValidId(id, res)) return;
+
+  const map = {
+    ban:   { isBanned: true },
+    unban: { isBanned: false },
+    mute:  { isMuted: true },
+    unmute:{ isMuted: false },
+  };
+  if (!map[action]) return res.status(400).json({ error: 'bad action' });
+
+  try {
+    const r = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: map[action] }
+    );
+    if (!r.matchedCount) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true, userId: id, ...map[action] });
+  } catch (e) {
+    console.error('admin action error:', e);
+    res.status(500).json({ error: 'action failed' });
+  }
+});
