@@ -1,449 +1,270 @@
 // chat/index.js
-// Socket.IO + REST setup for a single global chat room for all registered users
+// Маршруты и Socket.IO-логика чата с учетом бан/мут и совместимости JWT (sub|userId)
+
 const express = require('express');
-const { Server } = require('socket.io');
 const { ObjectId } = require('mongodb');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const auth = require('../middleware/auth');
-const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth'); // декодирует JWT -> req.user
 
-// ---------- uploads ----------
+// === Настройки загрузки вложений ===
 const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-const upload = multer({ dest: uploadDir });
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// ---------- helpers ----------
-const asId = (v) => { try { return new ObjectId(v); } catch { return null; } };
-
-function pickReplyView(m) {
-  if (!m) return null;
-  const at = m.attachments || [];
-  const first = at.length
-    ? {
-        url: at[0].url,
-        mime: at[0].mimetype || at[0].mime || '',
-        originalName: at[0].originalname || at[0].originalName || null,
-        size: at[0].size || null,
-      }
-    : null;
-  return {
-    _id: m._id,
-    userId: m.senderId || m.userId, // совместимость с разными версиями
-    text: m.text || (first ? '(вложение)' : ''),
-    attachments: first ? [first] : [],
-    createdAt: m.createdAt,
-  };
-}
-
-function displayName(u) {
-  if (!u) return 'user';
-  if (u.name && String(u.name).trim()) return u.name;
-  if (u.email && String(u.email).includes('@')) return String(u.email).split('@')[0];
-  return 'user';
-}
-
-async function buildUserMap(db, usersIdsArr) {
-  const ids = Array.from(new Set(usersIdsArr.map(String)))
-    .map((s) => asId(s))
-    .filter(Boolean);
-  if (!ids.length) return {};
-  const users = await db.collection('users')
-    .find({ _id: { $in: ids } }, { projection: { name: 1, email: 1, avatar: 1 } })
-    .toArray();
-  const map = {};
-  users.forEach((u) => {
-    map[u._id.toString()] = {
-      name: displayName(u),
-      avatar: u.avatar || null,
-    };
-  });
-  return map;
-}
-
-function normalizeMessage(m, userMap, replyDoc) {
-  const senderKey = (m.senderId || m.userId || '').toString();
-  const base = {
-    _id: m._id,
-    chatId: m.chatId,
-    senderId: m.senderId || m.userId,
-    senderName: userMap[senderKey]?.name || m.senderName || 'user',
-    senderAvatar: userMap[senderKey]?.avatar || m.senderAvatar || null,
-    text: m.text || '',
-    attachments: m.attachments || [],
-    replyTo: m.replyTo || null,
-    createdAt: m.createdAt,
-    editedAt: m.editedAt || null,
-    deleted: !!m.deleted,
-    reactions: m.reactions || [],
-    reads: m.reads || [],
-    deliveries: m.deliveries || [],
-  };
-
-  if (m.replyTo && replyDoc) {
-    const r = pickReplyView(replyDoc);
-    if (r) {
-      const rKey = (r.userId || '').toString();
-      base.reply = {
-        ...r,
-        senderName: userMap[rKey]?.name || 'user',
-        senderAvatar: userMap[rKey]?.avatar || null,
-      };
-    }
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const name = path.basename(file.originalname || 'file', ext).slice(0, 64);
+    cb(null, `${Date.now()}_${name}${ext}`);
   }
-  return base;
+});
+
+// Базовая фильтрация типов (при необходимости расширь)
+const fileFilter = (req, file, cb) => {
+  const ok = [
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'application/pdf', 'text/plain', 'audio/mpeg', 'audio/wav', 'audio/x-wav'
+  ].includes(file.mimetype);
+  cb(ok ? null : new Error('Недопустимый тип файла'), ok);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB
+});
+
+// === Вспомогалки ===
+function pickUserId(userPayload) {
+  return userPayload?.sub || userPayload?.userId || null;
+}
+
+function publicMessageFields(msg) {
+  // проекция полей сообщения наружу
+  /* предполагаем структура:
+     { _id, senderId, text, files[], createdAt, roomId?, ... } */
+  if (!msg) return null;
+  return {
+    _id: msg._id,
+    senderId: msg.senderId,
+    text: msg.text || '',
+    files: Array.isArray(msg.files) ? msg.files : [],
+    createdAt: msg.createdAt,
+    roomId: msg.roomId || null
+  };
 }
 
 /**
- * Initialize chat (routes + socket.io)
- * @param {import('http').Server} httpServer
- * @param {import('mongodb').Db} db
- * @param {import('express').Express} app
+ * Экспортируем фабрику: получаем db и io, возвращаем Express Router
+ * Используй в server.js:
+ *   const chatRouter = require('./chat')(db, io);
+ *   app.use('/api/chat', chatRouter);
  */
-function initChat(httpServer, db, app) {
-  // serve uploads
-  app.use('/uploads', express.static(uploadDir));
-
-  // --- REST ---
+module.exports = function createChatModule(db, io) {
   const router = express.Router();
+  const messagesCol = () => db.collection('messages');
+  const usersCol = () => db.collection('users');
 
-  // fetch chat list (one global chat)
-  router.get('/chats', auth, async (req, res) => {
+  // Глобальная защита чата: нужен токен + не бан
+  router.use(auth, guardNotBanned);
+
+  // === REST: получить последние сообщения ===
+  router.get('/messages', async (req, res) => {
     try {
-      const userId = req?.user?.userId;
-      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-      const chatsCol = db.collection('chats');
-      let chat = await chatsCol.findOne({ key: 'global' });
-      if (!chat) {
-        chat = {
-          _id: new ObjectId(),
-          key: 'global',
-          title: 'General chat',
-          avatar: null,
-          createdAt: new Date(),
-          lastMessage: null,
-        };
-        await chatsCol.insertOne(chat);
-      }
-
-      const messagesCol = db.collection('messages');
-      const unreadCount = await messagesCol.countDocuments({
-        chatId: chat._id,
-        deleted: { $ne: true },
-        'reads.userId': { $ne: asId(userId) },
-        senderId: { $ne: asId(userId) },
-      });
-
-      res.json([{
-        _id: chat._id,
-        title: chat.title,
-        avatar: chat.avatar,
-        lastMessage: chat.lastMessage || null,
-        unread: unreadCount,
-      }]);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to load chats' });
-    }
-  });
-
-  // fetch messages with pagination + enriched replies/senders
-  router.get('/messages', auth, async (req, res) => {
-    try {
-      const { chatId, before, limit = 30 } = req.query;
-      if (!chatId) return res.status(400).json({ error: 'chatId required' });
-
-      const q = { chatId: asId(chatId), deleted: { $ne: true } };
-      if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
-      if (before) {
-        const dt = new Date(before);
-        if (!isNaN(+dt)) q.createdAt = { $lt: dt };
-      }
-
-      const items = await db.collection('messages')
+      const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+      const q = {};
+      if (req.query.roomId) q.roomId = String(req.query.roomId);
+      const list = await messagesCol()
         .find(q)
-        .sort({ createdAt: -1, _id: -1 })
-        .limit(Number(limit))
+        .sort({ createdAt: -1 })
+        .limit(limit)
         .toArray();
 
-      // gather reply targets & user ids
-      const replyIds = items.filter((x) => x.replyTo).map((x) => x.replyTo);
-      const replyDocs = replyIds.length
-        ? await db.collection('messages')
-            .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, createdAt: 1 } })
-            .toArray()
-        : [];
-
-      const senders = [
-        ...items.map((x) => (x.senderId || x.userId)?.toString?.()).filter(Boolean),
-        ...replyDocs.map((x) => x.senderId?.toString?.()).filter(Boolean),
-      ];
-      const userMap = await buildUserMap(db, senders);
-
-      // map reply id -> doc
-      const replyMap = {};
-      replyDocs.forEach((d) => { replyMap[d._id.toString()] = d; });
-
-      const ordered = items.reverse().map((m) =>
-        normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
-      );
-      res.json(ordered);
+      res.json(list.reverse().map(publicMessageFields));
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to load messages' });
+      console.error('GET /messages error:', e);
+      res.status(500).json({ error: 'Не удалось получить сообщения' });
     }
   });
 
-  // get minimal message meta by id (for jump/reply toast)
-  router.get('/message/:id', async (req, res) => {
+  // === REST: отправить сообщение (учтём mute) ===
+  router.post('/messages', upload.array('files', 5), async (req, res) => {
     try {
-      const _id = asId(req.params.id);
-      if (!_id) return res.status(404).json({ error: 'Not found' });
-      const doc = await db.collection('messages').findOne({ _id });
-      if (!doc) return res.status(404).json({ error: 'Not found' });
+      // guardNotBanned уже положил флаг mute
+      if (req.__userFlags?.isMuted) {
+        return res.status(403).json({ error: 'Вы замьючены' });
+      }
+      const uid = pickUserId(req.user);
+      const text = (req.body?.text || '').toString().slice(0, 4000);
+      const roomId = req.body?.roomId ? String(req.body.roomId) : null;
 
-      let senderName = null, senderAvatar = null;
-      try {
-        const u = await db.collection('users').findOne({ _id: doc.senderId || doc.userId }, { projection: { name: 1, email: 1, avatar: 1 } });
-        if (u) { senderName = displayName(u); senderAvatar = u.avatar || null; }
-      } catch {}
-
-      res.json({
-        _id: doc._id,
-        chatId: doc.chatId,
-        userId: doc.senderId || doc.userId,
-        senderId: doc.senderId || doc.userId,
-        senderName, senderAvatar,
-        text: doc.text || '',
-        attachments: doc.attachments || [],
-        replyTo: doc.replyTo || null,
-        createdAt: doc.createdAt,
-      });
-    } catch (e) {
-      res.status(404).json({ error: 'Not found' });
-    }
-  });
-
-  // upload attachment(s)
-  router.post('/attachments', auth, upload.array('files', 10), async (req, res) => {
-    try {
-      const files = (req.files || []).map((f) => ({
-        fieldname: f.fieldname,
-        originalname: f.originalname,
-        originalName: f.originalname, // фронту удобно и так, и так
+      const files = (req.files || []).map(f => ({
+        name: f.originalname,
+        path: '/uploads/' + path.basename(f.path),
         mimetype: f.mimetype,
-        mime: f.mimetype,
-        size: f.size,
-        url: `/uploads/${f.filename}`,
+        size: f.size
       }));
-      res.json({ files });
+
+      if (!text && files.length === 0) {
+        return res.status(400).json({ error: 'Пустое сообщение' });
+      }
+
+      const doc = {
+        senderId: uid,
+        text,
+        files,
+        roomId,
+        createdAt: new Date()
+      };
+      const ins = await messagesCol().insertOne(doc);
+
+      const out = { ...doc, _id: ins.insertedId };
+      // Шлём событие в сокет всем (или в комнату)
+      if (roomId) io.to(roomId).emit('chat:new', publicMessageFields(out));
+      else io.emit('chat:new', publicMessageFields(out));
+
+      res.status(201).json(publicMessageFields(out));
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Upload failed' });
+      console.error('POST /messages error:', e);
+      res.status(500).json({ error: 'Не удалось отправить сообщение' });
     }
   });
 
-  // search messages by text or user
-  router.get('/search', auth, async (req, res) => {
+  // === REST: удалить своё сообщение (или админом/модератором) ===
+  router.delete('/messages/:id', async (req, res) => {
     try {
-      const { chatId, q, userId, limit = 50 } = req.query;
-      if (!chatId) return res.status(400).json({ error: 'chatId required' });
-      const mquery = { chatId: asId(chatId), deleted: { $ne: true } };
-      if (!mquery.chatId) return res.status(400).json({ error: 'bad chatId' });
-      if (q) mquery.text = { $regex: q, $options: 'i' };
-      if (userId) mquery.senderId = asId(userId);
-      const items = await db.collection('messages')
-        .find(mquery).sort({ createdAt: 1 }).limit(Number(limit)).toArray();
-      res.json(items);
+      const id = req.params.id;
+      if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'bad id' });
+
+      const uid = pickUserId(req.user);
+      const me = await usersCol().findOne(
+        { _id: new ObjectId(uid) },
+        { projection: { role: 1 } }
+      );
+      const msg = await messagesCol().findOne({ _id: new ObjectId(id) });
+      if (!msg) return res.status(404).json({ error: 'Сообщение не найдено' });
+
+      const isOwner = String(msg.senderId) === String(uid);
+      const canModerate = ['moderator', 'admin', 'superadmin'].includes(me?.role);
+
+      if (!isOwner && !canModerate) {
+        return res.status(403).json({ error: 'Недостаточно прав' });
+      }
+
+      await messagesCol().deleteOne({ _id: new ObjectId(id) });
+      io.emit('chat:delete', { _id: msg._id });
+      res.json({ ok: true });
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Search failed' });
+      console.error('DELETE /messages/:id error:', e);
+      res.status(500).json({ error: 'Не удалось удалить сообщение' });
     }
   });
 
-  app.use('/api/chat', router);
+  // === Socket.IO интеграция ===
+  // Примечание: сервер сокетов настраивается в server.js; здесь — обработчики.
+  io.use(socketJwtAuth(db)); // middleware авторизации на уровне сокета
 
-  // --- Socket.IO real-time ---
-  const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
-  const onlineMap = new Map(); // userId -> Set(socketId)
+  io.on('connection', (socket) => {
+    // В socket.user уже положили { _id, role, isBanned, isMuted }
+    const { user } = socket;
+    const uid = user?._id?.toString();
 
-  io.use((socket, next) => {
-    try {
-      const raw = socket.handshake.auth?.token || socket.handshake.query?.token;
-      if (!raw) return next(new Error('no token'));
-      const token = String(raw).replace(/^Bearer\s+/i, '');
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = { id: String(payload.userId) };
-      next();
-    } catch {
-      next(new Error('auth failed'));
+    if (!user || user.isBanned) {
+      socket.emit('error', 'Доступ запрещён');
+      socket.disconnect(true);
+      return;
     }
-  });
 
-  io.on('connection', async (socket) => {
-    const userId = socket.user.id;
+    // Вступление в комнату (по запросу клиента)
+    socket.on('chat:join', (roomId) => {
+      if (!roomId) return;
+      socket.join(String(roomId));
+    });
 
-    // ensure global chat
-    const chatsCol = db.collection('chats');
-    let chat = await chatsCol.findOne({ key: 'global' });
-    if (!chat) {
-      chat = { _id: new ObjectId(), key: 'global', title: 'General chat', createdAt: new Date() };
-      await chatsCol.insertOne(chat);
-    }
-    const room = String(chat._id);
-    socket.join(room);
-
-    // mark online
-    if (!onlineMap.has(userId)) onlineMap.set(userId, new Set());
-    onlineMap.get(userId).add(socket.id);
-    io.to(room).emit('presence:update', { userId, online: true });
-
-    // SEND MESSAGE (supports: text, attachments[], replyTo)
-    socket.on('message:send', async (payload, cb) => {
+    // Отправка сообщения через сокеты
+    socket.on('chat:send', async (payload, cb) => {
       try {
-        const usersCol = db.collection('users');
-        const messagesCol = db.collection('messages');
+        if (user.isMuted) {
+          return cb?.({ ok: false, error: 'Вы замьючены' });
+        }
+        const text = (payload?.text || '').toString().slice(0, 4000);
+        const roomId = payload?.roomId ? String(payload.roomId) : null;
+        if (!text) return cb?.({ ok: false, error: 'Пустое сообщение' });
 
-        const sender = await usersCol.findOne({ _id: asId(userId) }, { projection: { name: 1, email: 1, avatar: 1 } });
-
-        // reply origin
-        let replyDoc = null;
-        const replyTo = payload?.replyTo ? asId(payload.replyTo) : null;
-        if (replyTo) replyDoc = await messagesCol.findOne({ _id: replyTo });
-
-        const msg = {
-          _id: new ObjectId(),
-          chatId: chat._id,
-          senderId: asId(userId),
-          senderName: displayName(sender),
-          senderAvatar: sender?.avatar || null,
-          text: String(payload?.text || '').slice(0, 5000),
-          attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
-          replyTo: replyDoc ? replyDoc._id : null,
-          replyToOwnerId: replyDoc ? replyDoc.senderId : null, // может пригодиться фронту
-          reactions: [],
-          createdAt: new Date(),
-          editedAt: null,
-          deleted: false,
-          deliveries: [],
-          reads: [],
+        const doc = {
+          senderId: uid,
+          text,
+          files: [],
+          roomId,
+          createdAt: new Date()
         };
+        const ins = await messagesCol().insertOne(doc);
+        const out = { ...doc, _id: ins.insertedId };
 
-        await messagesCol.insertOne(msg);
-        await chatsCol.updateOne(
-          { _id: chat._id },
-          { $set: { lastMessage: { _id: msg._id, text: msg.text, senderName: msg.senderName, createdAt: msg.createdAt } } }
-        );
+        if (roomId) io.to(roomId).emit('chat:new', publicMessageFields(out));
+        else io.emit('chat:new', publicMessageFields(out));
 
-        // enrich for emit
-        const senderMap = {};
-        senderMap[msg.senderId.toString()] = { name: msg.senderName, avatar: msg.senderAvatar };
-        let emitPayload = normalizeMessage(msg, senderMap, replyDoc);
-        // if reply exists and we can enrich with its sender meta
-        if (replyDoc && replyDoc.senderId) {
-          const ruser = await usersCol.findOne({ _id: replyDoc.senderId }, { projection: { name: 1, email: 1, avatar: 1 } });
-          emitPayload.reply = {
-            ...emitPayload.reply,
-            senderName: displayName(ruser),
-            senderAvatar: ruser?.avatar || null,
-          };
-        }
-
-        io.to(room).emit('message:new', emitPayload);
-        cb && cb({ ok: true, id: msg._id, delivered: true });
+        cb?.({ ok: true, message: publicMessageFields(out) });
       } catch (e) {
-        cb && cb({ ok: false, error: e.message || 'send failed' });
+        console.error('socket chat:send error:', e);
+        cb?.({ ok: false, error: 'Ошибка отправки' });
       }
     });
 
-    // EDIT
-    socket.on('message:edit', async ({ id, text }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        await db.collection('messages').updateOne(
-          { _id, senderId: asId(userId) },
-          { $set: { text: String(text).slice(0, 5000), editedAt: new Date() } }
-        );
-        const updated = await db.collection('messages').findOne({ _id });
-        io.to(room).emit('message:edited', { id, text: updated.text, editedAt: updated.editedAt });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // DELETE
-    socket.on('message:delete', async ({ id }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        await db.collection('messages').updateOne(
-          { _id, senderId: asId(userId) },
-          { $set: { deleted: true, text: '' } }
-        );
-        io.to(room).emit('message:deleted', { id });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // REACT
-    socket.on('message:react', async ({ id, emoji }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
-        const msg = await db.collection('messages').findOne({ _id });
-        const exists = (msg?.reactions || []).find((r) => String(r.userId) === String(userId) && r.emoji === emoji);
-        if (exists) {
-          await db.collection('messages').updateOne({ _id }, { $pull: { reactions: { userId: asId(userId), emoji } } });
-        } else {
-          await db.collection('messages').updateOne({ _id }, { $addToSet: { reactions: { userId: asId(userId), emoji } } });
-        }
-        const updated = await db.collection('messages').findOne({ _id });
-        io.to(room).emit('message:reactions', { id, reactions: updated.reactions || [] });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // READ
-    socket.on('message:read', async ({ ids }, cb) => {
-      try {
-        const idList = (ids || []).map(asId).filter(Boolean);
-        if (!idList.length) return cb && cb({ ok: true });
-        await db.collection('messages').updateMany(
-          { _id: { $in: idList }, 'reads.userId': { $ne: asId(userId) } },
-          { $push: { reads: { userId: asId(userId), at: new Date() } } }
-        );
-        io.to(room).emit('message:reads', { ids, userId });
-        cb && cb({ ok: true });
-      } catch (e) { cb && cb({ ok: false, error: e.message }); }
-    });
-
-    // TYPING
-    socket.on('typing', ({ isTyping }) => {
-      socket.to(room).emit('typing', { userId, isTyping: !!isTyping });
-    });
-
-    // DISCONNECT
-    socket.on('disconnect', async () => {
-      const set = onlineMap.get(userId);
-      if (set) {
-        set.delete(socket.id);
-        if (set.size === 0) {
-          onlineMap.delete(userId);
-          io.to(room).emit('presence:update', { userId, online: false });
-          try {
-            await db.collection('users').updateOne(
-              { _id: asId(userId) },
-              { $set: { lastSeen: new Date() } }
-            );
-          } catch {}
-        }
-      }
+    socket.on('disconnect', () => {
+      // noop
     });
   });
 
-  return { io };
-}
+  // === Middleware: бан/мут для REST ===
+  async function guardNotBanned(req, res, next) {
+    try {
+      const uid = pickUserId(req.user);
+      if (!uid) return res.status(401).json({ error: 'Нет токена' });
 
-module.exports = { initChat };
+      const user = await usersCol().findOne(
+        { _id: new ObjectId(uid) },
+        { projection: { isBanned: 1, isMuted: 1 } }
+      );
+      if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      if (user.isBanned) return res.status(403).json({ error: 'Пользователь забанен' });
+      req.__userFlags = { isMuted: !!user.isMuted };
+      next();
+    } catch (e) {
+      console.error('guardNotBanned error:', e);
+      res.status(500).json({ error: 'Ошибка проверки статуса' });
+    }
+  }
+
+  // === Socket.IO JWT auth middleware ===
+  function socketJwtAuth(db) {
+    const jwt = require('jsonwebtoken');
+    return async (socket, next) => {
+      try {
+        const token =
+          socket.handshake.auth?.token ||
+          (socket.handshake.headers?.authorization || '').replace(/^Bearer /i, '');
+
+        if (!token) return next(new Error('No token'));
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        const uid = pickUserId(payload);
+        if (!uid) return next(new Error('Bad token'));
+
+        const user = await usersCol().findOne(
+          { _id: new ObjectId(uid) },
+          { projection: { role: 1, isBanned: 1, isMuted: 1 } }
+        );
+        if (!user) return next(new Error('Unauthorized'));
+
+        socket.user = { _id: new ObjectId(uid), role: user.role || 'user', isBanned: !!user.isBanned, isMuted: !!user.isMuted };
+        next();
+      } catch (e) {
+        next(new Error('Auth failed'));
+      }
+    };
+  }
+
+  return router;
+};
