@@ -29,6 +29,8 @@ async function connectDB() {
   try {
     await client.connect();
     db = client.db('DBUA');
+    // === elevate admin (one-shot) ===
+await elevateAdminOnce(db);
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
 
@@ -300,3 +302,43 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Ошибка при обновлении аватара' });
   }
 });
+
+// Одноразовое повышение прав: берёт email из ENV и делает роль admin
+async function elevateAdminOnce(db) {
+  try {
+    const email = (process.env.SEED_ADMIN_EMAIL || '').trim().toLowerCase();
+    if (!email) {
+      console.log('[seed-admin] SEED_ADMIN_EMAIL не задан — пропускаю');
+      return;
+    }
+
+    const u = await db.collection('users').findOne({ email });
+    if (!u) {
+      console.log(`[seed-admin] Пользователь с email ${email} не найден`);
+      return;
+    }
+
+    const update = {
+      role: 'admin',
+      isBanned: false,
+      isMuted: false,
+      updatedAt: new Date()
+    };
+
+    const r = await db.collection('users').updateOne(
+      { _id: u._id },
+      { $set: update }
+    );
+
+    if (r.modifiedCount === 1) {
+      console.log(`[seed-admin] OK: ${email} теперь admin`);
+    } else {
+      console.log(`[seed-admin] Нет изменений (возможно, уже admin)`);
+    }
+
+    // ⚠️ РЕКОМЕНДАЦИЯ: после удачного запуска УДАЛИ переменную SEED_ADMIN_EMAIL в Render/ENV
+    // чтобы при следующих деплоях это больше не выполнялось.
+  } catch (e) {
+    console.error('[seed-admin] Ошибка:', e);
+  }
+}
