@@ -65,7 +65,61 @@ function authMiddleware(req, res, next) {
   });
 }
 
-// Активация
+// 🔑 Админ middleware
+async function adminMiddleware(req, res, next) {
+  try {
+    const user = await db.collection('users').findOne({ _id: new ObjectId(req.userId) });
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Нет доступа (admin only)' });
+    }
+    next();
+  } catch (err) {
+    console.error('Ошибка adminMiddleware:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+}
+
+// === Админ маршруты ===
+app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const users = await db.collection('users')
+      .find({}, { projection: { password: 0 } })
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при получении списка пользователей' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.collection('users').deleteOne({ _id: new ObjectId(id) });
+    res.json({ message: 'Пользователь удалён' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при удалении пользователя' });
+  }
+});
+
+app.put('/api/admin/users/:id/role', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { role } }
+    );
+    res.json({ message: 'Роль обновлена' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при обновлении роли' });
+  }
+});
+
+// === Активация ===
 app.get('/activate/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -97,11 +151,11 @@ app.get('/activate/:token', async (req, res) => {
   }
 });
 
-// Статика
+// === Статика ===
 app.use(express.static('public'));
 app.get('/', (_, res) => res.send('Сервер работает, добро пожаловать!'));
 
-// Регистрация
+// === Регистрация ===
 app.post('/register', async (req, res) => {
   try {
     let { email, password, country } = req.body;
@@ -127,6 +181,7 @@ app.post('/register', async (req, res) => {
       activated: false,
       activationToken,
       activationExpires,
+      role: 'user', // 👈 по умолчанию обычный пользователь
       createdAt: new Date(),
     });
 
@@ -156,7 +211,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Логин (JWT)
+// === Логин (JWT) ===
 app.post('/login', async (req, res) => {
   try {
     let { email, password } = req.body;
@@ -179,14 +234,14 @@ app.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, userId: user._id });
+    res.json({ token, userId: user._id, role: user.role });
   } catch (err) {
     console.error('Ошибка при логине:', err);
     res.status(500).json({ error: 'Ошибка сервера при входе' });
   }
 });
 
-// Профиль: получить
+// === Профиль: получить ===
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await db.collection('users').findOne(
@@ -201,7 +256,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// Профиль: обновить
+// === Профиль: обновить ===
 app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const { fullName, phone } = req.body;
@@ -216,7 +271,7 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// Аватар: base64 JPG/PNG до 5 МБ
+// === Аватар: base64 JPG/PNG до 5 МБ ===
 app.put('/api/user/avatar', authMiddleware, async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -245,5 +300,3 @@ app.put('/api/user/avatar', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Ошибка при обновлении аватара' });
   }
 });
-
-// ВНИМАНИЕ: тут НЕТ app.listen — слушаем через server.listen() в connectDB()
