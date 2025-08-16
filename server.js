@@ -1,118 +1,249 @@
-// server.js
 require('dotenv').config();
 
-const path = require('path');
-const fs = require('fs');
 const express = require('express');
-const http = require('http');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { MongoClient } = require('mongodb');
-const { Server } = require('socket.io');
+const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcrypt');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
-// Роуты и контроллеры
-const { register, activate, login } = require('./controllers/authController');
-const userRoutesFactory = require('./routes/user');   // r = userRoutesFactory(db)
-const adminRoutesFactory = require('./routes/admin'); // r = adminRoutesFactory(db)
-const createChatModule = require('./chat');           // r = createChatModule(db, io)
+// http + чат (Socket.IO)
+const http = require('http');
+const { initChat } = require('./chat');
 
-// === Конфиг ===
-const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017';
-const DB_NAME = process.env.DB_NAME || 'DBUA';
-const CLIENT_ORIGINS = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-// === App/Server/IO ===
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+// http-сервер (важно для socket.io)
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: CLIENT_ORIGINS.length ? CLIENT_ORIGINS : true
+
+app.use(cors());
+app.use(express.json({ limit: '6mb' })); // для base64 аватаров
+
+let db;
+const client = new MongoClient(process.env.MONGO_URI);
+
+// подключение к БД и старт сервера/чата
+async function connectDB() {
+  try {
+    await client.connect();
+    db = client.db('DBUA');
+    await db.collection('users').createIndex({ email: 1 }, { unique: true });
+    console.log('✅ MongoDB подключена');
+
+    // инициализируем чат (routes + socket.io)
+    initChat(server, db, app);
+
+    // запускаем http-сервер
+    server.listen(PORT, () => {
+      console.log(`🔊 Сервер запущен на порту ${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Ошибка подключения к MongoDB:', err);
+  }
+}
+connectDB();
+
+// Почта
+const transporter = nodemailer.createTransport({
+  service: 'Gmail',
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+});
+
+// JWT middleware
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Токен отсутствует' });
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Токен отсутствует' });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ error: 'Неверный или истекший токен' });
+    req.userId = decoded.userId;
+    next();
+  });
+}
+
+// Активация
+app.get('/activate/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const user = await db.collection('users').findOne({
+      activationToken: token,
+      activationExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).send(`
+        <h2>⛔ Ссылка активации недействительна или истекла</h2>
+        <p>Попробуйте зарегистрироваться снова.</p>
+      `);
+    }
+
+    await db.collection('users').updateOne(
+      { _id: user._id },
+      { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
+    );
+
+    res.send(`
+      <h2>✅ Аккаунт активирован!</h2>
+      <p>Через 3 секунды вы будете перенаправлены на сайт.</p>
+      <script>setTimeout(()=>{window.location.href="${process.env.CLIENT_URL}"},3000)</script>
+    `);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Ошибка при активации аккаунта');
   }
 });
 
-// === Middlewares (глобальные) ===
-app.set('trust proxy', 1);
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' } // чтобы картинки из /uploads нормально отдавались
-}));
-app.use(cors({
-  origin: CLIENT_ORIGINS.length ? CLIENT_ORIGINS : true
-}));
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Статика
+app.use(express.static('public'));
+app.get('/', (_, res) => res.send('Сервер работает, добро пожаловать!'));
 
-// Rate limit только на чувствительные маршруты
-const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 минут
-  limit: 100,
-  standardHeaders: true,
-  legacyHeaders: false
+// Регистрация
+app.post('/register', async (req, res) => {
+  try {
+    let { email, password, country } = req.body;
+    if (!email || !password || !country) {
+      return res.status(400).json({ error: 'Заполните email, пароль и страну проживания' });
+    }
+
+    email = String(email).trim().toLowerCase();
+
+    const existingUser = await db.collection('users').findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const activationToken = crypto.randomBytes(16).toString('hex');
+    const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const result = await db.collection('users').insertOne({
+      email,
+      password: hashedPassword,
+      country,
+      activated: false,
+      activationToken,
+      activationExpires,
+      createdAt: new Date(),
+    });
+
+    const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
+    await transporter.sendMail({
+      from: `"MyApp" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Подтверждение регистрации',
+      html: `
+        <h3>Спасибо за регистрацию!</h3>
+        <p>Пожалуйста, активируйте аккаунт по ссылке ниже:</p>
+        <a href="${activationLink}">${activationLink}</a>
+        <p><b>Срок действия:</b> 24 часа</p>
+      `,
+    });
+
+    res.status(201).json({
+      message: 'Регистрация успешна! Проверьте почту для активации.',
+      userId: result.insertedId,
+    });
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.email) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка сервера при регистрации' });
+  }
 });
 
-// === Статика ===
-const publicDir = path.join(process.cwd(), 'public');
-app.use(express.static(publicDir));
+// Логин (JWT)
+app.post('/login', async (req, res) => {
+  try {
+    let { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email и пароль обязательны' });
+    }
 
-// Отдаём папку загрузок (для вложений чата)
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(uploadsDir));
+    email = String(email).trim().toLowerCase();
 
-// === Подключение к Mongo ===
-let db;
-(async () => {
-  const client = new MongoClient(MONGO_URI, { ignoreUndefined: true });
-  await client.connect();
-  db = client.db(DB_NAME);
-  console.log('[mongo] connected');
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
 
-  // Базовые индексы (не критично, но полезно)
-  try { await db.collection('users').createIndex({ email: 1 }, { unique: true }); } catch {}
-  try { await db.collection('users').createIndex({ createdAt: -1 }); } catch {}
-  try { await db.collection('messages').createIndex({ createdAt: -1 }); } catch {}
+    if (!user.activated) {
+      return res.status(403).json({ error: 'Аккаунт не активирован. Проверьте почту.' });
+    }
 
-  // === Маршруты зависят от db, поэтому монтируем после подключения ===
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Неверный пароль' });
+    }
 
-  // Аутентификация
-  app.post('/api/register', authLimiter, (req, res) => register(req, res, db));
-  app.get('/activate/:token', (req, res) => activate(req, res, db));
-  app.post('/api/login', authLimiter, (req, res) => login(req, res, db));
-
-  // Пользовательские маршруты (/api/user/*)
-  app.use('/api/user', userRoutesFactory(db));
-
-  // Админка (/api/admin/*) — закрыта мидлами внутри самого роутера
-  app.use('/api/admin', adminRoutesFactory(db));
-
-  // Чат REST + Socket.IO
-  const chatRouter = createChatModule(db, io);
-  app.use('/api/chat', chatRouter);
-
-  // Фронтовые странички админки уже лежат в /public/admin/*
-  // Никакой дополнительной статики не требуется.
-
-  // 404 для API
-  app.use('/api', (req, res) => {
-    res.status(404).json({ error: 'Not found' });
-  });
-
-  // Глобальный обработчик ошибок (на крайняк)
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  });
-
-  // Стартуем сервер
-  server.listen(PORT, () => {
-    console.log(`[http] listening on :${PORT}`);
-  });
-})().catch((e) => {
-  console.error('Bootstrap failed:', e);
-  process.exit(1);
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, userId: user._id });
+  } catch (err) {
+    console.error('Ошибка при логине:', err);
+    res.status(500).json({ error: 'Ошибка сервера при входе' });
+  }
 });
+
+// Профиль: получить
+app.get('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(req.userId) },
+      { projection: { password: 0, activationToken: 0, activationExpires: 0 } }
+    );
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка сервера при получении профиля' });
+  }
+});
+
+// Профиль: обновить
+app.put('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const { fullName, phone } = req.body;
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(req.userId) },
+      { $set: { fullName: fullName || '', phone: phone || '' } }
+    );
+    res.json({ message: 'Профиль обновлён' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка сервера при обновлении профиля' });
+  }
+});
+
+// Аватар: base64 JPG/PNG до 5 МБ
+app.put('/api/user/avatar', authMiddleware, async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar || typeof avatar !== 'string' || !avatar.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Неверный формат изображения' });
+    }
+
+    const isOkType = /^data:image\/(png|jpeg|jpg);base64,/i.test(avatar);
+    if (!isOkType) {
+      return res.status(400).json({ error: 'Допустимы только JPG/PNG' });
+    }
+
+    const approxBytes = Math.ceil((avatar.length * 3) / 4);
+    if (approxBytes > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Изображение слишком большое (макс. 5 МБ)' });
+    }
+
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(req.userId) },
+      { $set: { avatar } }
+    );
+
+    res.json({ avatar });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при обновлении аватара' });
+  }
+});
+
+// ВНИМАНИЕ: тут НЕТ app.listen — слушаем через server.listen() в connectDB()
