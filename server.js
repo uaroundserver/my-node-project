@@ -30,7 +30,7 @@ async function connectDB() {
     await client.connect();
     db = client.db('DBUA');
     // === elevate admin (one-shot) ===
-await elevateAdminOnce(db);
+    await elevateAdminOnce(db);
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
 
@@ -342,3 +342,23 @@ async function elevateAdminOnce(db) {
     console.error('[seed-admin] Ошибка:', e);
   }
 }
+
+// === Админка: проверка и статистика ===
+app.get('/api/admin/me', authMiddleware, adminMiddleware, async (req, res) => {
+  res.json({ ok: true, userId: req.userId });
+});
+
+app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const users = await db.collection('users').countDocuments();
+    const messages = await db.collection('messages').countDocuments({ deleted: { $ne: true } });
+    const recent7d = await db.collection('users').countDocuments({
+      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+    });
+
+    res.json({ users, messages, recent7d });
+  } catch (err) {
+    console.error('Ошибка admin/stats:', err);
+    res.status(500).json({ error: 'Ошибка при получении статистики' });
+  }
+});
