@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Admin • Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+    .cards { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .card { border:1px solid #ddd; border-radius:10px; padding:1rem; }
+    .muted { color:#666; font-size:0.9rem; }
+    a.button { display:inline-block; padding:.6rem 1rem; border:1px solid #222; border-radius:8px; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Админка</h1>
+    <nav>
+      <a class="button" href="/admin/users.html">Пользователи</a>
+      <a class="button" href="/home.html">На сайт</a>
+      <a class="button" href="#" onclick="logout()">Выйти</a>
+    </nav>
+  </header>
+
+  <section id="stats" class="cards"></section>
+
+  <script>
+    function logout(){ localStorage.removeItem('userToken'); location.href='/login.html'; }
+
+    async function ensureAdmin() {
+      const token = localStorage.getItem('userToken');
+      if (!token) return location.href='/login.html';
+      const me = await fetch('/api/admin/me', { headers:{Authorization:'Bearer '+token} });
+      if (!me.ok) return location.href='/home.html';
+      return true;
+    }
+
+    (async function init(){
+      await ensureAdmin();
+      const token = localStorage.getItem('userToken');
+      const res = await fetch('/api/admin/stats', { headers:{Authorization:'Bearer '+token} });
+      const data = await res.json();
+      const s = document.getElementById('stats');
+      s.innerHTML = `
+        <div class="card"><div class="muted">Пользователи</div><div style="font-size:2rem">${data.users ?? '—'}</div></div>
+        <div class="card"><div class="muted">Сообщения</div><div style="font-size:2rem">${data.messages ?? '—'}</div></div>
+        <div class="card"><div class="muted">Новые за 7 дней</div><div style="font-size:2rem">${data.recent7d ?? '—'}</div></div>
+      `;
+    })();
+  </script>
+</body>
+</html>
