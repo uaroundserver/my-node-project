@@ -502,16 +502,19 @@ function renderMessages() {
         })
         .join('');
 
-      // группировка реакций по emoji
+  // --- РЕАКЦИИ (нормализация и группировка) ---
+const rx = Array.isArray(m.reactions) ? m.reactions : [];
+// превращаем в массив эмодзи; поддерживаем и объекты {emoji:'👍'}, и строки '👍'
+const emojis = rx
+  .map(r => (typeof r === 'string' ? r : (r && r.emoji)))
+  .filter(Boolean); // убираем undefined/пустые
+
 const groupedReactions = {};
-(m.reactions || []).forEach(r => {
-  if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
-  groupedReactions[r.emoji]++;
-});
+emojis.forEach(e => { groupedReactions[e] = (groupedReactions[e] || 0) + 1; });
 
 const reactionsHtml = Object.entries(groupedReactions)
   .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
-  .join(' ');
+  .join('');
   
 const displayName = (m.senderName || 'User').trim() || 'User';
 const letter = (displayName[0] || 'U').toUpperCase();
@@ -542,11 +545,12 @@ const avatarHtml = `
     ${replyHtml}
     <div class="mtext">${escapeHtml(m.text || '')}</div>
     ${attachHtml}
-  <div class="mmeta">
-  <span>${timeShort(m.createdAt)}</span>
-  ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-  ${reactionsHtml ? `<span class="reactions">${reactionsHtml}</span>` : ''}
-</div>
+ <div class="mmeta">
+      <span>${timeShort(m.createdAt)}</span>
+      ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
+      ${reactionsHtml ? `<span class="reactions">${reactionsHtml}</span>` : ''}
+    </div>
+  </div>
 `;
         
 
