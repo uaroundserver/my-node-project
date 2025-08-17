@@ -49,7 +49,8 @@ body{
 html, body{ max-width: 100vw !important; }
 
 .app-frame {
-  position: relative;   /* всё внутри будет позиционироваться относительно рамки */
+  position: fixed;   /* всё внутри будет позиционироваться относительно рамки */
+  margin: 0 auto;
   max-width: 600px;     /* ширина рамки на ПК (или var(--mobile-max) на мобиле) */
   width: 100%;
   height: 100vh;        /* чтобы sidebar и backdrop знали свои границы */
