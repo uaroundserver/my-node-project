@@ -168,14 +168,6 @@ body {
   border-radius: 12px;
 }
 
-@media (prefers-reduced-motion: reduce){
-  * { transition: none !important; }
-}
-
-@media (max-width:480px){
-  :root{ --header-h:54px; --bottom-h:60px; }
-  #sidebar{ width:200px; }
-}
 
 /* Бэйдж уведомлений */
 .badge {
