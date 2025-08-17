@@ -521,6 +521,16 @@ const avatarHtml = `
     
         
         
+const groupedReactions = {};
+(m.reactions || []).forEach(r => {
+  if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
+  groupedReactions[r.emoji]++;
+});
+
+const reactionsHtml = Object.entries(groupedReactions)
+  .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
+  .join(' ');
+        
     div.innerHTML = `
   <div class="mbody">
     <div class="mrow">
