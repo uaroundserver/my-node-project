@@ -493,7 +493,7 @@ router.get('/messages', auth, async (req, res) => {
         if (String(msg.senderId) !== userId) return cb?.({ ok: false, error: 'Нет прав' });
 
         await db.collection('messages').updateOne({ _id }, { $set: { text, editedAt: new Date() } });
-        io.to(room).emit('message:edited', { _id, text, editedAt: new Date() });
+        io.to(room).emit('message:edited', { id: _id, text, editedAt: new Date() });
         cb?.({ ok: true });
       } catch (e) {
         cb?.({ ok: false, error: e.message });
