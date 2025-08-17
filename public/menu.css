@@ -1,3 +1,7 @@
+
+html, body {
+  max-width: 480px !important;
+}
 :root{
   --header-h: 56px;
   --bottom-h: 64px;
