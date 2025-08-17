@@ -1,4 +1,7 @@
 /* public/chat.css – mobile only, header with center title and search row inside header */
+html, body {
+  max-width: 480px !important;
+}
 
 :root{
   --bg:#0f1620; --panel:#151e2b; --panel-2:#0c121b;
