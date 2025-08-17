@@ -889,8 +889,13 @@ const avatarHtml = `
     if (idx > -1) { messages.splice(idx, 1); renderMessages(); }
   });
   socket.on('message:reactions', ({ id, reactions }) => {
-  const msg = messages.find(x => String(x._id) === String(id));
-  if (msg) { msg.reactions = reactions || []; renderMessages(); }
+  const m = messages.find(x => String(x._id) === String(id));
+  if (m) {
+    m.reactions = (Array.isArray(reactions) ? reactions : [])
+      .map(r => (typeof r === 'string' ? r : (r && r.emoji)))
+      .filter(Boolean);
+    renderMessages();
+  }
 });
   socket.on('typing', ({ userId, isTyping }) => {
     if (!els.tgSub) return;
