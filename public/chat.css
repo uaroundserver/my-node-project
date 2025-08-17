@@ -572,31 +572,3 @@ html.show-chat .chat-main{display:flex}
 .messages{ padding-bottom:12px !important; }
 
 
-/* --- FIX: выравнивание внутри пузырей --- */
-
-/* строка с мини-авой и ником всегда слева */
-.msg .mrow{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  justify-content:flex-start !important;   /* перекрываем старое */
-  text-align:left !important;
-}
-
-/* текст и цитаты влево в обоих типах сообщений */
-.msg .mtext,
-.msg .reply{
-  text-align:left !important;
-}
-
-/* мета (время/галочки) оставим справа внутри пузыря */
-.msg .mmeta{
-  display:flex;
-  justify-content:flex-end;
-}
-
-/* на всякий случай — отменяем возможный row-reverse */
-.msg.mine .mrow,
-.msg.their .mrow{
-  flex-direction:row !important;
-}
