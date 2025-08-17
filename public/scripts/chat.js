@@ -530,7 +530,9 @@ const avatarHtml = `
     <div class="mmeta">
       <span>${timeShort(m.createdAt)}</span>
       ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-      ${(m.reactions || []).map(r => r.emoji).join(' ') ? `<span>${(m.reactions||[]).map(r=>r.emoji).join(' ')}</span>` : ''}
+      ${(m.reactions || []).length
+        ? `<span class="reactions">${(m.reactions||[]).map(r=>r.emoji).join(' ')}</span>`
+        : ''}
     </div>
   </div>
 `;
