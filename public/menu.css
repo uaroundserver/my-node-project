@@ -111,24 +111,6 @@ body {
   transform: translateX(0);
 }
 
-/*#sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;      /* было 240px */
-  height: 100%;
-  max-width: var(--mobile-max); /* не шире рамки */
-  background: #fff;
-  border-top-right-radius: var(--radius);
-  border-bottom-right-radius: var(--radius);
-  transform: translateX(-100%);
-  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
-  z-index: 3500;
-}
-#sidebar.active {
-  transform: translateX(0);
-}*/
-
 #sidebar a{
   padding:16px 22px;
   text-decoration:none;
