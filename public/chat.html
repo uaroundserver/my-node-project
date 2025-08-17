@@ -63,12 +63,14 @@
 
 
 <script>
-  window.authToken      = localStorage.getItem("token");       || '';   // Bearer-токен
-  window.currentChatId  = "66c21f4f9f6b0f93d4b12345";  || '';   // _id чата
-  window.currentUserId  = localStorage.getItem("userId");  || '';   // _id текущего юзера
+  window.authToken      = localStorage.getItem("token") || '';
+  window.currentChatId  = "66c21f4f9f6b0f93d4b12345"; // подставь свой ID
+  window.currentUserId  = localStorage.getItem("userId") || '';
 
   const MSG_BOX_ID = 'messageList';
-  const PAGE_SIZE  = 50;   // сколько сообщений грузить за раз
+  let skip = 0;
+  const limit = 30;
+  let loading = false;
 
   function el(tag, cls, text){
     const n = document.createElement(tag);
@@ -81,8 +83,6 @@
     const mine = window.currentUserId && String(msg.senderId) === String(window.currentUserId);
 
     const wrap   = el('div', 'message' + (mine ? ' mine' : ''));
-    wrap.dataset.createdAt = msg.createdAt;
-
     const bubble = el('div', 'msg ' + (mine ? 'mine' : 'their'));
 
     const mrow = el('div', 'mrow');
@@ -107,69 +107,46 @@
 
   function box(){ return document.getElementById(MSG_BOX_ID); }
 
-  function isNearBottom(px = 80){
-    const b = box();
-    return (b.scrollHeight - (b.scrollTop + b.clientHeight)) <= px;
-  }
-
   function scrollToBottom(){
     const b = box();
     b.scrollTop = b.scrollHeight;
   }
 
-  // === API ===
-  async function fetchMessages(chatId, { before } = {}){
+  async function loadMessages(chatId, append = false){
+    if (loading) return;
+    loading = true;
+
     const headers = {};
     if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
 
-    let url = `/api/chat/messages?chatId=${encodeURIComponent(chatId)}&limit=${PAGE_SIZE}`;
-    if (before) url += `&before=${encodeURIComponent(before)}`;
-
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
+    const res = await fetch(`/api/chat/messages?chatId=${encodeURIComponent(chatId)}&limit=${limit}&skip=${skip}`, { headers });
+    if (!res.ok){
       console.error('Failed to load messages', await res.text());
-      return [];
-    }
-    return await res.json();
-  }
-
-  // === Загрузка первой страницы ===
-  async function loadInitial(){
-    const list = await fetchMessages(window.currentChatId);
-    const b = box();
-    b.innerHTML = '';
-    for (const msg of list){
-      b.appendChild(renderMessage(msg));
-    }
-    scrollToBottom();
-  }
-
-  // === Плавная подгрузка вверх ===
-  let loading = false;
-  async function loadMoreIfNeeded(){
-    const b = box();
-    if (b.scrollTop < 200 && !loading){   // почти дошли до верха
-      loading = true;
-
-      const oldHeight = b.scrollHeight;
-      const firstMsg  = b.querySelector(".message:first-child");
-      const before    = firstMsg?.dataset.createdAt;
-
-      if (!before){ loading = false; return; }
-
-      const more = await fetchMessages(window.currentChatId, { before });
-
-      for (let i = more.length - 1; i >= 0; i--){
-        const m = renderMessage(more[i]);
-        b.insertBefore(m, b.firstChild);
-      }
-
-      // фиксируем позицию (чтобы скролл не прыгал)
-      const newHeight = b.scrollHeight;
-      b.scrollTop = newHeight - oldHeight + b.scrollTop;
-
       loading = false;
+      return;
     }
+
+    const list = await res.json();
+    if (!list.length){
+      loading = false;
+      return; // больше нечего грузить
+    }
+
+    const b = box();
+
+    if (append){ 
+      const oldScrollHeight = b.scrollHeight;
+      const first = b.firstChild;
+      list.forEach(msg => b.insertBefore(renderMessage(msg), first));
+      b.scrollTop = b.scrollHeight - oldScrollHeight;
+    } else {
+      b.innerHTML = '';
+      list.forEach(msg => b.appendChild(renderMessage(msg)));
+      scrollToBottom();
+    }
+
+    skip += list.length;
+    loading = false;
   }
 
   // === Запуск ===
@@ -178,17 +155,23 @@
       console.warn('currentChatId пустой — подставь _id чата');
       return;
     }
-    loadInitial();
+    loadMessages(window.currentChatId); // первая загрузка
 
-    box().addEventListener("scroll", loadMoreIfNeeded);
+    // при прокрутке вверх грузим старые
+    box().addEventListener("scroll", () => {
+      if (box().scrollTop < 100) {
+        loadMessages(window.currentChatId, true);
+      }
+    });
   });
 
   // === Реальное время через socket.io ===
   if (window.io){
     const socket = io({ auth: { token: window.authToken ? ('Bearer ' + window.authToken) : undefined } });
     socket.on('message:new', (msg) => {
-      const stick = isNearBottom();
-      box().appendChild(renderMessage(msg));
+      const b = box();
+      const stick = (b.scrollHeight - (b.scrollTop + b.clientHeight)) <= 80;
+      b.appendChild(renderMessage(msg));
       if (stick) scrollToBottom();
     });
   }
