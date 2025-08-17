@@ -891,9 +891,7 @@ const avatarHtml = `
   socket.on('message:reactions', ({ id, reactions }) => {
   const m = messages.find(x => String(x._id) === String(id));
   if (m) {
-    m.reactions = (Array.isArray(reactions) ? reactions : [])
-      .map(r => (typeof r === 'string' ? r : (r && r.emoji)))
-      .filter(Boolean);
+    m.reactions = reactions;   // [{ emoji, count }]
     renderMessages();
   }
 });
