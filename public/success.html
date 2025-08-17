@@ -3,25 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Регистрация успешна</title>
+  <title>Подтвердите e-mail</title>
   <link rel="stylesheet" href="styles.css" />
-   <link rel="stylesheet" href="mobile-only.css" media="screen and (min-width: 481px)">
-   <style>
-    body {
-      text-align: center;
-    }
+  <style>
+    body { text-align: center; }
+    .form-container { max-width: 520px; margin: 40px auto; }
+    .hint { opacity: .8; font-size: 14px; }
   </style>
 </head>
 <body>
-<div class="form-container">
-  <h1>Регистрация прошла успешно!</h1>
-  <p>Теперь заполните данные личного кабинета и активируйте профиль по email.</p>
-  <button onclick="goToProfile()">Заполнить профиль</button>
-</div>
-<script>
-  function goToProfile() {
-    window.location.href = 'profile.html';
-  }
-</script>
+  <div class="form-container">
+    <h1>Почти готово!</h1>
+    <p>Мы отправили письмо с подтверждением на ваш e-mail. Перейдите по ссылке в письме, чтобы активировать аккаунт.</p>
+    <p class="hint">Если письма нет — проверьте папку «Спам». После активации вы сможете войти в аккаунт.</p>
+    <button onclick="window.location.href='login.html'">Перейти к входу</button>
+  </div>
 </body>
 </html>
