@@ -442,7 +442,13 @@
           ? escapeHtml(src.text.trim())
           : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(вложение)') : '');
         const nested = src.reply ? `<span class="reply-nested">${renderReplyPreview(src.reply)}</span>` : '';
-        const ava = src.senderAvatar ? `<img src="${src.senderAvatar}" class="reply-ava" />` : '';
+        const ava = src.senderAvatar
+  ? `<img src="${src.senderAvatar}" class="reply-ava"
+       width="16" height="16"
+       style="width:16px;height:16px;flex:0 0 16px;border-radius:50%;
+              object-fit:cover;vertical-align:-3px;margin-right:6px;
+              outline:1px solid rgba(255,255,255,.1)" />`
+  : '';
         return `${ava}<b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}${nested}`;
       }
       {
