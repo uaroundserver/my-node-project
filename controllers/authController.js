@@ -2,146 +2,130 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const { ObjectId } = require('mongodb');
 const transporter = require('../config/nodemailer');
 
 function makeActivationLink(req, token) {
-  // Пытаемся взять из .env, иначе — из запроса
   const base =
     process.env.SERVER_URL ||
     `${req.protocol}://${req.get('host')}` ||
-    'http://localhost:3000';
+    'http://localhost:5000';
   return `${base}/activate/${token}`;
 }
 
-// Регистрация
-async function register(req, res, db) {
+// === Регистрация ===
+async function register(req, res) {
   try {
-    let { email, password, country } = req.body || {};
-    email = (email || '').toLowerCase().trim();
-    country = (country || '').trim();
-
-    if (!email || !password || !country) {
-      return res.status(400).json({ error: 'Укажите email, пароль и страну' });
+    const { email, password, country } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email и пароль обязательны' });
     }
 
-    const users = db.collection('users');
-    const exists = await users.findOne({ email });
-    if (exists) return res.status(409).json({ error: 'Email уже зарегистрирован' });
+    const db = req.app.locals.db;
+    const normalizedEmail = String(email).toLowerCase();
+
+    const exists = await db.collection('users').findOne({ email: normalizedEmail });
+    if (exists) return res.status(400).json({ error: 'Пользователь уже зарегистрирован' });
 
     const hash = await bcrypt.hash(password, 10);
-    const activationToken = crypto.randomBytes(32).toString('hex');
+
+    const activationToken = crypto.randomBytes(24).toString('hex');
     const activationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    const doc = {
-      email,
+    await db.collection('users').insertOne({
+      _id: new ObjectId(),
+      email: normalizedEmail,
       password: hash,
-      country,
-      role: 'user',
       isActive: false,
-      isBanned: false,
-      isMuted: false,
+      country: country || null,
       activationToken,
       activationExpires,
       createdAt: new Date(),
       updatedAt: new Date()
-    };
-
-    const result = await users.insertOne(doc);
-
-    // Отправка письма
-    const link = makeActivationLink(req, activationToken);
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Подтверждение аккаунта',
-        html: `<p>Здравствуйте!</p>
-               <p>Для активации аккаунта перейдите по ссылке:</p>
-               <p><a href="${link}">${link}</a></p>
-               <p>Ссылка действительна 24 часа.</p>`
-      });
-    } catch (e) {
-      // Письмо не улетело — но регистрацию не валим
-      console.error('sendMail error:', e.message);
-    }
-
-    res.status(201).json({
-      message: 'Регистрация успешна! Проверьте почту для активации аккаунта.',
-      userId: result.insertedId
     });
+
+    const link = makeActivationLink(req, activationToken);
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: normalizedEmail,
+      subject: 'Подтверждение аккаунта',
+      html: `
+        <p>Здравствуйте!</p>
+        <p>Для активации аккаунта перейдите по ссылке (действительна 24 часа):</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>Если вы не регистрировались — просто игнорируйте это письмо.</p>
+      `
+    });
+
+    return res.json({ message: 'Регистрация успешна! Проверьте почту и подтвердите аккаунт.' });
   } catch (err) {
     console.error('register error:', err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    return res.status(500).json({ error: 'Ошибка сервера при регистрации' });
   }
 }
 
-// Активация аккаунта
-async function activate(req, res, db) {
+// === Активация === (на случай, если этот контроллер используется напрямую)
+async function activate(req, res) {
   try {
-    const token = req.params?.token || req.query?.token;
-    if (!token) return res.status(400).send('Нет токена');
+    const { token } = req.params;
+    const db = req.app.locals.db;
 
-    const users = db.collection('users');
-    const user = await users.findOne({
+    const user = await db.collection('users').findOne({
       activationToken: token,
       activationExpires: { $gt: new Date() }
     });
-    if (!user) return res.status(400).send('Токен недействителен или истек');
 
-    await users.updateOne(
+    if (!user) {
+      return res.status(400).send(`
+        <h2>Ссылка недействительна или истекла</h2>
+        <p>Запросите новое письмо активации и попробуйте снова.</p>
+      `);
+    }
+
+    await db.collection('users').updateOne(
       { _id: user._id },
-      {
-        $set: { isActive: true, updatedAt: new Date() },
-        $unset: { activationToken: '', activationExpires: '' }
-      }
+      { $set: { isActive: true, updatedAt: new Date() }, $unset: { activationToken: "", activationExpires: "" } }
     );
 
-    // Можно редиректнуть на фронт
-    res.send('Аккаунт активирован! Теперь можно войти.');
+    const redirect = process.env.CLIENT_URL || '/';
+    return res.send(`
+      <h2>✅ Аккаунт активирован!</h2>
+      <p>Сейчас перенаправим вас на сайт…</p>
+      <script>setTimeout(()=>{window.location.href="${redirect}"}, 2000)</script>
+    `);
   } catch (err) {
     console.error('activate error:', err);
-    res.status(500).send('Ошибка активации');
+    return res.status(500).send('Ошибка при активации аккаунта');
   }
 }
 
-// Логин
-async function login(req, res, db) {
+// === Логин ===
+async function login(req, res) {
   try {
-    let { email, password } = req.body || {};
-    email = (email || '').toLowerCase().trim();
+    const { email, password } = req.body;
+    const db = req.app.locals.db;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Укажите email и пароль' });
-    }
+    const normalizedEmail = String(email).toLowerCase();
+    const user = await db.collection('users').findOne({ email: normalizedEmail });
+    if (!user) return res.status(400).json({ error: 'Неверный email или пароль' });
 
-    const users = db.collection('users');
-    const user = await users.findOne({ email });
-    if (!user) return res.status(401).json({ error: 'Неверные учетные данные' });
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(400).json({ error: 'Неверный email или пароль' });
 
-    // Требуем активный аккаунт
     if (!user.isActive) {
-      return res.status(403).json({ error: 'Аккаунт не активирован' });
+      return res.status(403).json({ error: 'Подтвердите e-mail. Мы отправили письмо при регистрации.' });
     }
 
-    const ok = await bcrypt.compare(password, user.password || '');
-    if (!ok) return res.status(401).json({ error: 'Неверные учетные данные' });
-
-    // ВАЖНО: JWT теперь с ролью; сохраняем совместимость с legacy (userId)
-    const payload = {
-      sub: user._id.toString(),
-      userId: user._id.toString(), // чтобы старые места, где ждут userId, не отвалились
-      role: user.role || 'user',
-      email: user.email
-    };
-
+    const payload = { userId: user._id, email: user.email };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES || '7d'
     });
 
-    res.json({ token });
+    return res.json({ token });
   } catch (err) {
     console.error('login error:', err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 }
 
