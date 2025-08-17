@@ -502,7 +502,8 @@ function renderMessages() {
         })
         .join('');
 
-      const groupedReactions = {};
+      // группировка реакций по emoji
+const groupedReactions = {};
 (m.reactions || []).forEach(r => {
   if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
   groupedReactions[r.emoji]++;
