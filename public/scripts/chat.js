@@ -903,9 +903,7 @@ const avatarHtml = `
 
   // НЕ навешиваем els.sendBtn.onclick = send; — используем click/touchend выше
 
-  els.msgInput && els.msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-  });
+  
 
   function send() {
     if (!currentChat) return;
