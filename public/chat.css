@@ -36,14 +36,6 @@ html,body{
 #chatList{list-style:none;margin:0;padding:0;overflow:auto}
 .chat-item{display:flex;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1a2434}
 .chat-item:hover{background:var(--panel-2)}
-
-.chat-item .avatar{
-  width:40px;height:40px;border-radius:50%;
-  position:relative;flex:0 0 auto;overflow:hidden;
-  display:grid;place-items:center;background:#223043;color:#fff;font-weight:700;
-}
-.chat-item .avatar .ava-letter{ font-size:16px; line-height:1; }
-
 .chat-item .avatar{width:40px;height:40px;border-radius:50%;position:relative;flex:0 0 auto;overflow:hidden}
 .chat-item .avatar img{width:100%;height:100%;object-fit:cover}
 .chat-item .online{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--panel);background:#3ddc84}
@@ -51,25 +43,7 @@ html,body{
 .crow{display:flex;align-items:center;gap:6px}
 .crow .title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .crow .time{margin-left:auto;color:var(--muted);font-size:12px}
-.cpreview{
-  color:var(--muted);
-  font-size:13px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  display:flex; align-items:center; gap:6px;
-}
-
-.cpreview .mini-ava{
-  width:18px; height:18px; border-radius:50%;
-  flex:0 0 18px; object-fit:cover;
-  background:#223043; color:#fff; display:grid; place-items:center;
-  font-weight:700; font-size:11px;
-  outline:1px solid rgba(255,255,255,.08);
-}
-
-/* типографика: имя жирным, текст курсивом и чуть бледнее */
-.cpreview .name{ font-weight:700; color:var(--text); }
-.cpreview .text{ font-style:italic; opacity:.9; }
-.cpreview .sep{ opacity:.6; }
+.cpreview{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
 .badge{background:#2b7bff;color:#fff;border-radius:999px;padding:2px 7px;font-size:12px;margin-left:6px}
 
 /* ===== MAIN ===== */
@@ -153,22 +127,6 @@ html,body{
   padding:10px 12px; color:var(--text); font-size:16px;
 }
 
-
-
-
-
-/* по умолчанию чужие слева */
-.message {
-  display: flex;
-  justify-content: flex-start;
-}
-
-/* свои справа */
-.message.mine {
-  justify-content: flex-end;
-}
-
-
 /* ===== MESSAGES ===== */
 .messages{
   flex:1 1 auto; min-height:0;
@@ -228,71 +186,8 @@ html,body{
 .mrow{display:flex; align-items:center; gap:8px; margin-bottom:4px}
 .mavatar{width:18px; height:18px; border-radius:50%; overflow:hidden; flex:0 0 auto}
 .mavatar img{width:100%; height:100%; object-fit:cover}
-
-
-
-/* оболочка содержимого сообщения (внутри пузыря) */
-.msg .mbody{
-  padding-left: 44px;        /* место под кружок слева */
-}
-
-/* для моих сообщений — кружок справа, место справа */
-.msg.mine .mbody{
-  padding-left: 12px;
-  padding-right: 44px;
-}
-
-/* мои сообщения: аватар справа */
-.msg.mine .mavatar{
-  left: auto;
-  right: 10px;
-}
-
-
-
-
-
-
-/* буква, если картинки нет */
-.mletter{
-  font-weight:700;
-  font-size:14px;
-  line-height:1;
-  color:#e6eef7;                       /* как у заголовка */
-  /* лёгкая вертикальная компенсация, чтобы визуально по центру */
-  transform:translateY(1px);
-}
-
-/* ник в сообщении */
-.mname {
-  font-weight: 600;       /* делаем жирнее */
-  font-family: "Inter", sans-serif; /* или любой другой шрифт */
-  font-size: 13px;
-  color: #d1d9e0;         /* чуть светлее, чем текст */
-}
-
-
-
-.mletter{
-  font-weight:700;
-  font-size:11px;
-  opacity:.9;
-}
-
-.mname{
-  font-weight:600;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
-  letter-spacing:.2px;
-  opacity:.95;
-}
-
-/* текст сообщения */
-.mtext {
-  font-family: "Roboto", sans-serif;  /* отличается от ника */
-  font-size: 14px;
-  line-height: 1.4;
-  color: #fff;                        /* белый для читаемости */
-}
+.mname{font-size:12px; color:var(--muted)}
+.mtext{white-space:pre-wrap; line-height:1.32}
 
 .mmeta{
   position:absolute; right:10px; bottom:6px;
@@ -301,12 +196,7 @@ html,body{
 }
 .msg.their .mmeta{ color:rgba(230,238,247,.75); }
 .msg.mine  .mmeta{ color:rgba(255,255,255,.75); }
-.msg .mrow{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-bottom:6px;
-}
+
 .reply{
   margin:-2px 0 6px;
   padding-left:10px; border-left:3px solid var(--accent);
@@ -392,17 +282,10 @@ html.show-chat .chat-main{display:flex}
 }
 .msg.swipe-ready::before{ opacity:1; }
 
-/* мини-аватар в цитате *//* мини-аватар в цитате — жёстко переопределяем глобальные img { width:100% } */
+/* мини-аватар в цитате */
 .reply > .reply-ava{
-  width:16px !important;
-  height:16px !important;
-  flex:0 0 16px;
-  display:inline-block;
-  border-radius:50%;
-  object-fit:cover;
-  vertical-align:-3px;
-  margin-right:6px;
-  outline:1px solid rgba(255,255,255,.1);
+  width:16px; height:16px; border-radius:50%; object-fit:cover;
+  vertical-align:-3px; margin-right:6px; outline:1px solid rgba(255,255,255,.1);
 }
 
 /* вложенная цитата и иконка типа файла */
@@ -518,33 +401,3 @@ html.show-chat .chat-main{display:flex}
 }
 /* фикс базового отступа: дальше им управляет JS */
 .messages{ padding-bottom:12px !important; }
-
-
-/* --- FIX: выравнивание внутри пузырей --- */
-
-/* строка с мини-авой и ником всегда слева */
-.msg .mrow{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  justify-content:flex-start !important;   /* перекрываем старое */
-  text-align:left !important;
-}
-
-/* текст и цитаты влево в обоих типах сообщений */
-.msg .mtext,
-.msg .reply{
-  text-align:left !important;
-}
-
-/* мета (время/галочки) оставим справа внутри пузыря */
-.msg .mmeta{
-  display:flex;
-  justify-content:flex-end;
-}
-
-/* на всякий случай — отменяем возможный row-reverse */
-.msg.mine .mrow,
-.msg.their .mrow{
-  flex-direction:row !important;
-}
