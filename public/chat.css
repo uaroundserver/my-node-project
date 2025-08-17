@@ -282,10 +282,17 @@ html.show-chat .chat-main{display:flex}
 }
 .msg.swipe-ready::before{ opacity:1; }
 
-/* мини-аватар в цитате */
+/* мини-аватар в цитате *//* мини-аватар в цитате — жёстко переопределяем глобальные img { width:100% } */
 .reply > .reply-ava{
-  width:16px; height:16px; border-radius:50%; object-fit:cover;
-  vertical-align:-3px; margin-right:6px; outline:1px solid rgba(255,255,255,.1);
+  width:16px !important;
+  height:16px !important;
+  flex:0 0 16px;
+  display:inline-block;
+  border-radius:50%;
+  object-fit:cover;
+  vertical-align:-3px;
+  margin-right:6px;
+  outline:1px solid rgba(255,255,255,.1);
 }
 
 /* вложенная цитата и иконка типа файла */
