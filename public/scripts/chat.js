@@ -517,16 +517,7 @@ const avatarHtml = `
     <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
   </div>`;
 
-// группировка реакций по emoji
-const groupedReactions = {};
-(m.reactions || []).forEach(r => {
-  if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
-  groupedReactions[r.emoji]++;
-});
 
-const reactionsHtml = Object.entries(groupedReactions)
-  .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
-  .join(' ');  
     
         
         
