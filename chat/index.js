@@ -38,15 +38,13 @@ function pickReplyView(m) {
 }
 
 function displayName(u) {
-  // u — документ из коллекции users (projection: { name, email, avatar })
   if (!u) return 'anon';
+  const full = (u.fullName ?? '').toString().trim();
+  if (full) return full;
   const name = (u.name ?? '').toString().trim();
   if (name) return name;
-
   const email = (u.email ?? '').toString().trim();
   if (email && email.includes('@')) return email.split('@')[0];
-
-  // fallback — последние 6 символов ObjectId, чтобы было уникально и «человечно»
   return u._id ? u._id.toString().slice(-6) : 'anon';
 }
 
@@ -56,8 +54,11 @@ async function buildUserMap(db, usersIdsArr) {
     .filter(Boolean);
   if (!ids.length) return {};
   const users = await db.collection('users')
-    .find({ _id: { $in: ids } }, { projection: { name: 1, email: 1, avatar: 1 } })
-    .toArray();
+  .find(
+    { _id: { $in: ids } },
+    { projection: { fullName: 1, name: 1, email: 1, avatar: 1 } }
+  )
+  .toArray();
   const map = {};
   users.forEach((u) => {
     map[u._id.toString()] = {
