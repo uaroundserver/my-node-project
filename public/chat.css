@@ -36,6 +36,14 @@ html,body{
 #chatList{list-style:none;margin:0;padding:0;overflow:auto}
 .chat-item{display:flex;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1a2434}
 .chat-item:hover{background:var(--panel-2)}
+
+.chat-item .avatar{
+  width:40px;height:40px;border-radius:50%;
+  position:relative;flex:0 0 auto;overflow:hidden;
+  display:grid;place-items:center;background:#223043;color:#fff;font-weight:700;
+}
+.chat-item .avatar .ava-letter{ font-size:16px; line-height:1; }
+
 .chat-item .avatar{width:40px;height:40px;border-radius:50%;position:relative;flex:0 0 auto;overflow:hidden}
 .chat-item .avatar img{width:100%;height:100%;object-fit:cover}
 .chat-item .online{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--panel);background:#3ddc84}
