@@ -504,10 +504,10 @@ function renderMessages() {
 
   // --- РЕАКЦИИ (нормализация и группировка) ---
 const rx = Array.isArray(m.reactions) ? m.reactions : [];
-// превращаем в массив эмодзи; поддерживаем и объекты {emoji:'👍'}, и строки '👍'
+// поддерживаем и строки '👍', и объекты {emoji:'👍'}
 const emojis = rx
   .map(r => (typeof r === 'string' ? r : (r && r.emoji)))
-  .filter(Boolean); // убираем undefined/пустые
+  .filter(Boolean);
 
 const groupedReactions = {};
 emojis.forEach(e => { groupedReactions[e] = (groupedReactions[e] || 0) + 1; });
@@ -546,10 +546,10 @@ const avatarHtml = `
     <div class="mtext">${escapeHtml(m.text || '')}</div>
     ${attachHtml}
  <div class="mmeta">
-      <span>${timeShort(m.createdAt)}</span>
-      ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-      ${reactionsHtml ? `<span class="reactions">${reactionsHtml}</span>` : ''}
-    </div>
+  <span>${timeShort(m.createdAt)}</span>
+  ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
+  ${reactionsHtml ? `<span class="reactions">${reactionsHtml}</span>` : ''}
+</div>
   </div>
 `;
         
@@ -659,11 +659,23 @@ const avatarHtml = `
   }
 
   function react(m, emoji='👍', x, y) {
-    socket.emit('message:react', { id: m._id, emoji }, (ack) => {
-      if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
-      if (!ack?.ok) ackHandler(ack);
-    });
-  }
+  socket.emit('message:react', { id: m._id, emoji }, (ack) => {
+    if (ack?.ok) {
+      if (typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
+
+      // --- оптимистический апдейт локального сообщения ---
+      const loc = messages.find(x => String(x._id) === String(m._id));
+      if (loc) {
+        if (!Array.isArray(loc.reactions)) loc.reactions = [];
+        // поддерживаем и строки, и объекты
+        loc.reactions.push(emoji); // достаточно строки
+        renderMessages();
+      }
+    } else {
+      ackHandler(ack);
+    }
+  });
+}
 
   // ===== keep keyboard open & close only on outside tap =====
   if (els.sendBtn) {
