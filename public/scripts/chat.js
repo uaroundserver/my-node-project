@@ -849,16 +849,19 @@ const avatarHtml = `
   const socket = io('/', { auth: { token: token } });
 
   socket.on('message:new', async (m) => {
-    if (currentChat && String(m.chatId) === String(currentChat._id)) {
-      m._justAdded = true;
-      messages.push(m);
-      renderMessages();
-      if (isNearBottom()) scrollToBottom();
-      maybeMarkRead([m]);
-      return;
-    }
-    if (await isReplyToMe(m)) showReplyToast(m);
-  });
+  // ✅ всегда есть массив реакций
+  m.reactions = m.reactions || [];
+
+  if (currentChat && String(m.chatId) === String(currentChat._id)) {
+    m._justAdded = true;
+    messages.push(m);
+    renderMessages();
+    if (isNearBottom()) scrollToBottom();
+    maybeMarkRead([m]);
+    return;
+  }
+  if (await isReplyToMe(m)) showReplyToast(m);
+});
 
   socket.on('message:edited', ({ id, text, editedAt }) => {
     const m = messages.find((x) => String(x._id) === String(id));
@@ -869,9 +872,9 @@ const avatarHtml = `
     if (idx > -1) { messages.splice(idx, 1); renderMessages(); }
   });
   socket.on('message:reactions', ({ id, reactions }) => {
-    const m = messages.find((x) => String(x._id) === String(id));
-    if (m) { m.reactions = reactions; renderMessages(); }
-  });
+  const msg = messages.find(x => String(x._id) === String(id));
+  if (msg) { msg.reactions = reactions || []; renderMessages(); }
+});
   socket.on('typing', ({ userId, isTyping }) => {
     if (!els.tgSub) return;
     els.tgSub.innerHTML = isTyping ? 'печатает<span class="typing-dots"><i></i><i></i><i></i></span>' : '';
