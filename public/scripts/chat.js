@@ -685,16 +685,68 @@ function timeSmart(t) {
 
   // ===== reply helpers =====
   function setReply(m) {
-    replyTo = m;
-    if (els.replyBar) {
-      if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
-      els.replyBar.classList.add('anim');
-      requestAnimationFrame(() => els.replyBar.classList.add('visible'));
-      els.replyText && (els.replyText.textContent = (m.text || '(вложение)').slice(0, 140));
+  replyTo = m;
+
+  // Показать панель ответа
+  if (els.replyBar) {
+    if (els.replyBar.hasAttribute('hidden')) els.replyBar.removeAttribute('hidden');
+    els.replyBar.classList.add('anim');
+    requestAnimationFrame(() => els.replyBar.classList.add('visible'));
+    if (els.replyText) {
+      const hasText = (m.text && m.text.trim());
+      els.replyText.textContent = (hasText ? m.text.trim() : '(вложение)').slice(0, 140);
+      els.replyText.title = hasText ? m.text : ''; // на десктопе ховер-подсказка
     }
-    els.msgInput && els.msgInput.focus();
-    setTimeout(updateComposerPadding, 0);
   }
+
+  // Пролистать чат вниз, чтобы композер был виден
+  scrollToBottom();
+  updateComposerPadding();
+
+  // Форсируем фокус и каретку в конец (надёжно для мобильных)
+  if (els.msgInput) {
+    // 1) иногда помогает «перефокус»
+    try { els.msgInput.blur(); } catch {}
+    try { els.msgInput.focus(); } catch {}
+
+    // 2) поставить каретку в конец
+    try {
+      const len = els.msgInput.value.length;
+      els.msgInput.setSelectionRange(len, len);
+    } catch {}
+
+    // 3) на iOS/Android иногда нужен второй тик
+    requestAnimationFrame(() => {
+      try { els.msgInput.focus(); } catch {}
+      try {
+        const len = els.msgInput.value.length;
+        els.msgInput.setSelectionRange(len, len);
+      } catch {}
+    });
+
+    // 4) совсем тяжёлый случай iOS: временный инпут (хак)
+    setTimeout(() => {
+      if (document.activeElement !== els.msgInput) {
+        const hack = document.createElement('input');
+        hack.type = 'text';
+        hack.style.position = 'fixed';
+        hack.style.opacity = '0';
+        hack.style.pointerEvents = 'none';
+        hack.style.height = '0';
+        hack.style.bottom = '0';
+        document.body.appendChild(hack);
+        hack.focus();
+        setTimeout(() => {
+          try { els.msgInput.focus(); } catch {}
+          hack.remove();
+        }, 0);
+      }
+    }, 0);
+  }
+
+  // Чуть подождать, затем обновить паддинг (высота клавы может менять вьюпорт)
+  setTimeout(updateComposerPadding, 0);
+}
   function clearReply() {
     replyTo = null;
     if (!els.replyBar) return;
