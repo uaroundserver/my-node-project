@@ -30,7 +30,7 @@ function pickReplyView(m) {
     : null;
   return {
     _id: m._id,
-    userId: m.senderId || m.userId,
+    userId: m.senderId || m.userId, // совместимость с разными версиями
     text: m.text || (first ? '(вложение)' : ''),
     attachments: first ? [first] : [],
     createdAt: m.createdAt,
@@ -149,7 +149,7 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // fetch messages with pagination
+  // fetch messages with pagination + enriched replies/senders
   router.get('/messages', auth, async (req, res) => {
     try {
       const { chatId, before, limit = 30 } = req.query;
@@ -168,6 +168,7 @@ function initChat(httpServer, db, app) {
         .limit(Number(limit))
         .toArray();
 
+      // gather reply targets & user ids
       const replyIds = items.filter((x) => x.replyTo).map((x) => x.replyTo);
       const replyDocs = replyIds.length
         ? await db.collection('messages')
@@ -181,6 +182,7 @@ function initChat(httpServer, db, app) {
       ];
       const userMap = await buildUserMap(db, senders);
 
+      // map reply id -> doc
       const replyMap = {};
       replyDocs.forEach((d) => { replyMap[d._id.toString()] = d; });
 
@@ -194,7 +196,7 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // get minimal message meta
+  // get minimal message meta by id (for jump/reply toast)
   router.get('/message/:id', async (req, res) => {
     try {
       const _id = asId(req.params.id);
@@ -224,13 +226,13 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // upload attachments
+  // upload attachment(s)
   router.post('/attachments', auth, upload.array('files', 10), async (req, res) => {
     try {
       const files = (req.files || []).map((f) => ({
         fieldname: f.fieldname,
         originalname: f.originalname,
-        originalName: f.originalname,
+        originalName: f.originalname, // фронту удобно и так, и так
         mimetype: f.mimetype,
         mime: f.mimetype,
         size: f.size,
@@ -243,7 +245,7 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // search messages
+  // search messages by text or user
   router.get('/search', auth, async (req, res) => {
     try {
       const { chatId, q, userId, limit = 50 } = req.query;
@@ -263,9 +265,9 @@ function initChat(httpServer, db, app) {
 
   app.use('/api/chat', router);
 
-  // --- Socket.IO ---
+  // --- Socket.IO real-time ---
   const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
-  const onlineMap = new Map();
+  const onlineMap = new Map(); // userId -> Set(socketId)
 
   io.use((socket, next) => {
     try {
@@ -293,170 +295,149 @@ function initChat(httpServer, db, app) {
     const room = String(chat._id);
     socket.join(room);
 
+    // mark online
     if (!onlineMap.has(userId)) onlineMap.set(userId, new Set());
     onlineMap.get(userId).add(socket.id);
     io.to(room).emit('presence:update', { userId, online: true });
 
-    // --- ADMIN EVENTS ---
-    socket.on('admin:ban', async ({ targetId }, cb) => {
+    // SEND MESSAGE (supports: text, attachments[], replyTo)
+    socket.on('message:send', async (payload, cb) => {
       try {
-        const me = await db.collection('users').findOne({ _id: asId(socket.user.id) }, { projection: { role: 1 } });
-        if (!['admin', 'moderator', 'superadmin'].includes(me?.role)) {
-          return cb?.({ ok: false, error: 'Недостаточно прав' });
-        }
-        await db.collection('users').updateOne({ _id: asId(targetId) }, { $set: { isBanned: true } });
-        io.emit('admin:userBanned', { userId: targetId });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
-    });
+        const usersCol = db.collection('users');
+        const messagesCol = db.collection('messages');
 
-    socket.on('admin:unban', async ({ targetId }, cb) => {
-      try {
-        const me = await db.collection('users').findOne({ _id: asId(socket.user.id) }, { projection: { role: 1 } });
-        if (!['admin', 'moderator', 'superadmin'].includes(me?.role)) {
-          return cb?.({ ok: false, error: 'Недостаточно прав' });
-        }
-        await db.collection('users').updateOne({ _id: asId(targetId) }, { $set: { isBanned: false } });
-        io.emit('admin:userUnbanned', { userId: targetId });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
-    });
+        const sender = await usersCol.findOne({ _id: asId(userId) }, { projection: { name: 1, email: 1, avatar: 1 } });
 
-    socket.on('admin:mute', async ({ targetId }, cb) => {
-      try {
-        const me = await db.collection('users').findOne({ _id: asId(socket.user.id) }, { projection: { role: 1 } });
-        if (!['admin', 'moderator', 'superadmin'].includes(me?.role)) {
-          return cb?.({ ok: false, error: 'Недостаточно прав' });
-        }
-        await db.collection('users').updateOne({ _id: asId(targetId) }, { $set: { isMuted: true } });
-        io.emit('admin:userMuted', { userId: targetId });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
-    });
-
-    socket.on('admin:unmute', async ({ targetId }, cb) => {
-      try {
-        const me = await db.collection('users').findOne({ _id: asId(socket.user.id) }, { projection: { role: 1 } });
-        if (!['admin', 'moderator', 'superadmin'].includes(me?.role)) {
-          return cb?.({ ok: false, error: 'Недостаточно прав' });
-        }
-        await db.collection('users').updateOne({ _id: asId(targetId) }, { $set: { isMuted: false } });
-        io.emit('admin:userUnmuted', { userId: targetId });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
-    });
-
-    // --- MESSAGE EVENTS ---
-    socket.on('message:send', async (data, cb) => {
-      try {
-        const me = await db.collection('users').findOne({ _id: asId(userId) }, { projection: { isBanned: 1, isMuted: 1 } });
-        if (me?.isBanned) return cb?.({ ok: false, error: 'Вы забанены' });
-        if (me?.isMuted) return cb?.({ ok: false, error: 'Вы в муте' });
+        // reply origin
+        let replyDoc = null;
+        const replyTo = payload?.replyTo ? asId(payload.replyTo) : null;
+        if (replyTo) replyDoc = await messagesCol.findOne({ _id: replyTo });
 
         const msg = {
           _id: new ObjectId(),
           chatId: chat._id,
           senderId: asId(userId),
-          text: data.text || '',
-          attachments: data.attachments || [],
-          replyTo: asId(data.replyTo) || null,
-          createdAt: new Date(),
+          senderName: displayName(sender),
+          senderAvatar: sender?.avatar || null,
+          text: String(payload?.text || '').slice(0, 5000),
+          attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
+          replyTo: replyDoc ? replyDoc._id : null,
+          replyToOwnerId: replyDoc ? replyDoc.senderId : null, // может пригодиться фронту
           reactions: [],
-          reads: [],
+          createdAt: new Date(),
+          editedAt: null,
+          deleted: false,
           deliveries: [],
+          reads: [],
         };
-        await db.collection('messages').insertOne(msg);
 
-        const userMap = await buildUserMap(db, [userId]);
-        const norm = normalizeMessage(msg, userMap);
-        io.to(room).emit('message:new', norm);
+        await messagesCol.insertOne(msg);
+        await chatsCol.updateOne(
+          { _id: chat._id },
+          { $set: { lastMessage: { _id: msg._id, text: msg.text, senderName: msg.senderName, createdAt: msg.createdAt } } }
+        );
 
-        cb?.({ ok: true, message: norm });
+        // enrich for emit
+        const senderMap = {};
+        senderMap[msg.senderId.toString()] = { name: msg.senderName, avatar: msg.senderAvatar };
+        let emitPayload = normalizeMessage(msg, senderMap, replyDoc);
+        // if reply exists and we can enrich with its sender meta
+        if (replyDoc && replyDoc.senderId) {
+          const ruser = await usersCol.findOne({ _id: replyDoc.senderId }, { projection: { name: 1, email: 1, avatar: 1 } });
+          emitPayload.reply = {
+            ...emitPayload.reply,
+            senderName: displayName(ruser),
+            senderAvatar: ruser?.avatar || null,
+          };
+        }
+
+        io.to(room).emit('message:new', emitPayload);
+        cb && cb({ ok: true, id: msg._id, delivered: true });
       } catch (e) {
-        cb?.({ ok: false, error: e.message });
+        cb && cb({ ok: false, error: e.message || 'send failed' });
       }
     });
 
+    // EDIT
     socket.on('message:edit', async ({ id, text }, cb) => {
       try {
         const _id = asId(id);
-        if (!_id) return;
-        const msg = await db.collection('messages').findOne({ _id });
-        if (!msg) return;
-        if (String(msg.senderId) !== userId) return cb?.({ ok: false, error: 'Нет прав' });
-
-        await db.collection('messages').updateOne({ _id }, { $set: { text, editedAt: new Date() } });
-        io.to(room).emit('message:edited', { _id, text, editedAt: new Date() });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
+        await db.collection('messages').updateOne(
+          { _id, senderId: asId(userId) },
+          { $set: { text: String(text).slice(0, 5000), editedAt: new Date() } }
+        );
+        const updated = await db.collection('messages').findOne({ _id });
+        io.to(room).emit('message:edited', { id, text: updated.text, editedAt: updated.editedAt });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
     });
 
+    // DELETE
     socket.on('message:delete', async ({ id }, cb) => {
       try {
         const _id = asId(id);
-        if (!_id) return;
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
+        await db.collection('messages').updateOne(
+          { _id, senderId: asId(userId) },
+          { $set: { deleted: true, text: '' } }
+        );
+        io.to(room).emit('message:deleted', { id });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
+    });
+
+    // REACT
+    socket.on('message:react', async ({ id, emoji }, cb) => {
+      try {
+        const _id = asId(id);
+        if (!_id) return cb && cb({ ok: false, error: 'bad id' });
         const msg = await db.collection('messages').findOne({ _id });
-        if (!msg) return;
-        if (String(msg.senderId) !== userId) return cb?.({ ok: false, error: 'Нет прав' });
-
-        await db.collection('messages').updateOne({ _id }, { $set: { deleted: true } });
-        io.to(room).emit('message:deleted', { _id });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
+        const exists = (msg?.reactions || []).find((r) => String(r.userId) === String(userId) && r.emoji === emoji);
+        if (exists) {
+          await db.collection('messages').updateOne({ _id }, { $pull: { reactions: { userId: asId(userId), emoji } } });
+        } else {
+          await db.collection('messages').updateOne({ _id }, { $addToSet: { reactions: { userId: asId(userId), emoji } } });
+        }
+        const updated = await db.collection('messages').findOne({ _id });
+        io.to(room).emit('message:reactions', { id, reactions: updated.reactions || [] });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
     });
 
-    socket.on('message:react', async ({ id, reaction }, cb) => {
+    // READ
+    socket.on('message:read', async ({ ids }, cb) => {
       try {
-        const _id = asId(id);
-        if (!_id) return;
-        await db.collection('messages').updateOne(
-          { _id },
-          { $addToSet: { reactions: { userId: asId(userId), reaction } } }
+        const idList = (ids || []).map(asId).filter(Boolean);
+        if (!idList.length) return cb && cb({ ok: true });
+        await db.collection('messages').updateMany(
+          { _id: { $in: idList }, 'reads.userId': { $ne: asId(userId) } },
+          { $push: { reads: { userId: asId(userId), at: new Date() } } }
         );
-        io.to(room).emit('message:reacted', { _id, userId, reaction });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
+        io.to(room).emit('message:reads', { ids, userId });
+        cb && cb({ ok: true });
+      } catch (e) { cb && cb({ ok: false, error: e.message }); }
     });
 
-    socket.on('message:read', async ({ id }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return;
-        await db.collection('messages').updateOne(
-          { _id },
-          { $addToSet: { reads: { userId: asId(userId), at: new Date() } } }
-        );
-        io.to(room).emit('message:read', { _id, userId });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
+    // TYPING
+    socket.on('typing', ({ isTyping }) => {
+      socket.to(room).emit('typing', { userId, isTyping: !!isTyping });
     });
 
-    socket.on('typing', () => {
-      io.to(room).emit('typing', { userId });
-    });
-
-    socket.on('disconnect', () => {
-      if (onlineMap.has(userId)) {
-        onlineMap.get(userId).delete(socket.id);
-        if (!onlineMap.get(userId).size) {
+    // DISCONNECT
+    socket.on('disconnect', async () => {
+      const set = onlineMap.get(userId);
+      if (set) {
+        set.delete(socket.id);
+        if (set.size === 0) {
           onlineMap.delete(userId);
           io.to(room).emit('presence:update', { userId, online: false });
+          try {
+            await db.collection('users').updateOne(
+              { _id: asId(userId) },
+              { $set: { lastSeen: new Date() } }
+            );
+          } catch {}
         }
       }
     });
