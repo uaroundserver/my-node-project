@@ -63,9 +63,18 @@
 
 
 <script>
-  window.authToken      = localStorage.getItem("token") || '';
+window.authToken     = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
   window.currentChatId  = "66c21f4f9f6b0f93d4b12345"; // подставь свой ID
-  window.currentUserId  = localStorage.getItem("userId") || '';
+window.currentUserId = localStorage.getItem('userId')    || '';
+
+async function ensureChatId(){
+  if (window.currentChatId) return;
+  const res = await fetch('/api/chat/chats', { headers: { Authorization: 'Bearer ' + window.authToken } });
+  if (!res.ok) throw new Error('Не могу получить чаты: ' + res.status);
+  const arr = await res.json();
+  window.currentChatId = arr?.[0]?._id || '';
+}
+
 
   const MSG_BOX_ID = 'messageList';
   let skip = 0;
