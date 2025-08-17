@@ -228,6 +228,7 @@ router.get('/chats', auth, async (req, res) => {
 // fetch messages with pagination (Telegram style) + нормализация с именами/аватарами
 // fetch ALL messages for chat (no pagination)
 // fetch ALL messages (без пагинации)
+// === MESSAGES: вернуть ВСЕ сообщения без пагинации ===
 router.get('/messages', auth, async (req, res) => {
   try {
     const { chatId } = req.query;
@@ -238,15 +239,14 @@ router.get('/messages', auth, async (req, res) => {
 
     const q = { chatId: chatObjectId, deleted: { $ne: true } };
 
-    // все сообщения по возрастанию времени
+    // 1) все сообщения по времени (возрастание)
     const items = await db.collection('messages')
       .find(q)
       .sort({ createdAt: 1, _id: 1 })
       .toArray();
 
-    // доки для цитат
+    // 2) подтянем документы, на которые есть reply
     const replyIds = items.map(x => x.replyTo).filter(Boolean);
-
     let replyDocs = [];
     if (replyIds.length) {
       replyDocs = await db.collection('messages')
@@ -257,17 +257,17 @@ router.get('/messages', auth, async (req, res) => {
         .toArray();
     }
 
-    // карта отправителей (основные + из цитат)
+    // 3) карта пользователей (отправители + авторы цитат)
     const senders = [
       ...items.map(x => x.senderId || x.userId).filter(Boolean),
       ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
     ];
     const userMap = await buildUserMap(db, senders);
 
-    const replyMap = Object.fromEntries(
-      replyDocs.map(d => [d._id.toString(), d])
-    );
+    // 4) мапа цитат
+    const replyMap = Object.fromEntries(replyDocs.map(d => [d._id.toString(), d]));
 
+    // 5) нормализуем
     const normalized = items.map(m =>
       normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
     );
