@@ -213,6 +213,22 @@ html,body{
 
 
 
+/* оболочка содержимого сообщения (внутри пузыря) */
+.msg .mbody{
+  padding-left: 44px;        /* место под кружок слева */
+}
+
+/* для моих сообщений — кружок справа, место справа */
+.msg.mine .mbody{
+  padding-left: 12px;
+  padding-right: 44px;
+}
+
+/* мои сообщения: аватар справа */
+.msg.mine .mavatar{
+  left: auto;
+  right: 10px;
+}
 
 
 
