@@ -102,7 +102,7 @@ async function loadMoreMessages() {
 
 // рендер сообщений
 function renderMessages(keepScroll = false, addedCount = 0) {
-  const container = document.getElementById('chat');
+  const container = document.getElementById('messageList');
   container.innerHTML = messages.map(m => `
     <div class="msg">
       <b>${m.senderName}</b>: ${m.text}
@@ -121,13 +121,13 @@ function renderMessages(keepScroll = false, addedCount = 0) {
 
 // прокрутка вниз (при входе в чат)
 function scrollToBottom() {
-  const container = document.getElementById('chat');
+  const container = document.getElementById('messageList');
   container.scrollTop = container.scrollHeight;
 }
 
 // следим за скроллом, если дошли вверх → подгружаем
 document.addEventListener('DOMContentLoaded', () => {
-  const container = document.getElementById('chat');
+  const container = document.getElementById('messageList');
   container.addEventListener('scroll', () => {
     if (container.scrollTop < 50) {
       loadMoreMessages();
