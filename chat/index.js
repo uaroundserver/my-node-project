@@ -86,6 +86,16 @@ async function buildUserMap(db, usersIdsArr) {
   return map;
 }
 
+function groupReactionsForClient(raw = []) {
+  const byEmoji = new Map();
+  for (const r of raw) {
+    const emoji = (r && (r.emoji || r.reaction)) || null; // поддержка старого поля reaction
+    if (!emoji) continue;
+    byEmoji.set(emoji, (byEmoji.get(emoji) || 0) + 1);
+  }
+  return [...byEmoji.entries()].map(([emoji, count]) => ({ emoji, count }));
+}
+
 function normalizeMessage(m, userMap, replyDoc) {
   const id = (m.senderId || m.userId);
   const senderKey =
