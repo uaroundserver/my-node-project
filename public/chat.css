@@ -200,7 +200,7 @@ html,body{
 .msg{
   position:relative;
   max-width:82vw;
-  padding:10px 2px 22px;
+  padding:10px 12px 22px;
   border-radius:18px;
   word-break:break-word; overflow-wrap:anywhere;
   box-shadow:0 4px 14px rgba(0,0,0,.18);
@@ -261,13 +261,13 @@ html,body{
 
 /* оболочка содержимого сообщения (внутри пузыря) */
 .msg .mbody{
-  padding-left: 44px;        /* место под кружок слева */
+  padding-left: 12px;        /* место под кружок слева */
 }
 
 /* для моих сообщений — кружок справа, место справа */
 .msg.mine .mbody{
   padding-left: 12px;
-  padding-right: 44px;
+  padding-right: 12px;
 }
 
 /* мои сообщения: аватар справа */
