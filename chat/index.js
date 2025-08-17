@@ -149,50 +149,34 @@ function initChat(httpServer, db, app) {
     }
   });
 
-  // fetch messages with pagination
-  router.get('/messages', auth, async (req, res) => {
-    try {
-      const { chatId, before, limit = 30 } = req.query;
-      if (!chatId) return res.status(400).json({ error: 'chatId required' });
+  // fetch messages with pagination (Telegram style)
+router.get('/messages', auth, async (req, res) => {
+  try {
+    const { chatId, before, limit = 50 } = req.query;
+    if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
-      const q = { chatId: asId(chatId), deleted: { $ne: true } };
-      if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
-      if (before) {
-        const dt = new Date(before);
-        if (!isNaN(+dt)) q.createdAt = { $lt: dt };
-      }
+    const q = { chatId: asId(chatId), deleted: { $ne: true } };
+    if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
 
-      const items = await db.collection('messages')
-        .find(q)
-        .sort({ createdAt: -1, _id: -1 })
-        .limit(Number(limit))
-        .toArray();
-
-      const replyIds = items.filter((x) => x.replyTo).map((x) => x.replyTo);
-      const replyDocs = replyIds.length
-        ? await db.collection('messages')
-            .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, createdAt: 1 } })
-            .toArray()
-        : [];
-
-      const senders = [
-        ...items.map((x) => (x.senderId || x.userId)?.toString?.()).filter(Boolean),
-        ...replyDocs.map((x) => x.senderId?.toString?.()).filter(Boolean),
-      ];
-      const userMap = await buildUserMap(db, senders);
-
-      const replyMap = {};
-      replyDocs.forEach((d) => { replyMap[d._id.toString()] = d; });
-
-      const ordered = items.reverse().map((m) =>
-        normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
-      );
-      res.json(ordered);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to load messages' });
+    // если передали before → загружаем более старые
+    if (before) {
+      const dt = new Date(before);
+      if (!isNaN(+dt)) q.createdAt = { $lt: dt };
     }
-  });
+
+    const items = await db.collection('messages')
+      .find(q)
+      .sort({ createdAt: -1 }) // свежие сверху
+      .limit(Number(limit))
+      .toArray();
+
+    // переворачиваем, чтобы на фронт отдать от старых к новым
+    res.json(items.reverse());
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
 
   // get minimal message meta
   router.get('/message/:id', async (req, res) => {
