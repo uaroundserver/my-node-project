@@ -1,5 +1,5 @@
 /* === FORCE-MOBILE ON DESKTOP (drop-in override) === */
-:root{ --mobile-max:420px; }
+
 @media (min-width: 1024px){
   :root{ --mobile-max:600px; }   /* или 720 / 768 — смотри, что комфортнее */
 }
