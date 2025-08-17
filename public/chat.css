@@ -267,7 +267,6 @@ html,body{
 /* для моих сообщений — кружок справа, место справа */
 .msg.mine .mbody{
   padding-left: 12px;
-  padding-right: 12px;
 }
 
 /* мои сообщения: аватар справа */
