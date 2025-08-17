@@ -230,6 +230,7 @@ router.get('/chats', auth, async (req, res) => {
 // fetch ALL messages (без пагинации)
 // === MESSAGES: вернуть ВСЕ сообщения без пагинации ===
 // fetch messages with pagination (limit+skip)
+// /api/chat/messages — Пагинация через limit+skip
 router.get('/messages', auth, async (req, res) => {
   try {
     const { chatId, limit = 30, skip = 0 } = req.query;
@@ -242,14 +243,12 @@ router.get('/messages', auth, async (req, res) => {
 
     const items = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: -1, _id: -1 })   // свежие сверху
+      .sort({ createdAt: -1, _id: -1 })  // последние сверху
       .skip(Number(skip))
       .limit(Number(limit))
       .toArray();
 
-    // разворачиваем, чтобы были по возрастанию
-    items.reverse();
-
+    items.reverse(); // вернуть по возрастанию времени
     res.json(items);
   } catch (e) {
     console.error(e);
