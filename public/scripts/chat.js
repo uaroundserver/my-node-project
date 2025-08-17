@@ -515,22 +515,24 @@ const avatarHtml = `
     ${avatarImgHtml}
     <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
   </div>`;
-      div.innerHTML = `
-       <div class="mrow">
+      
+        
+    div.innerHTML = `
   ${avatarHtml}
-  <div class="mname">${escapeHtml(displayName)}</div>
-</div>
-        ${replyHtml}
-        <div class="mtext">${escapeHtml(m.text || '')}</div>
-        ${attachHtml}
-        <div class="mmeta">
-          <span>${timeShort(m.createdAt)}</span>
-          ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-          ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
-        </div>
-      `;
-        
-        
+  <div class="mbody">
+    <div class="mrow">
+      <div class="mname">${escapeHtml((m.senderName || 'User').trim() || 'User')}</div>
+    </div>
+    ${replyHtml}
+    <div class="mtext">${escapeHtml(m.text || '')}</div>
+    ${attachHtml}
+    <div class="mmeta">
+      <span>${timeShort(m.createdAt)}</span>
+      ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
+      ${(m.reactions || []).map(r => r.emoji).join(' ') ? `<span>${(m.reactions||[]).map(r=>r.emoji).join(' ')}</span>` : ''}
+    </div>
+  </div>
+`;    
         
 
       //ПК: контекстное меню
