@@ -153,6 +153,22 @@ html,body{
   padding:10px 12px; color:var(--text); font-size:16px;
 }
 
+
+
+
+
+/* по умолчанию чужие слева */
+.message {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* свои справа */
+.message.mine {
+  justify-content: flex-end;
+}
+
+
 /* ===== MESSAGES ===== */
 .messages{
   flex:1 1 auto; min-height:0;
@@ -275,10 +291,12 @@ html,body{
   transform:translateY(1px);
 }
 
-/* имя рядом с аватаром */
-.mname{
-  font-size:14px;
-  opacity:.9;
+/* ник в сообщении */
+.mname {
+  font-weight: 600;       /* делаем жирнее */
+  font-family: "Inter", sans-serif; /* или любой другой шрифт */
+  font-size: 13px;
+  color: #d1d9e0;         /* чуть светлее, чем текст */
 }
 
 
@@ -292,7 +310,13 @@ html,body{
   transform:translateY(1px);
 }
 .mname{font-size:12px; color:var(--muted)}
-.mtext{white-space:pre-wrap; line-height:1.32}
+/* текст сообщения */
+.mtext {
+  font-family: "Roboto", sans-serif;  /* отличается от ника */
+  font-size: 14px;
+  line-height: 1.4;
+  color: #fff;                        /* белый для читаемости */
+}
 
 .mmeta{
   position:absolute; right:10px; bottom:6px;
