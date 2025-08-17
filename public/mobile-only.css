@@ -1,6 +1,6 @@
 /* === FORCE-MOBILE ON DESKTOP (drop-in override) === */
 :root{ --mobile-max:420px; }
-@media (min-width: 768px){
+@media (min-width: 1024px){
   :root{ --mobile-max:600px; }   /* или 720 / 768 — смотри, что комфортнее */
 }
 /* всё содержимое держим как телефонный экран по центру */
