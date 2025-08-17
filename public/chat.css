@@ -569,3 +569,23 @@ html.show-chat .chat-main{display:flex}
   background:rgba(255,255,255,.12); font-size:12px; line-height:1;
   margin-left:6px;
 }
+
+.mmeta{
+  position:absolute; right:10px; bottom:6px;
+  display:flex; align-items:center; gap:6px;
+  flex-wrap: wrap;               /* <-- позволяем перенос */
+  max-width: 80%;                /* чтобы влезали чипы */
+}
+
+.reactions{
+  display:flex; gap:6px; flex-wrap: wrap;
+}
+
+.reaction-chip{
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:10px;
+  background:rgba(255,255,255,.14);
+  font-size:12px;
+  line-height:1.1;
+}
