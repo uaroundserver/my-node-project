@@ -518,9 +518,9 @@ const avatarHtml = `
       
         
     div.innerHTML = `
-  ${avatarHtml}
   <div class="mbody">
     <div class="mrow">
+      ${avatarHtml}
       <div class="mname">${escapeHtml((m.senderName || 'User').trim() || 'User')}</div>
     </div>
     ${replyHtml}
@@ -532,7 +532,7 @@ const avatarHtml = `
       ${(m.reactions || []).map(r => r.emoji).join(' ') ? `<span>${(m.reactions||[]).map(r=>r.emoji).join(' ')}</span>` : ''}
     </div>
   </div>
-`;    
+`;
         
 
       //ПК: контекстное меню
