@@ -154,7 +154,7 @@ app.get('/activate/:token', async (req, res) => {
     res.send(`
       <h2>✅ Аккаунт активирован!</h2>
       <p>Через 3 секунды вы будете перенаправлены на сайт.</p>
-      <script>setTimeout(()=>{window.location.href="${process.env.CLIENT_URL}"},3000)</script>
+      <script>setTimeout(()=>{window.location.href="${loginPage}"},2000)</script>
     `);
   } catch (err) {
     console.error(err);
