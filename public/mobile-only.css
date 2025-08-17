@@ -1,0 +1,47 @@
+/* === FORCE-MOBILE ON DESKTOP (drop-in override) === */
+:root{ --mobile-max:420px; }
+
+/* всё содержимое держим как телефонный экран по центру */
+#main-content,
+.chat-app,
+.form-container,
+.profile-card{
+  max-width: var(--mobile-max) !important;
+  margin: 0 auto !important;
+}
+
+/* фиксированные панели тоже сужаем и центрируем */
+#app-header,
+#bottom-nav{
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: var(--mobile-max) !important;
+  border-radius: 16px !important; /* красиво как на мобиле */
+}
+
+/* чтобы контент не прилипал под панели (у тебя уже есть, но на всякий) */
+body{
+  padding-top: var(--header-h) !important;
+  padding-bottom: var(--bottom-h) !important;
+}
+
+/* список/чат – всегда одна колонка и не шире телефона */
+.chat-app{
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+}
+
+/* кнопка "назад" и всё, что должно быть как на мобиле — показываем всегда */
+.back-btn{ display: inline-flex !important; }
+
+/* картинки/видео во вложениях – относить к ширине карточки, а не всего окна */
+.attach img,
+.attach video{
+  max-width: min(100%, 360px) !important;
+}
+
+/* на всякий: убираем нежелательные max-width у html/body */
+html, body{ max-width: 100vw !important; }
