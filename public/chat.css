@@ -303,13 +303,17 @@ html,body{
 
 .mletter{
   font-weight:700;
-  font-size:14px;
-  line-height:1;
-  color:#e6eef7;                       /* как у заголовка */
-  /* лёгкая вертикальная компенсация, чтобы визуально по центру */
-  transform:translateY(1px);
+  font-size:11px;
+  opacity:.9;
 }
-.mname{font-size:12px; color:var(--muted)}
+
+.mname{
+  font-weight:600;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  letter-spacing:.2px;
+  opacity:.95;
+}
+
 /* текст сообщения */
 .mtext {
   font-family: "Roboto", sans-serif;  /* отличается от ника */
@@ -571,28 +575,4 @@ html.show-chat .chat-main{display:flex}
 .msg.mine .mrow,
 .msg.their .mrow{
   flex-direction:row !important;
-}
-
-/* мини-ава и ник — чуть жирнее/аккуратнее */
-.mavatar{
-  width:18px;
-  height:18px;
-  border-radius:50%;
-  overflow:hidden;
-  display:grid;
-  place-items:center;
-  flex:0 0 18px;
-}
-.mavatar img{ width:100%; height:100%; object-fit:cover; display:block; }
-.mletter{
-  font-weight:700;
-  font-size:11px;
-  opacity:.9;
-}
-
-.mname{
-  font-weight:600;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
-  letter-spacing:.2px;
-  opacity:.95;
 }
