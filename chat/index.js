@@ -444,6 +444,10 @@ router.get('/messages', auth, async (req, res) => {
           deliveries: [],
         };
         await db.collection('messages').insertOne(msg);
+        await db.collection('chats').updateOne(
+  { _id: chat._id },
+  { $set: { lastMessage: msg } }
+);
 
         const userMap = await buildUserMap(db, [userId]);
         const norm = normalizeMessage(msg, userMap);
