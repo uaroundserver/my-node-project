@@ -229,9 +229,10 @@ router.get('/chats', auth, async (req, res) => {
 // fetch ALL messages for chat (no pagination)
 // fetch ALL messages (без пагинации)
 // === MESSAGES: вернуть ВСЕ сообщения без пагинации ===
+// fetch messages with pagination (limit+skip)
 router.get('/messages', auth, async (req, res) => {
   try {
-    const { chatId } = req.query;
+    const { chatId, limit = 30, skip = 0 } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
     const chatObjectId = asId(chatId);
@@ -239,40 +240,17 @@ router.get('/messages', auth, async (req, res) => {
 
     const q = { chatId: chatObjectId, deleted: { $ne: true } };
 
-    // 1) все сообщения по времени (возрастание)
     const items = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({ createdAt: -1, _id: -1 })   // свежие сверху
+      .skip(Number(skip))
+      .limit(Number(limit))
       .toArray();
 
-    // 2) подтянем документы, на которые есть reply
-    const replyIds = items.map(x => x.replyTo).filter(Boolean);
-    let replyDocs = [];
-    if (replyIds.length) {
-      replyDocs = await db.collection('messages')
-        .find(
-          { _id: { $in: replyIds } },
-          { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
-        )
-        .toArray();
-    }
+    // разворачиваем, чтобы были по возрастанию
+    items.reverse();
 
-    // 3) карта пользователей (отправители + авторы цитат)
-    const senders = [
-      ...items.map(x => x.senderId || x.userId).filter(Boolean),
-      ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
-    ];
-    const userMap = await buildUserMap(db, senders);
-
-    // 4) мапа цитат
-    const replyMap = Object.fromEntries(replyDocs.map(d => [d._id.toString(), d]));
-
-    // 5) нормализуем
-    const normalized = items.map(m =>
-      normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
-    );
-
-    res.json(normalized);
+    res.json(items);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to load messages' });
