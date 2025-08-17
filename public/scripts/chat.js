@@ -441,93 +441,65 @@ function timeSmart(t) {
   });
 
   // ===== render messages =====
-  function renderMessages() {
-    if (!els.messages) return;
-    const prevIsNearBottom = isNearBottom();
-    els.messages.innerHTML = '';
+        
+        
+        
+// рендер сообщений
+function renderMessages(keepScroll = false, addedCount = 0) {
+  const container = document.getElementById('chat');
 
-    messages.forEach((m) => {
-      const div = document.createElement('div');
-      const isMine = String(m.senderId || m.userId) === String(myId);
-      const newClass = m._justAdded ? ' msg--new' : '';
-      div.className = 'msg ' + (isMine ? 'mine' : 'their') + newClass;
-      div.dataset.id = m._id;
+  container.innerHTML = messages.map(m => {
+    const displayName = (m.senderName || 'user').trim() || 'user';
+    const letter = (displayName[0] || 'U').toUpperCase();
 
-      // reply preview
-      let replyHtml = '';
-      function renderReplyPreview(src) {
-        if (!src) return '';
-        const who = String(src.senderId || src.userId) === String(myId) ? 'Вы' : (src.senderName || 'user');
-        const hasAtt = src.attachments && src.attachments.length;
-        const file = hasAtt ? src.attachments[0] : null;
-        let icon = '';
-        if (file) {
-          const mtyp = (file.mime || file.mimetype || '').toLowerCase();
-          if (mtyp.startsWith('image/')) icon = '🖼️';
-          else if (mtyp.startsWith('video/')) icon = '🎞️';
-          else if (mtyp.startsWith('audio/')) icon = '🎵';
-          else icon = '📎';
-        }
-        const snipText = (src.text && src.text.trim())
-          ? escapeHtml(src.text.trim())
-          : (file ? (escapeHtml(file.originalName || file.originalname || '') || '(вложение)') : '');
-        const nested = src.reply ? `<span class="reply-nested">${renderReplyPreview(src.reply)}</span>` : '';
-        const ava = src.senderAvatar
-  ? `<img src="${src.senderAvatar}" class="reply-ava"
-       width="16" height="16"
-       style="width:16px;height:16px;flex:0 0 16px;border-radius:50%;
-              object-fit:cover;vertical-align:-3px;margin-right:6px;
-              outline:1px solid rgba(255,255,255,.1)" />`
-  : '';
-        return `${ava}<b>${escapeHtml(who)}</b>: ${icon ? `<span class="reply-ico">${icon}</span>` : ''}${snipText}${nested}`;
-      }
-      {
-        const src = m.reply || messages.find((x) => String(x._id) === String(m.replyTo));
-        if (src) replyHtml = `<div class="reply" data-reply-id="${src._id}">${renderReplyPreview(src)}</div>`;
-      }
+    const avatarImgHtml = m.senderAvatar
+      ? `<img src="${m.senderAvatar}" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='grid'"/>`
+      : '';
 
-      // attachments
-      const attachHtml = (m.attachments || [])
-        .map((a) => {
-          const mime = (a.mime || a.mimetype || '').toLowerCase();
-          const url = a.url || a.href || '';
-          const oname = a.originalName || a.originalname || 'Файл';
-          if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
-          if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
-          return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
-        })
-        .join('');
+    const avatarHtml = `
+      <div class="mavatar">
+        ${avatarImgHtml}
+        <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
+      </div>`;
 
-      const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
-const displayName = (m.senderName || 'user').trim() || 'user';
-const letter = (displayName[0] || 'U').toUpperCase();
+    // время
+    const created = new Date(m.createdAt);
+    const time = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-const avatarImgHtml = m.senderAvatar
-  ? `<img src="${m.senderAvatar}" 
-           onerror="this.style.display='none'; this.nextElementSibling.style.display='grid'"/>`
-  : '';
+    // реакции
+    const reactions = (m.reactions || []).map(r => r.reaction).join(' ');
 
-const avatarHtml = `
-  <div class="mavatar">
-    ${avatarImgHtml}
-    <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
-  </div>`;
-      div.innerHTML = `
+    return `
+      <div class="msg">
         <div class="mrow">
-          <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/></div>
-          <div class="mname">${escapeHtml(m.senderName || 'user')}</div>
+          ${avatarHtml}
+          <div class="mcontent">
+            <div class="mname"><b>${escapeHtml(displayName)}</b></div>
+            <div class="mtext">${escapeHtml(m.text || '')}</div>
+            <div class="mmeta">
+              <span class="mtime">${time}</span>
+              ${reactions ? `<span class="mreactions">${reactions}</span>` : ''}
+            </div>
+          </div>
         </div>
-        ${replyHtml}
-        <div class="mtext">${escapeHtml(m.text || '')}</div>
-        ${attachHtml}
-        <div class="mmeta">
-          <span>${timeShort(m.createdAt)}</span>
-          ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-          ${reactionsHtml ? `<span>${reactionsHtml}</span>` : ''}
-        </div>
-      `;
+      </div>
+    `;
+  }).join('');
 
-      // ПК: контекстное меню
+  if (keepScroll) {
+    const prevHeight = container.scrollHeight;
+    setTimeout(() => {
+      const newHeight = container.scrollHeight;
+      container.scrollTop = newHeight - prevHeight;
+    }, 0);
+  }
+}        
+        
+        
+        
+
+      //ПК: контекстное меню
       div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY, m); };
 
       // Тап/клик — только по самому пузырю (цитату игнорим)
