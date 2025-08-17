@@ -1,5 +1,5 @@
 <!-- Шапка -->
-<div class="app-frame">
+
   <header id="app-header">
   <div class="bar-inner">
     <button id="menuButton" aria-label="Открыть меню" onclick="toggleSidebar()">
@@ -42,7 +42,8 @@
 <div id="menu-backdrop" hidden></div>
 
 <!-- Сайдбар -->
-<div id="sidebar">
+<div class="app-frame">
+  <div id="sidebar">
   <a href="home.html">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2" stroke-linejoin="round"/>
@@ -92,7 +93,7 @@
     Выйти
   </a>
 </div>
-
+</div>
 <!-- Нижняя панель -->
 <nav id="bottom-nav">
   <div class="bar-inner">
@@ -137,4 +138,4 @@
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="/menu.js" defer></script>
-</div>
+
