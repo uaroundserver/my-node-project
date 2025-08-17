@@ -83,7 +83,18 @@
   function escapeHtml(s) { return (s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
   function truncate(s, n) { return (s || '').length > n ? s.slice(0, n - 1) + '…' : s; }
   function timeShort(t) { const d = new Date(t); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-
+function timeSmart(t) {
+  const d = new Date(t);
+  const now = new Date();
+  const sameDay = d.getFullYear() === now.getFullYear() &&
+                  d.getMonth() === now.getMonth() &&
+                  d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  // вчера/не сегодня — покажем DD.MM, а время спрячем
+  return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+}
   // ===== reply bar anim prep =====
   if (els.replyBar) els.replyBar.classList.add('anim');
 
@@ -170,21 +181,26 @@
 
       allChats.forEach((c) => {
   const firstChar = (c.title && c.title[0] ? c.title[0] : 'C').toUpperCase();
-  const avatarHtml = c.avatar
+  const chatAvatarHtml = c.avatar
     ? `<img src="${c.avatar}" onerror="this.remove()" />`
     : `<span class="ava-letter">${firstChar}</span>`;
 
-  const lastText = c.lastMessage
-    ? `${escapeHtml(c.lastMessage.senderName || 'user')}: ${escapeHtml((c.lastMessage.text || '').slice(0, 60))}`
-    : 'Нет сообщений';
+  const lm = c.lastMessage || null;
+  const lastSenderName = lm?.senderName || 'user';
+  const lastSenderAva  = lm?.senderAvatar || '';
+  const lastText       = lm ? (lm.text || 'Вложение') : 'Нет сообщений';
 
-  const lastTime = c.lastMessage ? timeShort(c.lastMessage.createdAt) : '';
+  const miniAva = lastSenderAva
+    ? `<img class="mini-ava" src="${lastSenderAva}" onerror="this.style.display='none'">`
+    : `<span class="mini-ava mini-fallback">${(lastSenderName[0]||'?').toUpperCase()}</span>`;
+
+  const lastTime = lm ? timeSmart(lm.createdAt) : '';
 
   const li = document.createElement('li');
   li.className = 'chat-item';
   li.innerHTML = `
     <div class="avatar">
-      ${avatarHtml}
+      ${chatAvatarHtml}
       <span class="online" style="display:none"></span>
     </div>
     <div class="cmeta">
@@ -193,7 +209,10 @@
         <div class="time">${lastTime}</div>
       </div>
       <div class="cpreview">
-        ${lastText}
+        ${miniAva}
+        <span class="name">${escapeHtml(lastSenderName)}</span>
+        <span class="sep">:</span>
+        <span class="text">${escapeHtml(lastText)}</span>
         ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
       </div>
     </div>`;
