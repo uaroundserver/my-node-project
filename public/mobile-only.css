@@ -1,5 +1,5 @@
 /* === FORCE-MOBILE ON DESKTOP (drop-in override) === */
-:root{ --mobile-max:420px; }
+:root{ --mobile-max:840px; }
 
 /* всё содержимое держим как телефонный экран по центру */
 #main-content,
