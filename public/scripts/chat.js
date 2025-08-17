@@ -502,7 +502,16 @@ function renderMessages() {
         })
         .join('');
 
-      const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
+      const groupedReactions = {};
+(m.reactions || []).forEach(r => {
+  if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
+  groupedReactions[r.emoji]++;
+});
+
+const reactionsHtml = Object.entries(groupedReactions)
+  .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
+  .join(' ');
+  
 const displayName = (m.senderName || 'User').trim() || 'User';
 const letter = (displayName[0] || 'U').toUpperCase();
 
@@ -521,15 +530,7 @@ const avatarHtml = `
     
         
         
-const groupedReactions = {};
-(m.reactions || []).forEach(r => {
-  if (!groupedReactions[r.emoji]) groupedReactions[r.emoji] = 0;
-  groupedReactions[r.emoji]++;
-});
 
-const reactionsHtml = Object.entries(groupedReactions)
-  .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
-  .join(' ');
         
     div.innerHTML = `
   <div class="mbody">
