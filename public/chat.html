@@ -142,12 +142,12 @@ loadInitialMessages();
 
 
 <script>
-  // заполни эти значения в своём коде
   window.authToken      = window.authToken      || '';   // Bearer-токен
   window.currentChatId  = window.currentChatId  || '';   // _id чата
   window.currentUserId  = window.currentUserId  || '';   // _id текущего юзера
 
   const MSG_BOX_ID = 'messageList';
+  const PAGE_SIZE  = 50;   // сколько сообщений грузить за раз
 
   function el(tag, cls, text){
     const n = document.createElement(tag);
@@ -160,6 +160,8 @@ loadInitialMessages();
     const mine = window.currentUserId && String(msg.senderId) === String(window.currentUserId);
 
     const wrap   = el('div', 'message' + (mine ? ' mine' : ''));
+    wrap.dataset.createdAt = msg.createdAt;
+
     const bubble = el('div', 'msg ' + (mine ? 'mine' : 'their'));
 
     const mrow = el('div', 'mrow');
@@ -194,16 +196,25 @@ loadInitialMessages();
     b.scrollTop = b.scrollHeight;
   }
 
-  async function loadAllMessages(chatId){
+  // === API ===
+  async function fetchMessages(chatId, { before } = {}){
     const headers = {};
     if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
 
-    const res = await fetch(`/api/chat/messages?chatId=${encodeURIComponent(chatId)}`, { headers });
-    if (!res.ok){
+    let url = `/api/chat/messages?chatId=${encodeURIComponent(chatId)}&limit=${PAGE_SIZE}`;
+    if (before) url += `&before=${encodeURIComponent(before)}`;
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
       console.error('Failed to load messages', await res.text());
-      return;
+      return [];
     }
-    const list = await res.json(); // уже нормализованы и отсортированы по времени (ASC)
+    return await res.json();
+  }
+
+  // === Загрузка первой страницы ===
+  async function loadInitial(){
+    const list = await fetchMessages(window.currentChatId);
     const b = box();
     b.innerHTML = '';
     for (const msg of list){
@@ -212,20 +223,50 @@ loadInitialMessages();
     scrollToBottom();
   }
 
-  // запуск
+  // === Плавная подгрузка вверх ===
+  let loading = false;
+  async function loadMoreIfNeeded(){
+    const b = box();
+    if (b.scrollTop < 200 && !loading){   // почти дошли до верха
+      loading = true;
+
+      const oldHeight = b.scrollHeight;
+      const firstMsg  = b.querySelector(".message:first-child");
+      const before    = firstMsg?.dataset.createdAt;
+
+      if (!before){ loading = false; return; }
+
+      const more = await fetchMessages(window.currentChatId, { before });
+
+      for (let i = more.length - 1; i >= 0; i--){
+        const m = renderMessage(more[i]);
+        b.insertBefore(m, b.firstChild);
+      }
+
+      // фиксируем позицию (чтобы скролл не прыгал)
+      const newHeight = b.scrollHeight;
+      b.scrollTop = newHeight - oldHeight + b.scrollTop;
+
+      loading = false;
+    }
+  }
+
+  // === Запуск ===
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.currentChatId) {
       console.warn('currentChatId пустой — подставь _id чата');
       return;
     }
-    loadAllMessages(window.currentChatId);
+    loadInitial();
+
+    box().addEventListener("scroll", loadMoreIfNeeded);
   });
 
-  // (опционально) новые сообщения по socket.io
+  // === Реальное время через socket.io ===
   if (window.io){
     const socket = io({ auth: { token: window.authToken ? ('Bearer ' + window.authToken) : undefined } });
     socket.on('message:new', (msg) => {
-      const stick = isNearBottom();    // скроллим вниз только если пользователь и так «внизу»
+      const stick = isNearBottom();
       box().appendChild(renderMessage(msg));
       if (stick) scrollToBottom();
     });
