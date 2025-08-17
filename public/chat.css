@@ -1,7 +1,4 @@
 /* public/chat.css – mobile only, header with center title and search row inside header */
-html, body {
-  max-width: 480px !important;
-}
  
 :root{
   --bg:#0f1620; --panel:#151e2b; --panel-2:#0c121b;
@@ -117,9 +114,6 @@ html,body{
   color:var(--text); font-size:20px; cursor:pointer;
   line-height:1;
 }
-@media (max-width:900px){
-  .back-btn{ display:inline-flex; }      /* показываем на мобилке */
-}
 
 /* центрированный заголовок */
 .chat-title{
@@ -188,9 +182,6 @@ html,body{
   scroll-behavior:smooth;
 }
 /* уважаем настройки «уменьшить анимацию» */
-@media (prefers-reduced-motion: reduce){
-  .messages{ scroll-behavior:auto; }
-}
 
 @supports(padding:max(0px)){
   .messages{
@@ -450,9 +441,6 @@ html.show-chat .chat-main{display:flex}
 /* ===== Motion & FX (добавлено) ===== */
 
 /* уважение к reduce motion */
-@media (prefers-reduced-motion: reduce){
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
-}
 
 /* появление новых сообщений */
 @keyframes msgInRight{ from { transform: translate3d(16px,8px,0) scale(.98); opacity:0 } to { transform: translate3d(0,0,0) scale(1); opacity:1 } }
@@ -541,12 +529,6 @@ html.show-chat .chat-main{display:flex}
 }
 
 /* hover подчеркивание имён на десктопе */
-@media (hover:hover){
-  .mname{ transition: opacity 160ms ease; }
-  .msg.mine  .mname{ opacity:.85 }
-  .msg.their .mname{ opacity:.85 }
-  .msg:hover .mname{ opacity:1 }
-}
 /* фикс базового отступа: дальше им управляет JS */
 .messages{ padding-bottom:12px !important; }
 
