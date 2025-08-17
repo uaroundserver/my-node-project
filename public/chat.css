@@ -209,7 +209,37 @@ html,body{
   margin-left:6px;
 }
 
-.mrow{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+/* ряд с аватаркой и именем */
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* маленькая аватарка возле ника */
+.mrow .mavatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #2d3a4b;
+  border: 1px solid #223147;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e6eef7;
+  flex-shrink: 0;
+}
+
+.mrow .mavatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
 
 
 
@@ -233,28 +263,7 @@ html,body{
 
 
 
-.mavatar{
-  width:32px;
-  height:32px;
-  flex:0 0 32px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  overflow:hidden;
-  /* фон и контур – как у группы */
-  background:#2d3a4b;                 /* тёмный круг */
-  border:1px solid #223147;            /* тонкая обводка */
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
-}
 
-/* картинка, если аватар есть */
-.mavatar img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-  border-radius:50%;
-}
 
 /* буква, если картинки нет */
 .mletter{
