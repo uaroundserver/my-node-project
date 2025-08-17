@@ -31,7 +31,7 @@ body {
 }
 
 /* ===== ШАПКА ===== */
-/*#app-header{position:fixed;left:0;right:0;top:0;z-index:4000;}*/
+#app-header{position:fixed;left:0;right:0;top:0;z-index:4000;}
 #app-header .bar-inner{
   position: relative;
   height: var(--header-h);
@@ -124,13 +124,13 @@ body {
 #sidebar a.active{ background:#e0e7ff; color:#3b82f6; }
 
 /* ===== НИЖНЯЯ ПАНЕЛЬ ===== */
-/*#bottom-nav{ 
+#bottom-nav{ 
   position:fixed; 
   left:0; 
   right:0; 
   bottom:0; 
   z-index:4000; 
-}*/
+}
 #bottom-nav .bar-inner{
   min-height: var(--bottom-h);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px); /* фикс для iOS */
@@ -183,13 +183,4 @@ body {
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-}
-
-#app-header,
-#bottom-nav {
-  position: fixed;
-  top: 0; /* для шапки */
-  bottom: 0; /* для низа */
-  width: 100%;
-  max-width: var(--mobile-max);
 }
