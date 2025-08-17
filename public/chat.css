@@ -210,8 +210,54 @@ html,body{
 }
 
 .mrow{display:flex; align-items:center; gap:8px; margin-bottom:4px}
-.mavatar{width:18px; height:18px; border-radius:50%; overflow:hidden; flex:0 0 auto}
-.mavatar img{width:100%; height:100%; object-fit:cover}
+
+
+
+
+
+
+
+.mavatar{
+  width:32px;
+  height:32px;
+  flex:0 0 32px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  /* фон и контур – как у группы */
+  background:#2d3a4b;                 /* тёмный круг */
+  border:1px solid #223147;            /* тонкая обводка */
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* картинка, если аватар есть */
+.mavatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  border-radius:50%;
+}
+
+/* буква, если картинки нет */
+.mletter{
+  font-weight:700;
+  font-size:14px;
+  line-height:1;
+  color:#e6eef7;                       /* как у заголовка */
+  /* лёгкая вертикальная компенсация, чтобы визуально по центру */
+  transform:translateY(1px);
+}
+
+/* имя рядом с аватаром */
+.mname{
+  font-size:14px;
+  opacity:.9;
+}
+
+
+
 .mletter{
   font-weight:700;
   font-size:14px;
