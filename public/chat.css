@@ -199,6 +199,7 @@ html,body{
 
 .msg{
   position:relative;
+  min-width: 140px;
   max-width:82vw;
   padding:10px 12px 22px;
   border-radius:18px;
