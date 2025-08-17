@@ -17,6 +17,16 @@
     <p>Мы отправили письмо с подтверждением на ваш e-mail. Перейдите по ссылке в письме, чтобы активировать аккаунт.</p>
     <p class="hint">Если письма нет — проверьте папку «Спам». После активации вы сможете войти в аккаунт.</p>
     <button onclick="window.location.href='login.html'">Перейти к входу</button>
+    <button onclick="goToLogin()">Перейти к входу</button>
+<script>
+  function goToLogin() {
+    // сносим возможные остатки
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userData');
+    // и идём на логин
+    window.location.href = 'login.html';
+  }
+</script>
   </div>
 </body>
 </html>
