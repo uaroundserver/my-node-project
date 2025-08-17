@@ -502,7 +502,7 @@ function renderMessages() {
         .join('');
 
       const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
-const displayName = (m.senderName || 'user').trim() || 'user';
+const displayName = (m.senderName || 'User').trim();
 const letter = (displayName[0] || 'U').toUpperCase();
 
 const avatarImgHtml = m.senderAvatar
@@ -512,9 +512,17 @@ const avatarImgHtml = m.senderAvatar
 
 const avatarHtml = `
   <div class="mavatar">
-    ${avatarImgHtml}
-    <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
-  </div>`;
+    ${
+      m.senderAvatar
+        ? `<img src="${m.senderAvatar}" 
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='grid'"/>`
+        : ''
+    }
+    <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>
+      ${letter}
+    </span>
+  </div>
+`;
       div.innerHTML = `
         <div class="mrow">
           <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/></div>
