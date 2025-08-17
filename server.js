@@ -189,7 +189,7 @@ app.post('/register', async (req, res) => {
 
     const activationLink = `${process.env.SERVER_URL}/activate/${activationToken}`;
     await transporter.sendMail({
-      from: `"MyApp" <${process.env.EMAIL_USER}>`,
+      from: `"UAround" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Подтверждение регистрации',
       html: `
