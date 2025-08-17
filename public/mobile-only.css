@@ -50,6 +50,7 @@ html, body{ max-width: 100vw !important; }
 
 .app-frame {
   position: relative; /* теперь всё внутри можно позиционировать относительно рамки */
+  overflow: hidden;
   margin: 0 auto;
   max-width: var(--mobile-max); /* например 600px */
   width: 100%;
