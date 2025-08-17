@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="menu.css" />
    <link rel="stylesheet" href="mobile-only.css" media="screen and (min-width: 481px)">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1e90ff">
+
+<!-- iOS PWA (из pwa-head.html) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UAround">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+
 </head>
 <body>
   <!-- меню -->
@@ -203,5 +212,7 @@
     // Старт
     document.addEventListener('DOMContentLoaded', loadProfile);
   </script>
+  <script src="/pwa.js" defer></script>
+  
 </body>
 </html>
