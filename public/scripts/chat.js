@@ -453,7 +453,8 @@ function renderMessages() {
       const div = document.createElement('div');
       const isMine = String(m.senderId || m.userId) === String(myId);
       const newClass = m._justAdded ? ' msg--new' : '';
-      div.className = 'msg ' + (isMine ? 'mine' : 'their') + newClass;
+
+      div.className = 'message' + (isMine ? ' mine' : '');
       div.dataset.id = m._id;
 
       // reply preview
