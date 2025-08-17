@@ -48,20 +48,37 @@ function displayName(u) {
   return u._id ? u._id.toString().slice(-6) : 'anon';
 }
 
+function toObjectIdSafe(v) {
+  if (!v) return null;
+  if (v instanceof ObjectId) return v;
+  let s = String(v).trim();
+  const m = s.match(/^new ObjectId\(["']?([0-9a-fA-F]{24})["']?\)$/i);
+  if (m) s = m[1];
+  if (/^[0-9a-fA-F]{24}$/.test(s)) {
+    try { return new ObjectId(s); } catch {}
+  }
+  return null;
+}
+
 async function buildUserMap(db, usersIdsArr) {
-  const ids = Array.from(new Set(usersIdsArr.map(String)))
-    .map((s) => asId(s))
-    .filter(Boolean);
+  const hexSet = new Set(
+    (usersIdsArr || [])
+      .map(v => {
+        const oid = toObjectIdSafe(v);
+        return oid ? oid.toHexString() : null;
+      })
+      .filter(Boolean)
+  );
+  const ids = [...hexSet].map(h => new ObjectId(h));
   if (!ids.length) return {};
+
   const users = await db.collection('users')
-  .find(
-    { _id: { $in: ids } },
-    { projection: { fullName: 1, name: 1, email: 1, avatar: 1 } }
-  )
-  .toArray();
+    .find({ _id: { $in: ids } }, { projection: { fullName: 1, name: 1, email: 1, avatar: 1 } })
+    .toArray();
+
   const map = {};
-  users.forEach((u) => {
-    map[u._id.toString()] = {
+  users.forEach(u => {
+    map[u._id.toHexString()] = {
       name: displayName(u),
       avatar: u.avatar || null,
     };
@@ -70,9 +87,12 @@ async function buildUserMap(db, usersIdsArr) {
 }
 
 function normalizeMessage(m, userMap, replyDoc) {
-  const senderKey = (m.senderId || m.userId || '').toString();
-
-  // 🔽 новое: аккуратно берём имя/аватар
+  const id = (m.senderId || m.userId);
+  const senderKey =
+    id instanceof ObjectId ? id.toHexString()
+    : (toObjectIdSafe(id)?.toHexString() || '');
+  // ... остальное без изменений
+// 🔽 новое: аккуратно берём имя/аватар
   const fromMap = userMap[senderKey] || {};
   const senderName =
     (fromMap.name && String(fromMap.name).trim()) ||
@@ -169,6 +189,7 @@ function initChat(httpServer, db, app) {
   });
 
   // fetch messages with pagination (Telegram style)
+// fetch messages with pagination (Telegram style) + нормализация с именами/аватарами
 router.get('/messages', auth, async (req, res) => {
   try {
     const { chatId, before, limit = 50 } = req.query;
@@ -177,20 +198,42 @@ router.get('/messages', auth, async (req, res) => {
     const q = { chatId: asId(chatId), deleted: { $ne: true } };
     if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
 
-    // если передали before → загружаем более старые
     if (before) {
       const dt = new Date(before);
       if (!isNaN(+dt)) q.createdAt = { $lt: dt };
     }
 
+    // берём сырьё
     const items = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: -1 }) // свежие сверху
+      .sort({ createdAt: -1, _id: -1 })
       .limit(Number(limit))
       .toArray();
 
-    // переворачиваем, чтобы на фронт отдать от старых к новым
-    res.json(items.reverse());
+    // документы для цитат (reply)
+    const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
+    const replyDocs = replyIds.length
+      ? await db.collection('messages')
+          .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } })
+          .toArray()
+      : [];
+
+    // карту пользователей (отправители + отправители цитат)
+    const senders = [
+      ...items.map(x => (x.senderId || x.userId)).filter(Boolean),
+      ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
+    ];
+    const userMap = await buildUserMap(db, senders);
+
+    // нормализуем
+    const replyMap = {};
+    replyDocs.forEach(d => { replyMap[d._id.toString()] = d; });
+
+    const ordered = items.reverse().map(m =>
+      normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
+    );
+
+    res.json(ordered);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to load messages' });
