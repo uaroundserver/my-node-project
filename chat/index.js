@@ -115,7 +115,7 @@ function normalizeMessage(m, userMap, replyDoc) {
     createdAt: m.createdAt,
     editedAt: m.editedAt || null,
     deleted: !!m.deleted,
-    reactions: m.reactions || [],
+  reactions: groupReactionsForClient(m.reactions || []),
     reads: m.reads || [],
     deliveries: m.deliveries || [],
   };
@@ -506,20 +506,42 @@ router.get('/messages', auth, async (req, res) => {
       }
     });
 
-    socket.on('message:react', async ({ id, reaction }, cb) => {
-      try {
-        const _id = asId(id);
-        if (!_id) return;
-        await db.collection('messages').updateOne(
-          { _id },
-          { $addToSet: { reactions: { userId: asId(userId), reaction } } }
-        );
-        io.to(room).emit('message:reacted', { _id, userId, reaction });
-        cb?.({ ok: true });
-      } catch (e) {
-        cb?.({ ok: false, error: e.message });
-      }
-    });
+    socket.on('message:react', async ({ id, emoji }, cb) => {
+  try {
+    const _id = asId(id);
+    if (!_id || !emoji) return cb?.({ ok: false, error: 'bad args' });
+
+    // 1) достаём сообщение
+    const msg = await db.collection('messages').findOne({ _id });
+    if (!msg) return cb?.({ ok: false, error: 'not found' });
+
+    // 2) текущий список реакций (поддержим старое поле reaction)
+    const raw = Array.isArray(msg.reactions) ? msg.reactions.slice() : [];
+
+    // 3) переключатель: если у пользователя уже есть эта emoji — снимаем,
+    //    иначе — добавляем { userId, emoji }
+    const uid = String(asId(userId));
+    const had = raw.find(r => String(r.userId) === uid && (r.emoji || r.reaction) === emoji);
+
+    let next;
+    if (had) {
+      next = raw.filter(r => !(String(r.userId) === uid && (r.emoji || r.reaction) === emoji));
+    } else {
+      next = raw.concat([{ userId: asId(userId), emoji }]);
+    }
+
+    // 4) сохраняем
+    await db.collection('messages').updateOne({ _id }, { $set: { reactions: next } });
+
+    // 5) шлём всем в комнате сгруппированный вид
+    const normalized = groupReactionsForClient(next);
+    io.to(room).emit('message:reactions', { id: _id, reactions: normalized });
+
+    cb?.({ ok: true });
+  } catch (e) {
+    cb?.({ ok: false, error: e.message });
+  }
+});
 
     socket.on('message:read', async ({ id }, cb) => {
       try {
