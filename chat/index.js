@@ -279,39 +279,7 @@ router.get('/messages', auth, async (req, res) => {
   }
 });
 
-    // документы для цитат (reply)
-    const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
-    let replyDocs = [];
-if (replyIds.length) {
-  replyDocs = await db.collection('messages')
-    .find(
-      { _id: { $in: replyIds } },
-      { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
-    )
-    .toArray();
-}
-
-    // карту пользователей (отправители + отправители цитат)
-    const senders = [
-      ...items.map(x => (x.senderId || x.userId)).filter(Boolean),
-      ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
-    ];
-    const userMap = await buildUserMap(db, senders);
-
-    // нормализуем
-    const replyMap = {};
-    replyDocs.forEach(d => { replyMap[d._id.toString()] = d; });
-
-    const ordered = items.reverse().map(m =>
-      normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
-    );
-
-    res.json(ordered);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Failed to load messages' });
-  }
-});
+    
 
   // get minimal message meta
   router.get('/message/:id', async (req, res) => {
