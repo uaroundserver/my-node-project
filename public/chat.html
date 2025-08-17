@@ -142,9 +142,9 @@ loadInitialMessages();
 
 
 <script>
-  window.authToken      = window.authToken      || '';   // Bearer-токен
-  window.currentChatId  = window.currentChatId  || '';   // _id чата
-  window.currentUserId  = window.currentUserId  || '';   // _id текущего юзера
+  window.authToken      = localStorage.getItem("token");       || '';   // Bearer-токен
+  window.currentChatId  = "66c21f4f9f6b0f93d4b12345";  || '';   // _id чата
+  window.currentUserId  = localStorage.getItem("userId");  || '';   // _id текущего юзера
 
   const MSG_BOX_ID = 'messageList';
   const PAGE_SIZE  = 50;   // сколько сообщений грузить за раз
