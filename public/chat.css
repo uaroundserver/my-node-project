@@ -548,5 +548,18 @@ html.show-chat .chat-main{display:flex}
 .messages{ padding-bottom:12px !important; }
 
 
-/* --- FIX: выравнивание внутри пузырей --- */
+.mmeta .reactions {
+  margin-left: 6px;
+  display: inline-flex;
+  gap: 4px;
+}
 
+.mmeta .reaction {
+  background: rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 1px 6px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
