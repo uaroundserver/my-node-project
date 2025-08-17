@@ -1,7 +1,7 @@
 async function login(event) {
   event.preventDefault();
 
-  const email = document.getElementById('email').value.toLowerCase(); // приводим к нижнему регистру
+  const email = document.getElementById('email').value.toLowerCase();
   const password = document.getElementById('password').value;
 
   try {
@@ -14,14 +14,18 @@ async function login(event) {
     const data = await response.json();
 
     if (response.ok) {
-      // Успешный вход — сохраняем токен и переходим
-      localStorage.setItem('userToken', data.token); // вместо 'fake-token'
+      localStorage.setItem('userToken', data.token);
       localStorage.setItem('userData', JSON.stringify({ email }));
-     // alert(data.message || 'Вход выполнен');
       window.location.href = 'home.html';
-    } else {
-      alert(data.error || 'Ошибка входа');
+      return;
     }
+
+    if (response.status === 403) {
+      alert(data.error || 'Подтвердите e-mail. Мы отправили письмо при регистрации.');
+      return;
+    }
+
+    alert(data.error || 'Ошибка входа');
   } catch (error) {
     alert('Ошибка сервера или сети');
     console.error(error);
