@@ -212,7 +212,14 @@ html,body{
 .mrow{display:flex; align-items:center; gap:8px; margin-bottom:4px}
 .mavatar{width:18px; height:18px; border-radius:50%; overflow:hidden; flex:0 0 auto}
 .mavatar img{width:100%; height:100%; object-fit:cover}
-.mletter{ display:grid; place-items:center; width:100%; height:100%; }
+.mletter{
+  font-weight:700;
+  font-size:14px;
+  line-height:1;
+  color:#e6eef7;                       /* как у заголовка */
+  /* лёгкая вертикальная компенсация, чтобы визуально по центру */
+  transform:translateY(1px);
+}
 .mname{font-size:12px; color:var(--muted)}
 .mtext{white-space:pre-wrap; line-height:1.32}
 
@@ -223,7 +230,12 @@ html,body{
 }
 .msg.their .mmeta{ color:rgba(230,238,247,.75); }
 .msg.mine  .mmeta{ color:rgba(255,255,255,.75); }
-
+.msg .mrow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:6px;
+}
 .reply{
   margin:-2px 0 6px;
   padding-left:10px; border-left:3px solid var(--accent);
