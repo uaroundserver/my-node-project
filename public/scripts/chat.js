@@ -502,32 +502,24 @@ function renderMessages() {
         .join('');
 
       const reactionsHtml = (m.reactions || []).map((r) => r.emoji).join(' ');
-const displayName = (m.senderName || 'User').trim();
+const displayName = (m.senderName || 'User').trim() || 'User';
 const letter = (displayName[0] || 'U').toUpperCase();
 
 const avatarImgHtml = m.senderAvatar
-  ? `<img src="${m.senderAvatar}" 
+  ? `<img src="${m.senderAvatar}"
            onerror="this.style.display='none'; this.nextElementSibling.style.display='grid'"/>`
   : '';
 
 const avatarHtml = `
   <div class="mavatar">
-    ${
-      m.senderAvatar
-        ? `<img src="${m.senderAvatar}" 
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='grid'"/>`
-        : ''
-    }
-    <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>
-      ${letter}
-    </span>
-  </div>
-`;
+    ${avatarImgHtml}
+    <span class="mletter" ${m.senderAvatar ? 'style="display:none"' : ''}>${letter}</span>
+  </div>`;
       div.innerHTML = `
-        <div class="mrow">
-          <div class="mavatar"><img src="${m.senderAvatar || ''}" onerror="this.style.display='none'"/></div>
-          <div class="mname">${escapeHtml(m.senderName || 'user')}</div>
-        </div>
+       <div class="mrow">
+  ${avatarHtml}
+  <div class="mname">${escapeHtml(displayName)}</div>
+</div>
         ${replyHtml}
         <div class="mtext">${escapeHtml(m.text || '')}</div>
         ${attachHtml}
