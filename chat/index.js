@@ -148,45 +148,69 @@ function initChat(httpServer, db, app) {
   const router = express.Router();
 
   // fetch chat list (one global chat)
-  router.get('/chats', auth, async (req, res) => {
-    try {
-      const userId = req?.user?.userId;
-      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  // fetch chat list (one global chat)
+router.get('/chats', auth, async (req, res) => {
+  try {
+    const userId = req?.user?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-      const chatsCol = db.collection('chats');
-      let chat = await chatsCol.findOne({ key: 'global' });
-      if (!chat) {
-        chat = {
-          _id: new ObjectId(),
-          key: 'global',
-          title: 'General chat',
-          avatar: null,
-          createdAt: new Date(),
-          lastMessage: null,
-        };
-        await chatsCol.insertOne(chat);
-      }
-
-      const messagesCol = db.collection('messages');
-      const unreadCount = await messagesCol.countDocuments({
-        chatId: chat._id,
-        deleted: { $ne: true },
-        'reads.userId': { $ne: asId(userId) },
-        senderId: { $ne: asId(userId) },
-      });
-
-      res.json([{
-        _id: chat._id,
-        title: chat.title,
-        avatar: chat.avatar,
-        lastMessage: chat.lastMessage || null,
-        unread: unreadCount,
-      }]);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to load chats' });
+    const chatsCol = db.collection('chats');
+    let chat = await chatsCol.findOne({ key: 'global' });
+    if (!chat) {
+      chat = {
+        _id: new ObjectId(),
+        key: 'global',
+        title: 'General chat',
+        // можно задать дефолтную аву для списка:
+        avatar: chat?.avatar ?? null, // оставим как есть; см. фронт ниже для fallback
+        createdAt: new Date(),
+        lastMessage: null,
+      };
+      await chatsCol.insertOne(chat);
     }
-  });
+
+    // считаем непрочитанные
+    const messagesCol = db.collection('messages');
+    const meId = asId(userId);
+    const unreadCount = await messagesCol.countDocuments({
+      chatId: chat._id,
+      deleted: { $ne: true },
+      'reads.userId': { $ne: meId },
+      senderId: { $ne: meId },
+    });
+
+    // берём самый свежий message
+    const latest = await messagesCol
+      .find({ chatId: chat._id, deleted: { $ne: true } })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(1)
+      .toArray();
+
+    let lastMessage = null;
+    if (latest[0]) {
+      const u = await db.collection('users')
+        .findOne({ _id: latest[0].senderId }, { projection: { fullName:1, name:1, email:1, avatar:1 } });
+      lastMessage = {
+        _id: latest[0]._id,
+        text: latest[0].text || '',
+        createdAt: latest[0].createdAt,
+        senderId: latest[0].senderId,
+        senderName: displayName(u) || 'user',
+      };
+    }
+
+    res.json([{
+      _id: chat._id,
+      title: chat.title,
+      avatar: chat.avatar || null,
+      lastMessage,
+      unread: unreadCount,
+    }]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to load chats' });
+  }
+});
 
   // fetch messages with pagination (Telegram style)
 // fetch messages with pagination (Telegram style) + нормализация с именами/аватарами
@@ -423,6 +447,19 @@ router.get('/messages', auth, async (req, res) => {
 
         const userMap = await buildUserMap(db, [userId]);
         const norm = normalizeMessage(msg, userMap);
+        await db.collection('chats').updateOne(
+  { _id: chat._id },
+  { $set: {
+      lastMessage: {
+        _id: msg._id,
+        text: norm.text || '',
+        createdAt: norm.createdAt,
+        senderId: msg.senderId,
+        senderName: norm.senderName || 'user',
+      }
+    }
+  }
+);
         io.to(room).emit('message:new', norm);
 
         cb?.({ ok: true, message: norm });
