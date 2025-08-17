@@ -227,48 +227,52 @@ router.get('/chats', auth, async (req, res) => {
   // fetch messages with pagination (Telegram style)
 // fetch messages with pagination (Telegram style) + нормализация с именами/аватарами
 // fetch ALL messages for chat (no pagination)
-router.get('/messages/all', auth, async (req, res) => {
+// fetch ALL messages (без пагинации)
+router.get('/messages', auth, async (req, res) => {
   try {
     const { chatId } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
-    const q = { chatId: asId(chatId), deleted: { $ne: true } };
-    if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
+    const chatObjectId = asId(chatId);
+    if (!chatObjectId) return res.status(400).json({ error: 'bad chatId' });
 
-    // берём все сообщения за раз
+    const q = { chatId: chatObjectId, deleted: { $ne: true } };
+
+    // все сообщения по возрастанию времени
     const items = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: 1 })   // по возрастанию времени
+      .sort({ createdAt: 1, _id: 1 })
       .toArray();
 
-    // собираем reply-доки
-    const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
-    let replyDocs = [];
-if (replyIds.length) {
-  replyDocs = await db.collection('messages')
-    .find(
-      { _id: { $in: replyIds } },
-      { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
-    )
-    .toArray();
-}
+    // доки для цитат
+    const replyIds = items.map(x => x.replyTo).filter(Boolean);
 
-    // карта пользователей
+    let replyDocs = [];
+    if (replyIds.length) {
+      replyDocs = await db.collection('messages')
+        .find(
+          { _id: { $in: replyIds } },
+          { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
+        )
+        .toArray();
+    }
+
+    // карта отправителей (основные + из цитат)
     const senders = [
-      ...items.map(x => (x.senderId || x.userId)).filter(Boolean),
+      ...items.map(x => x.senderId || x.userId).filter(Boolean),
       ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
     ];
     const userMap = await buildUserMap(db, senders);
 
-    // нормализация
-    const replyMap = {};
-    replyDocs.forEach(d => { replyMap[d._id.toString()] = d; });
+    const replyMap = Object.fromEntries(
+      replyDocs.map(d => [d._id.toString(), d])
+    );
 
-    const ordered = items.map(m =>
+    const normalized = items.map(m =>
       normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
     );
 
-    res.json(ordered);
+    res.json(normalized);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to load messages' });
