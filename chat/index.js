@@ -149,6 +149,7 @@ function initChat(httpServer, db, app) {
 
   // fetch chat list (one global chat)
   // fetch chat list (one global chat)
+// fetch chat list (one global chat)
 router.get('/chats', auth, async (req, res) => {
   try {
     const userId = req?.user?.userId;
@@ -161,49 +162,50 @@ router.get('/chats', auth, async (req, res) => {
         _id: new ObjectId(),
         key: 'global',
         title: 'General chat',
-        // можно задать дефолтную аву для списка:
-        avatar: chat?.avatar ?? null, // оставим как есть; см. фронт ниже для fallback
+        avatar: null,
         createdAt: new Date(),
-        lastMessage: null,
       };
       await chatsCol.insertOne(chat);
     }
 
-    // считаем непрочитанные
     const messagesCol = db.collection('messages');
-    const meId = asId(userId);
+
+    // найдём самое свежее НЕ удалённое сообщение
+    const lastDoc = await messagesCol
+      .find({ chatId: chat._id, deleted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(1)
+      .next();
+
+    // нормализуем: добавим senderName / senderAvatar
+    let lastMessage = null;
+    if (lastDoc) {
+      const userMap = await buildUserMap(db, [lastDoc.senderId || lastDoc.userId]);
+      const norm = normalizeMessage(lastDoc, userMap); // без reply
+      // в список чатов достаточно «лёгкой» версии
+      lastMessage = {
+        _id: norm._id,
+        createdAt: norm.createdAt,
+        text: norm.text || (norm.attachments?.length ? 'Вложение' : ''),
+        senderId: norm.senderId,
+        senderName: norm.senderName,
+        senderAvatar: norm.senderAvatar,
+      };
+    }
+
+    // подсчёт непрочитанного для текущего пользователя
     const unreadCount = await messagesCol.countDocuments({
       chatId: chat._id,
       deleted: { $ne: true },
-      'reads.userId': { $ne: meId },
-      senderId: { $ne: meId },
+      senderId: { $ne: asId(userId) },
+      'reads.userId': { $ne: asId(userId) },
     });
-
-    // берём самый свежий message
-    const latest = await messagesCol
-      .find({ chatId: chat._id, deleted: { $ne: true } })
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(1)
-      .toArray();
-
-    let lastMessage = null;
-    if (latest[0]) {
-      const u = await db.collection('users')
-        .findOne({ _id: latest[0].senderId }, { projection: { fullName:1, name:1, email:1, avatar:1 } });
-      lastMessage = {
-        _id: latest[0]._id,
-        text: latest[0].text || '',
-        createdAt: latest[0].createdAt,
-        senderId: latest[0].senderId,
-        senderName: displayName(u) || 'user',
-      };
-    }
 
     res.json([{
       _id: chat._id,
       title: chat.title,
-      avatar: chat.avatar || null,
-      lastMessage,
+      avatar: chat.avatar,        // аватар чата, если есть
+      lastMessage,                // ← уже нормализован и самый новый
       unread: unreadCount,
     }]);
   } catch (e) {
