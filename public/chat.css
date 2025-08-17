@@ -225,37 +225,9 @@ html,body{
   margin-left:6px;
 }
 
-/* ряд с аватаркой и именем */
-.mrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-/* маленькая аватарка возле ника */
-.mrow .mavatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: #2d3a4b;
-  border: 1px solid #223147;
-  font-size: 11px;
-  font-weight: 600;
-  color: #e6eef7;
-  flex-shrink: 0;
-}
-
-.mrow .mavatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border-radius: 50%;
-}
+.mrow{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+.mavatar{width:18px; height:18px; border-radius:50%; overflow:hidden; flex:0 0 auto}
+.mavatar img{width:100%; height:100%; object-fit:cover}
 
 
 
