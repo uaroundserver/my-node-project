@@ -235,9 +235,9 @@ app.post('/login', async (req, res) => {
     const user = await db.collection('users').findOne({ email });
     if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
 
-    if (!user.isActive) {
-      return res.status(403).json({ error: 'Аккаунт не активирован. Проверьте почту.' });
-    }
+   if (!(user.isActive || user.activated)) {
+  return res.status(403).json({ error: 'Аккаунт не активирован. Проверьте почту.' });
+}
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
