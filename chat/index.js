@@ -38,10 +38,16 @@ function pickReplyView(m) {
 }
 
 function displayName(u) {
-  if (!u) return 'user';
-  if (u.name && String(u.name).trim()) return u.name;
-  if (u.email && String(u.email).includes('@')) return String(u.email).split('@')[0];
-  return 'user';
+  // u — документ из коллекции users (projection: { name, email, avatar })
+  if (!u) return 'anon';
+  const name = (u.name ?? '').toString().trim();
+  if (name) return name;
+
+  const email = (u.email ?? '').toString().trim();
+  if (email && email.includes('@')) return email.split('@')[0];
+
+  // fallback — последние 6 символов ObjectId, чтобы было уникально и «человечно»
+  return u._id ? u._id.toString().slice(-6) : 'anon';
 }
 
 async function buildUserMap(db, usersIdsArr) {
@@ -64,12 +70,24 @@ async function buildUserMap(db, usersIdsArr) {
 
 function normalizeMessage(m, userMap, replyDoc) {
   const senderKey = (m.senderId || m.userId || '').toString();
+
+  // 🔽 новое: аккуратно берём имя/аватар
+  const fromMap = userMap[senderKey] || {};
+  const senderName =
+    (fromMap.name && String(fromMap.name).trim()) ||
+    (m.senderName && String(m.senderName).trim()) ||
+    (m.senderEmail && String(m.senderEmail).split('@')[0]) ||
+    (m.email && String(m.email).split('@')[0]) ||
+    (senderKey ? senderKey.slice(-6) : 'anon');
+
+  const senderAvatar = fromMap.avatar || m.senderAvatar || null;
+
   const base = {
     _id: m._id,
     chatId: m.chatId,
     senderId: m.senderId || m.userId,
-    senderName: userMap[senderKey]?.name || m.senderName || 'user',
-    senderAvatar: userMap[senderKey]?.avatar || m.senderAvatar || null,
+    senderName,                 // 🔄 здесь используем рассчитанное имя
+    senderAvatar,               // 🔄 и аватар
     text: m.text || '',
     attachments: m.attachments || [],
     replyTo: m.replyTo || null,
