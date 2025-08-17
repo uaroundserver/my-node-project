@@ -200,7 +200,7 @@ html,body{
 .msg{
   position:relative;
   max-width:82vw;
-  padding:10px 12px 22px;
+  padding:10px 2px 22px;
   border-radius:18px;
   word-break:break-word; overflow-wrap:anywhere;
   box-shadow:0 4px 14px rgba(0,0,0,.18);
