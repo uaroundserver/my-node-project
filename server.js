@@ -7,12 +7,14 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const app = express();
+
 
 // http + чат (Socket.IO)
 const http = require('http');
 const { initChat } = require('./chat');
 
-const app = express();
+
 const PORT = process.env.PORT || 5000;
 
 // http-сервер (важно для socket.io)
@@ -33,6 +35,13 @@ async function connectDB() {
     await elevateAdminOnce(db);
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
     console.log('✅ MongoDB подключена');
+
+// после подключения к Mongo:
+app.locals.db = db;
+
+
+
+
 
     // инициализируем чат (routes + socket.io)
     initChat(server, db, app);
@@ -139,7 +148,7 @@ app.get('/activate/:token', async (req, res) => {
 
     await db.collection('users').updateOne(
       { _id: user._id },
-      { $set: { activated: true }, $unset: { activationToken: '', activationExpires: '' } }
+      { $set: { isActive: true }, $unset: { activationToken: '', activationExpires: '' } }
     );
 
     res.send(`
@@ -180,7 +189,7 @@ app.post('/register', async (req, res) => {
       email,
       password: hashedPassword,
       country,
-      activated: false,
+      isActive: false,
       activationToken,
       activationExpires,
       role: 'user', // 👈 по умолчанию обычный пользователь
@@ -226,7 +235,7 @@ app.post('/login', async (req, res) => {
     const user = await db.collection('users').findOne({ email });
     if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
 
-    if (!user.activated) {
+    if (!user.isActive) {
       return res.status(403).json({ error: 'Аккаунт не активирован. Проверьте почту.' });
     }
 
