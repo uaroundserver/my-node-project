@@ -139,6 +139,100 @@ document.addEventListener('DOMContentLoaded', () => {
 // 👉 при заходе в чат подставь chatId и загрузи начальные
 chatId = "ID_ТВОЕГО_ГЛОБАЛЬНОГО_ЧАТА"; 
 loadInitialMessages();
+
+
+<script>
+  // заполни эти значения в своём коде
+  window.authToken      = window.authToken      || '';   // Bearer-токен
+  window.currentChatId  = window.currentChatId  || '';   // _id чата
+  window.currentUserId  = window.currentUserId  || '';   // _id текущего юзера
+
+  const MSG_BOX_ID = 'messageList';
+
+  function el(tag, cls, text){
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function renderMessage(msg){
+    const mine = window.currentUserId && String(msg.senderId) === String(window.currentUserId);
+
+    const wrap   = el('div', 'message' + (mine ? ' mine' : ''));
+    const bubble = el('div', 'msg ' + (mine ? 'mine' : 'their'));
+
+    const mrow = el('div', 'mrow');
+    const name = el('div', 'mname', mine ? 'Вы' : (msg.senderName || 'Гость'));
+    mrow.appendChild(name);
+
+    const mbody = el('div', 'mbody');
+    const text  = el('div', 'mtext', msg.text || (msg.attachments?.length ? 'Вложение' : ''));
+
+    const meta = el('div', 'mmeta');
+    const time = el('span', '', new Date(msg.createdAt).toLocaleTimeString().slice(0,5));
+    meta.appendChild(time);
+
+    mbody.appendChild(mrow);
+    mbody.appendChild(text);
+
+    bubble.appendChild(mbody);
+    bubble.appendChild(meta);
+    wrap.appendChild(bubble);
+    return wrap;
+  }
+
+  function box(){ return document.getElementById(MSG_BOX_ID); }
+
+  function isNearBottom(px = 80){
+    const b = box();
+    return (b.scrollHeight - (b.scrollTop + b.clientHeight)) <= px;
+  }
+
+  function scrollToBottom(){
+    const b = box();
+    b.scrollTop = b.scrollHeight;
+  }
+
+  async function loadAllMessages(chatId){
+    const headers = {};
+    if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
+
+    const res = await fetch(`/api/chat/messages?chatId=${encodeURIComponent(chatId)}`, { headers });
+    if (!res.ok){
+      console.error('Failed to load messages', await res.text());
+      return;
+    }
+    const list = await res.json(); // уже нормализованы и отсортированы по времени (ASC)
+    const b = box();
+    b.innerHTML = '';
+    for (const msg of list){
+      b.appendChild(renderMessage(msg));
+    }
+    scrollToBottom();
+  }
+
+  // запуск
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.currentChatId) {
+      console.warn('currentChatId пустой — подставь _id чата');
+      return;
+    }
+    loadAllMessages(window.currentChatId);
+  });
+
+  // (опционально) новые сообщения по socket.io
+  if (window.io){
+    const socket = io({ auth: { token: window.authToken ? ('Bearer ' + window.authToken) : undefined } });
+    socket.on('message:new', (msg) => {
+      const stick = isNearBottom();    // скроллим вниз только если пользователь и так «внизу»
+      box().appendChild(renderMessage(msg));
+      if (stick) scrollToBottom();
+    });
+  }
+</script>
+
+
 </script>
 </body>
 </html>
