@@ -91,8 +91,8 @@ body {
 }
 
 /* ===== САЙДБАР ===== */
-/*#sidebar{
-  position: fixed;
+#sidebar{
+  position: absolute;
   top: 0; left: 0;
   width:240px;
   height: 100vh;
@@ -109,9 +109,9 @@ body {
 }
 #sidebar.active{
   transform: translateX(0);
-}*/
+}
 
-#sidebar {
+/*#sidebar {
   position: absolute;
   top: 0;
   left: 0;
@@ -127,7 +127,7 @@ body {
 }
 #sidebar.active {
   transform: translateX(0);
-}
+}*/
 
 #sidebar a{
   padding:16px 22px;
