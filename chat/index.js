@@ -226,25 +226,50 @@ router.get('/chats', auth, async (req, res) => {
 
   // fetch messages with pagination (Telegram style)
 // fetch messages with pagination (Telegram style) + нормализация с именами/аватарами
-router.get('/messages', auth, async (req, res) => {
+// fetch ALL messages for chat (no pagination)
+router.get('/messages/all', auth, async (req, res) => {
   try {
-    const { chatId, before, limit = 50 } = req.query;
+    const { chatId } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId required' });
 
     const q = { chatId: asId(chatId), deleted: { $ne: true } };
     if (!q.chatId) return res.status(400).json({ error: 'bad chatId' });
 
-    if (before) {
-      const dt = new Date(before);
-      if (!isNaN(+dt)) q.createdAt = { $lt: dt };
-    }
-
-    // берём сырьё
+    // берём все сообщения за раз
     const items = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(Number(limit))
+      .sort({ createdAt: 1 })   // по возрастанию времени
       .toArray();
+
+    // собираем reply-доки
+    const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
+    const replyDocs = replyIds.length
+      ? await db.collection('messages')
+          .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } })
+          .toArray()
+      : [];
+
+    // карта пользователей
+    const senders = [
+      ...items.map(x => (x.senderId || x.userId)).filter(Boolean),
+      ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
+    ];
+    const userMap = await buildUserMap(db, senders);
+
+    // нормализация
+    const replyMap = {};
+    replyDocs.forEach(d => { replyMap[d._id.toString()] = d; });
+
+    const ordered = items.map(m =>
+      normalizeMessage(m, userMap, m.replyTo ? replyMap[m.replyTo.toString()] : null)
+    );
+
+    res.json(ordered);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
 
     // документы для цитат (reply)
     const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
