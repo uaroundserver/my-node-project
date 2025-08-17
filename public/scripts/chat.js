@@ -512,9 +512,9 @@ const emojis = rx
 const groupedReactions = {};
 emojis.forEach(e => { groupedReactions[e] = (groupedReactions[e] || 0) + 1; });
 
-const reactionsHtml = Object.entries(groupedReactions)
-  .map(([emoji, count]) => `<span class="reaction">${emoji}${count > 1 ? ' ×' + count : ''}</span>`)
-  .join('');
+const reactionsHtml = (m.reactions || [])
+  .map(r => `<span class="reaction">${escapeHtml(r.emoji)}${r.count>1 ? ' ×' + r.count : ''}</span>`)
+  .join(' ');
   
 const displayName = (m.senderName || 'User').trim() || 'User';
 const letter = (displayName[0] || 'U').toUpperCase();
@@ -660,20 +660,8 @@ const avatarHtml = `
 
   function react(m, emoji='👍', x, y) {
   socket.emit('message:react', { id: m._id, emoji }, (ack) => {
-    if (ack?.ok) {
-      if (typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
-
-      // --- оптимистический апдейт локального сообщения ---
-      const loc = messages.find(x => String(x._id) === String(m._id));
-      if (loc) {
-        if (!Array.isArray(loc.reactions)) loc.reactions = [];
-        // поддерживаем и строки, и объекты
-        loc.reactions.push(emoji); // достаточно строки
-        renderMessages();
-      }
-    } else {
-      ackHandler(ack);
-    }
+    if (ack?.ok && typeof x === 'number' && typeof y === 'number') emojiBurst(x, y, emoji);
+    if (!ack?.ok) ackHandler(ack);
   });
 }
 
