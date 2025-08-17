@@ -277,10 +277,13 @@ router.get('/messages/all', auth, async (req, res) => {
     // документы для цитат (reply)
     const replyIds = items.filter(x => x.replyTo).map(x => x.replyTo).filter(Boolean);
     const replyDocs = replyIds.length
-      ? await db.collection('messages')
-          .find({ _id: { $in: replyIds } }, { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } })
-          .toArray()
-      : [];
+  ? (await db.collection('messages')
+      .find(
+        { _id: { $in: replyIds } },
+        { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
+      )
+      .toArray())
+  : [];
 
     // карту пользователей (отправители + отправители цитат)
     const senders = [
