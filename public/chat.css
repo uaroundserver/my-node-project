@@ -216,14 +216,7 @@ html,body{
   border-bottom-right-radius:8px;
   margin-right:6px;
 }
-.msg.their{
-  align-self:flex-start;
-  background:#223043; color:#e6eef7;
-  border-top-right-radius:18px;
-  border-bottom-right-radius:18px;
-  border-bottom-left-radius:8px;
-  margin-left:6px;
-}
+
 
 /* ряд с аватаркой и именем */
 .mrow {
@@ -232,6 +225,37 @@ html,body{
   gap: 6px;
   margin-bottom: 4px;
 }
+
+
+
+/* всё внутри чужого сообщения выравниваем влево */
+.msg.their,
+.msg.their * {
+  text-align: left !important;
+}
+
+/* флекс-ряды внутри – от левого края, обычный порядок элементов */
+.msg.their .mrow,
+.msg.their .mmeta,
+.msg.their .reply {
+  justify-content: flex-start !important;
+}
+
+.msg.their .mrow {
+  flex-direction: row !important;   /* на случай, если где-то стоит row-reverse */
+}
+
+/* страховка от автоматического прижатия вправо */
+.msg.their .mtext,
+.msg.their .mname,
+.msg.their .reply,
+.msg.their .attach {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+
+
 
 /* маленькая аватарка возле ника */
 .mrow .mavatar {
