@@ -434,3 +434,35 @@ function initChat(httpServer, db, app) {
 
     socket.on('message:read', async ({ id }, cb) => {
       try {
+        const _id = asId(id);
+        if (!_id) return;
+        await db.collection('messages').updateOne(
+          { _id },
+          { $addToSet: { reads: { userId: asId(userId), at: new Date() } } }
+        );
+        io.to(room).emit('message:read', { _id, userId });
+        cb?.({ ok: true });
+      } catch (e) {
+        cb?.({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('typing', () => {
+      io.to(room).emit('typing', { userId });
+    });
+
+    socket.on('disconnect', () => {
+      if (onlineMap.has(userId)) {
+        onlineMap.get(userId).delete(socket.id);
+        if (!onlineMap.get(userId).size) {
+          onlineMap.delete(userId);
+          io.to(room).emit('presence:update', { userId, online: false });
+        }
+      }
+    });
+  });
+
+  return { io };
+}
+
+module.exports = { initChat };
