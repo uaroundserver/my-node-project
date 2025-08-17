@@ -541,14 +541,11 @@ const avatarHtml = `
     ${replyHtml}
     <div class="mtext">${escapeHtml(m.text || '')}</div>
     ${attachHtml}
-    <div class="mmeta">
-      <span>${timeShort(m.createdAt)}</span>
-      ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
-      ${(m.reactions || []).length
-        ? `<span class="reactions">${(m.reactions||[]).map(r=>r.emoji).join(' ')}</span>`
-        : ''}
-    </div>
-  </div>
+  <div class="mmeta">
+  <span>${timeShort(m.createdAt)}</span>
+  ${isMine ? `<span class="ticks" title="Доставлено/Прочитано">✓✓</span>` : ''}
+  ${reactionsHtml ? `<span class="reactions">${reactionsHtml}</span>` : ''}
+</div>
 `;
         
 
