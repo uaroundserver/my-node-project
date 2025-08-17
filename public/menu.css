@@ -112,11 +112,12 @@ body {
 }*/
 
 #sidebar {
-  position: absolute;   /* было fixed */
+  position: absolute;
   top: 0;
   left: 0;
-  width: 240px;
+  width: 100%;      /* было 240px */
   height: 100%;
+  max-width: var(--mobile-max); /* не шире рамки */
   background: #fff;
   border-top-right-radius: var(--radius);
   border-bottom-right-radius: var(--radius);
