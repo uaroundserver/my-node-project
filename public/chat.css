@@ -542,3 +542,57 @@ html.show-chat .chat-main{display:flex}
 }
 /* фикс базового отступа: дальше им управляет JS */
 .messages{ padding-bottom:12px !important; }
+
+
+/* --- FIX: выравнивание внутри пузырей --- */
+
+/* строка с мини-авой и ником всегда слева */
+.msg .mrow{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  justify-content:flex-start !important;   /* перекрываем старое */
+  text-align:left !important;
+}
+
+/* текст и цитаты влево в обоих типах сообщений */
+.msg .mtext,
+.msg .reply{
+  text-align:left !important;
+}
+
+/* мета (время/галочки) оставим справа внутри пузыря */
+.msg .mmeta{
+  display:flex;
+  justify-content:flex-end;
+}
+
+/* на всякий случай — отменяем возможный row-reverse */
+.msg.mine .mrow,
+.msg.their .mrow{
+  flex-direction:row !important;
+}
+
+/* мини-ава и ник — чуть жирнее/аккуратнее */
+.mavatar{
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  flex:0 0 18px;
+}
+.mavatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+.mletter{
+  font-weight:700;
+  font-size:11px;
+  opacity:.9;
+}
+
+.mname{
+  font-weight:600;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  letter-spacing:.2px;
+  opacity:.95;
+}
