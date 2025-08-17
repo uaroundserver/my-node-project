@@ -169,26 +169,37 @@
       }
 
       allChats.forEach((c) => {
-        const li = document.createElement('li');
-        li.className = 'chat-item';
-        li.innerHTML = `
-          <div class="avatar">
-            <img src="${c.avatar || ''}" onerror="this.style.display='none'"/>
-            <span class="online" style="display:none"></span>
-          </div>
-          <div class="cmeta">
-            <div class="crow">
-              <div class="title">${escapeHtml(c.title || 'Чат')}</div>
-              <div class="time">${c.lastMessage ? timeShort(c.lastMessage.createdAt) : ''}</div>
-            </div>
-            <div class="cpreview">
-              ${c.lastMessage ? escapeHtml(`${c.lastMessage.senderName || 'user'}: ${truncate(c.lastMessage.text || '', 60)}`) : 'Нет сообщений'}
-              ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
-            </div>
-          </div>`;
-        li.onclick = () => openChat(c);
-        els.list.appendChild(li);
-      });
+  const firstChar = (c.title && c.title[0] ? c.title[0] : 'C').toUpperCase();
+  const avatarHtml = c.avatar
+    ? `<img src="${c.avatar}" onerror="this.remove()" />`
+    : `<span class="ava-letter">${firstChar}</span>`;
+
+  const lastText = c.lastMessage
+    ? `${escapeHtml(c.lastMessage.senderName || 'user')}: ${escapeHtml((c.lastMessage.text || '').slice(0, 60))}`
+    : 'Нет сообщений';
+
+  const lastTime = c.lastMessage ? timeShort(c.lastMessage.createdAt) : '';
+
+  const li = document.createElement('li');
+  li.className = 'chat-item';
+  li.innerHTML = `
+    <div class="avatar">
+      ${avatarHtml}
+      <span class="online" style="display:none"></span>
+    </div>
+    <div class="cmeta">
+      <div class="crow">
+        <div class="title">${escapeHtml(c.title || 'Чат')}</div>
+        <div class="time">${lastTime}</div>
+      </div>
+      <div class="cpreview">
+        ${lastText}
+        ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
+      </div>
+    </div>`;
+  li.onclick = () => openChat(c);
+  els.list.appendChild(li);
+});
       return allChats;
     } catch (e) {
       renderChatsPlaceholder('Не удалось загрузить список чатов', true);
