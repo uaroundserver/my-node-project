@@ -36,6 +36,12 @@
   const API = (path, opts = {}) => apiFetch(`${location.origin.replace(/\/$/, '')}/api/chat` + path, opts);
   const API_ABS = (path, opts = {}) => apiFetch(path, opts);
 
+function absUrl(u){
+  try { return new URL(u, window.location.origin).href; }
+  catch { return u; }
+}
+
+  
   // ===== auth guard =====
   const token = localStorage.getItem('userToken');
   if (!token) { location.href = 'login.html'; return; }
@@ -491,17 +497,37 @@ function renderMessages() {
       }
 
       // attachments
-      const attachHtml = (m.attachments || [])
-        .map((a) => {
-          const mime = (a.mime || a.mimetype || '').toLowerCase();
-          const url = a.url || a.href || '';
-          const oname = a.originalName || a.originalname || 'Файл';
-          if (mime.startsWith('image/')) return `<div class="attach"><img src="${url}" style="max-width:240px;max-height:180px;border-radius:10px"/></div>`;
-          if (mime.startsWith('video/')) return `<div class="attach"><video src="${url}" controls style="max-width:260px;max-height:200px;border-radius:10px"></video></div>`;
-          return `<a class="attach" href="${url}" target="_blank">${escapeHtml(oname)}</a>`;
-        })
-        .join('');
+// attachments
+const attachHtml = (m.attachments || [])
+  .map((a) => {
+    const mime  = (a.mime || a.mimetype || '').toLowerCase();
+    const url   = absUrl(a.url || a.href || ''); // 👈 ДЕЛАЕМ URL абсолютным
+    const oname = a.originalName || a.originalname || 'Файл';
 
+    if (mime.startsWith('image/')) {
+      return `
+        <div class="attach">
+          <img src="${url}" loading="lazy"
+               style="max-width:240px;max-height:180px;border-radius:10px;display:block"
+               onerror="this.style.display='none'"/>
+        </div>`;
+    }
+    if (mime.startsWith('video/')) {
+      return `
+        <div class="attach">
+          <video src="${url}" controls playsinline
+                 style="max-width:260px;max-height:200px;border-radius:10px"></video>
+        </div>`;
+    }
+    return `<a class="attach" href="${url}" target="_blank" rel="noopener">${escapeHtml(oname)}</a>`;
+  })
+  .join('');
+
+
+
+
+
+      
   // --- РЕАКЦИИ (нормализация и группировка) ---
 const rx = Array.isArray(m.reactions) ? m.reactions : [];
 // поддерживаем и строки '👍', и объекты {emoji:'👍'}
