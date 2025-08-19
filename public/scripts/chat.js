@@ -38,7 +38,22 @@
 
 function absUrl(u){
   try { return new URL(u, window.location.origin).href; }
-  catch { return u; }
+  catch { return u || ''; }
+}
+
+function isImageLike(url, mime=''){
+  const m = (mime || '').toLowerCase();
+  if (m.startsWith('image/')) return true;
+  const ext = (url || '').split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+  return ['jpg','jpeg','png','gif','webp','bmp','avif'].includes(ext);
+}
+
+function fileNameFromUrl(url, fallback='Файл'){
+  try {
+    const p = (url||'').split('?')[0].split('#')[0];
+    const n = p.substring(p.lastIndexOf('/')+1) || fallback;
+    return decodeURIComponent(n);
+  } catch { return fallback; }
 }
 
   
@@ -498,30 +513,40 @@ function renderMessages() {
 
       // attachments
 // attachments
-const attachHtml = (m.attachments || [])
-  .map((a) => {
-    const mime  = (a.mime || a.mimetype || '').toLowerCase();
-    const url   = absUrl(a.url || a.href || ''); // 👈 ДЕЛАЕМ URL абсолютным
-    const oname = a.originalName || a.originalname || 'Файл';
+// attachments — всегда что-то рисуем (картинку / видео / «пилюлю» файла)
+const attachHtml = (m.attachments || []).map((a) => {
+  const urlRaw = a.url || a.href || '';
+  const url    = absUrl(urlRaw);
+  const mime   = (a.mime || a.mimetype || '').toLowerCase();
+  const name   = a.originalName || a.originalname || fileNameFromUrl(urlRaw);
 
-    if (mime.startsWith('image/')) {
-      return `
-        <div class="attach">
-          <img src="${url}" loading="lazy"
-               style="max-width:240px;max-height:180px;border-radius:10px;display:block"
-               onerror="this.style.display='none'"/>
-        </div>`;
-    }
-    if (mime.startsWith('video/')) {
-      return `
-        <div class="attach">
-          <video src="${url}" controls playsinline
-                 style="max-width:260px;max-height:200px;border-radius:10px"></video>
-        </div>`;
-    }
-    return `<a class="attach" href="${url}" target="_blank" rel="noopener">${escapeHtml(oname)}</a>`;
-  })
-  .join('');
+  // 1) Картинки (или URL с расширением картинки)
+  if (isImageLike(urlRaw, mime)) {
+    return `
+      <div class="attach">
+        <img src="${url}" loading="lazy"
+             style="max-width:240px;max-height:180px;border-radius:10px;display:block"
+             onerror="this.style.display='none'"/>
+      </div>`;
+  }
+
+  // 2) Видео
+  if (mime.startsWith('video/')) {
+    return `
+      <div class="attach">
+        <video src="${url}" controls playsinline
+               style="max-width:260px;max-height:200px;border-radius:10px"></video>
+      </div>`;
+  }
+
+  // 3) Неизвестный тип → «пилюля» файла (видимая, кликабельная)
+  return `
+    <a class="attach file-pill" href="${url}" target="_blank" rel="noopener">
+      <span class="ico">📎</span>
+      <span class="fn">${escapeHtml(name)}</span>
+    </a>`;
+}).join('');
+
 
 
 
