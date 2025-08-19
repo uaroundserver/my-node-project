@@ -231,6 +231,7 @@ router.get('/chats', auth, async (req, res) => {
 // === MESSAGES: вернуть ВСЕ сообщения без пагинации ===
 // fetch messages with pagination (limit+skip)
 // /api/chat/messages — Пагинация через limit+skip
+// /api/chat/messages — с пагинацией И нормализацией (имя/аватар автора + reply)
 router.get('/messages', auth, async (req, res) => {
   try {
     const { chatId, limit = 30, skip = 0 } = req.query;
@@ -241,21 +242,45 @@ router.get('/messages', auth, async (req, res) => {
 
     const q = { chatId: chatObjectId, deleted: { $ne: true } };
 
-    const items = await db.collection('messages')
+    // берём кусок истории (свежие сверху)
+    const raw = await db.collection('messages')
       .find(q)
-      .sort({ createdAt: -1, _id: -1 })  // последние сверху
+      .sort({ createdAt: -1, _id: -1 })
       .skip(Number(skip))
       .limit(Number(limit))
       .toArray();
 
-    items.reverse(); // вернуть по возрастанию времени
-    res.json(items);
+    // доки для цитат
+    const replyIds = raw.map(m => m.replyTo).filter(Boolean);
+    const replyDocs = replyIds.length
+      ? await db.collection('messages')
+          .find(
+            { _id: { $in: replyIds } },
+            { projection: { text: 1, attachments: 1, senderId: 1, userId: 1, createdAt: 1 } }
+          )
+          .toArray()
+      : [];
+
+    // карта пользователей (отправители + отправители цитат)
+    const senders = [
+      ...raw.map(x => x.senderId || x.userId).filter(Boolean),
+      ...replyDocs.map(x => x.senderId || x.userId).filter(Boolean),
+    ];
+    const userMap = await buildUserMap(db, senders);
+
+    // нормализация (+ reply)
+    const rmap = Object.fromEntries(replyDocs.map(d => [d._id.toString(), d]));
+    const normalizedDesc = raw.map(m =>
+      normalizeMessage(m, userMap, m.replyTo ? rmap[m.replyTo.toString()] : null)
+    );
+
+    // вернуть по возрастанию времени
+    res.json(normalizedDesc.reverse());
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to load messages' });
   }
 });
-
     
 
   // get minimal message meta
