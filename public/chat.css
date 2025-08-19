@@ -342,6 +342,24 @@ html,body{
   background:#0b1220; object-fit:contain;
   outline:1px solid rgba(255,255,255,.08);
 }
+
+
+.attach.file-pill {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-top:6px;
+  padding:8px 10px;
+  border:1px solid #223147;
+  border-radius:10px;
+  background:#0e1522;
+  color:#e6eef7;            /* чтобы текст точно был виден */
+  text-decoration:none;
+  max-width: 90%;
+  word-break: break-all;
+}
+.attach.file-pill .ico { opacity:.9 }
+
 /* фокус для ссылок-вложений */
 .attach a{ outline:none; }
 .attach a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
